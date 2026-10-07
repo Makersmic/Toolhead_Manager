@@ -39,7 +39,7 @@ A dashboard on port 5000 that follows Mainsail's light or dark theme and colour.
 <tr>
 <td width="50%"><b>Tool library</b><br>
 <picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/library.png"><img src="docs/images/library-light.png" alt="Tool library"></picture></td>
-<td width="50%"><b>Each tool's own page</b>, laid out like the manual: connector and pins, materials, macros<br>
+<td width="50%"><b>Each tool's own page</b>: connector and pins, materials, macros<br>
 <img src="docs/images/tool-page-light.png" alt="LightSaber tool page"></td>
 </tr>
 <tr>
