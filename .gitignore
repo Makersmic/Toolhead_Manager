@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+*.zip
+myrhino/registry_backups/
+manual/content.pdf
+manual/proof/
+manual/overlay.*
+manual/content.*

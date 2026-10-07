@@ -1,0 +1,52 @@
+<h2 id="install-and-first-start">Install and first start</h2>
+<p>The Rhino software installs from a menu on the Pi, in the style of KIAUH: you upload the zip in Mainsail, type three short commands, then pick numbered options. Every option says what it is about to do and asks before changing anything, and every install backs up your config folder first.</p>
+<p><strong>Before you start:</strong> the printer idle, and a <strong>print head (BlockOne or SwitchFly) mounted</strong>. The first start homes the machine, and only a print head can home Z safely. You need the Pi&#39;s address (the one you open Mainsail with) and its login and password; on most Klipper installs the login is <code>pi</code>.</p>
+<ol>
+<li><p><strong>Upload the zip.</strong> In Mainsail open <strong>Machine</strong>, press <strong>Upload</strong> and choose <code>rhino-config-1.2.1.zip</code>. Check the file list shows exactly that name; if the browser renamed it (<code>... (1).zip</code>), fix the name and upload again.</p></li>
+<li><p><strong>Open a terminal on the Pi.</strong> On Windows open <strong>PowerShell</strong>, on a Mac open <strong>Terminal</strong>, and log in with your login and the Pi&#39;s address. Answer <code>yes</code> the first time, then type the password (it stays invisible).</p>
+<pre class="code">ssh pi@192.168.1.50</pre></li>
+<li><p><strong>Open the Rhino menu.</strong> Paste one line at a time:</p>
+<pre class="code">cd ~/printer_data/config</pre>
+<pre class="code">unzip -o rhino-config-1.2.1.zip -d ~/rhino-1.2.1</pre>
+<pre class="code">bash ~/rhino-1.2.1/rhino.sh</pre>
+<p>If <code>unzip</code> is missing, run <code>sudo apt install -y unzip</code> first. The menu looks like this:</p>
+<pre class="code">/==========================================================\
+|             ~~~~ [ Rhino Tool Manager ] ~~~~             |
+|----------------------------------------------------------|
+| Installed version : not installed                        |
+| This folder has   : 1.2.1   (/home/pi/rhino-1.2.1)       |
+| Portal            : not installed                        |
+|----------------------------------------------------------|
+| 1) Preview the install       (changes nothing)           |
+| 2) Install / update from this folder                     |
+| 3) Install a new zip from the config folder              |
+| 4) Undo an install            (pick a backup)            |
+| 5) Portal status and recent log                          |
+| 6) Restart the portal                                    |
+|                                                          |
+| Q) Quit                                                  |
+\==========================================================/
+Perform action:</pre></li>
+<li><p><strong>Preview: option 1.</strong> It checks your login and config folder, whether a job is running, whether something else uses port 5000 and whether an earlier portal is installed, then lists every step without changing anything. It ends with <em>Dry run finished</em>, or with <strong>STOPPED:</strong> and what to do.</p></li>
+<li><p><strong>Install: option 2</strong>, then <code>y</code>. It asks for the password once and works through eight stages, each ending in <strong>OK</strong>:</p>
+<ul>
+<li><p>backs up the config folder to <code>~/rhino-backup-&lt;date&gt;</code>;</p></li>
+<li><p>copies the new files, never touching <code>variables.cfg</code>, <code>variables.save</code> or the tool files the portal generates;</p></li>
+<li><p>keeps the SAVE_CONFIG section at the bottom of <code>printer.cfg</code>, and never doubles it;</p></li>
+<li><p>fixes <code>/home/pi</code> paths if your login is different;</p></li>
+<li><p>installs Flask from the Pi&#39;s own packages, plus Waitress when it is available;</p></li>
+<li><p>replaces any earlier portal service (its settings are saved in the backup), starts the portal at every boot, and checks it answers.</p></li>
+</ul>
+<p>It finishes with the portal&#39;s address, <code>http://&lt;printer address&gt;:5000</code>. Afterwards the menu is always at <code>bash ~/rhino-manager/rhino.sh</code>.</p></li>
+<li><p><strong>First start, in Mainsail.</strong> With the print head still mounted:</p>
+<ul>
+<li><p>Run <code>FIRMWARE_RESTART</code> and wait for <em>Ready</em>. A red box names the file and line Klipper did not accept.</p></li>
+<li><p>Answer the pop-up asking which tool is mounted (or run <code>RESTORE_TOOL</code>).</p></li>
+<li><p>Run <code>CHECK_TOOLHEADS</code>. When the console line starting <code>rhino:</code> says OK, press <strong>Restart now</strong>.</p></li>
+</ul></li>
+<li><p><strong>Check Z before the first job.</strong> After any update, check Z (the Rhino uses <code>gear_ratio: 2:1</code> on all three Z steppers). Home with the print head, move Z 10 mm and measure it, then run <code>Z_TILT_ADJUST</code> and re-check your Z offsets.</p></li>
+</ol>
+<p><strong>A good place to stop</strong> is after the preview (nothing has changed) or after the first start. Avoid stopping between the install and the first start.</p>
+<p><strong>Updating:</strong> upload the new zip, open the menu, choose <strong>3</strong> and pick it; its own menu opens, where you run <strong>1</strong> and <strong>2</strong>, then do the first start again. Your tools, photos and maintenance history are kept. <strong>Undoing:</strong> option <strong>4</strong> lists your backups (the oldest is your setup from before the first install), previews the restore and asks first; anything added since is moved aside to <code>~/rhino-undone-&lt;date&gt;</code>, not deleted.</p>
+<p><strong>Never home Z with the laser, spindle or drag knife mounted.</strong> Homing Z brings the bed up to the tool. From 1.2.1 their macros refuse to, and jobs end with the bed lowered to the safe park height so the machine can always home X and Y after a restart.</p>
+<p>The portal has no login. Anyone who can reach port 5000 can add or remove tools, but it cannot run G-code and refuses to restart Klipper during a job. Keep it on your home network, or start it with <code>--host 127.0.0.1</code> and reach it through an SSH tunnel.</p>

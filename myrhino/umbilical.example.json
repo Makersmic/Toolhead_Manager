@@ -1,0 +1,7 @@
+{
+  "_comment": "Copy to umbilical.json to change which board pins are wired to the tool connector. A pin is still refused if anything in the Klipper config already uses it. Each entry is a plain name (\"PB1\") or an object with type 'logic' (3.3 V GPIO: any control, inputs and servos too) or 'mosfet' (a switched power output: on/off, level and fans only) and an optional label. The types below are EXAMPLES - set them to match your wiring.",
+  "pins": ["PE0", "PE1", "PE2", "PE3", "PF4", "PB0",
+           {"pin": "PB1", "type": "logic"},
+           {"pin": "PC0", "type": "logic"},
+           {"pin": "PC1", "type": "logic"}]
+}

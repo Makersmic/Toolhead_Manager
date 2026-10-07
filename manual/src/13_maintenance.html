@@ -1,0 +1,12 @@
+<h2 id="maintenance">Maintenance</h2>
+<p>Four items are scheduled in the build notes; no intervals are set yet, so record what you find and when.</p>
+<table><thead><tr><th>Item</th><th>What to do</th></tr></thead><tbody><tr><td>XY belts</td><td>Check for stretch and uneven tension; re-tension as below. Replacements: 15 mm GT2, glass-fibre core, 3 m per belt</td></tr><tr><td>Bearings and rails</td><td>Check the X rail and the bearings in the idlers and tensioners for roughness or play</td></tr><tr><td>Z leadscrews</td><td>Clean and re-lubricate all three leadscrews</td></tr><tr><td>Under the bed</td><td>Clear dust, chips and filament from the underside of the machine</td></tr></tbody></table>
+<h3 id="tensioning-the-xy-belts">Tensioning the XY belts</h3>
+<p>Each belt has a cam tensioner on the rear frame bar with an adjustment knob that indexes into one of five settings.</p>
+<p><img src="blob/0a16d356-312d" alt="Belt tensioner assembly, exploded (item 14 is the adjustment knob)"></p>
+<ol><li><p>Loosen both belt clamps on the X-carriage.</p></li><li><p>Turn both tensioners to their lowest setting.</p></li><li><p>Pull each belt through its carriage clamp until it is snug with no slack – not tight – while keeping the gantry square to both Y rails. The holes in the linear rails are a quick reference.</p></li><li><p>Tighten the belt clamps.</p></li><li><p>Turn both tensioner knobs to the same setting.</p></li></ol>
+<h3 id="tramming-the-bed">Tramming the bed</h3>
+<p>With a print head mounted, home with <code>G28</code>, then run <code>Z_TILT_ADJUST</code>. Klipper probes three points and levels the bed with its three Z motors, retrying up to five times until the points agree within 0.05 mm. Run it after any work on the leadscrews or the bed.</p>
+<h3 id="calibrating-the-spindle-esc">Calibrating the spindle ESC</h3>
+<p>Do this once when an ESC is new or replaced, or if spindle speeds look wrong. <strong>Remove the bit from the collet first.</strong></p>
+<ol><li><p>Mount HotJoe and run <code>CALIBRATE_ESC</code>.</p></li><li><p>Press <strong>Step 2: Set High Endpoint (1.0)</strong>. This switches the spindle relay on with a full-throttle signal, so the ESC powers up and plays its start-up tones.</p></li><li><p>As soon as the tones finish, press <strong>Step 4: Set Low Endpoint (0.3)</strong>.</p></li><li><p>The ESC confirms with a tone. Its throttle range now matches Klipper&#39;s 0.3–1.0.</p></li></ol>

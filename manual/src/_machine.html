@@ -1,0 +1,21 @@
+<h2 id="the-machine">The machine</h2>
+<p>Every tool rides the same gantry and plugs into the same 21-pin umbilical; only the wiring each tool needs travels with it.</p>
+<h3 id="gantry">Gantry</h3>
+<p>The X beam is 1″ aluminium square tube (1/16″ wall), lightened with cut-outs made from 3D-printed router templates. The “Bulkup” XY joiners (April 2023) carry extra material at the pulleys and stopped the beam sagging where it meets the joiners. The A/B stepper motors must be no more than 48 mm long with a shaft under 30 mm; they stand on M3×30 mm aluminium standoffs.</p>
+<p><img src="blob/5de126d6-ed99" alt="X gantry beam with the Bulkup XY joiners"></p>
+<h3 id="x-carriage-and-tool-slot">X-carriage and tool slot</h3>
+<p>The carriage runs on an MGW7 rail and carries the tool lock, the belt clamps and the optical X endstop. A tool slides down into the V-groove on the carriage face, which aligns it, and one M3×50 bolt with a knurled nut (or wing nut) clamps it.</p>
+<p><img src="blob/92ce6612-4a37" alt="X-carriage, rendered from the build files"></p>
+
+<h3 id="z-axis">Z axis</h3>
+<p>The bed rides three leadscrews — one T12×2 at the rear, two T8×2 at the front — joined to the plate by kinematic couplings. Each screw is belt-driven through a 3:1 reduction (60/20-tooth rear, 30/10-tooth front) on closed-loop 15 mm GT2 belts of 180–190 mm. printer.cfg sets <code>gear_ratio: 2:1</code> on all three Z steppers, the value that measures correctly on the machine. Because each corner has its own motor, Klipper trams the bed with <code>Z_TILT_ADJUST</code>.</p>
+<h3 id="electrical-cabinet">Electrical cabinet</h3>
+<p>The BTT Octopus controller switches every heavy load through a DIN-rail relay, which keeps high currents off the board and makes a failed relay a quick swap.</p>
+<table><thead><tr><th>Circuit</th><th>Switched by</th></tr></thead><tbody><tr><td>12 V low-current: LED and NeoPixel lighting, fans</td><td>700-TBR24 6 A relay</td></tr><tr><td>12 V high-current: laser module, vacuum pump</td><td>JQX-13FL 10 A relay</td></tr><tr><td>24 V spindle (ESC power)</td><td>JQX-38F 40 A relay</td></tr><tr><td>Heated bed mats</td><td>Solid-state relays</td></tr></tbody></table>
+<p>Power comes from separate 24 V, 12 V and 5 V supplies. DIN-rail fuse holders protect the stepper motor lines against shorts. Bridgeable distribution blocks spread power; Wago-style blocks (the “Hub”) terminate the umbilical inside the cabinet.</p>
+<h3 id="the-umbilical">The umbilical</h3>
+<p>Each tool ends in a male 21W4 D-sub (four high-current contacts plus seventeen signal pins); the female half is fixed at the top rear of the frame with the Hub below it. The cable is braided Cat5 plus two 14 AWG conductors. Pins 1, 2, 11 and 12 are the high-current contacts.</p>
+
+<p>The pin-by-pin assignment of the umbilical, with the board pin behind each contact, is in <em>Wiring and pin mapping</em>. Each tool's own page in <em>The tools</em> shows which contacts that tool uses.</p>
+<p><strong>Why every tool has a thermistor.</strong> Klipper&#39;s extruder expects a temperature reading at all times. Rather than editing <code>printer.cfg</code> for each tool, every tool carries the same thermistor type on pins 3–4 (the laser&#39;s is on its heatsink). The swap wizard reads it to confirm the umbilical is seated.</p>
+<p><strong>Constant connections</strong> do not pass through the umbilical; they run to the carriage through the <em>Back Bone</em>: the X endstop (3 wires), the umbilical LED strip, the chamber temperature sensor and two 20 mm air tubes.</p>

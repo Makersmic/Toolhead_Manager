@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="rhino-token" content="{{ token }}">
+  <title>Rhino Tool Manager</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="{{ url_for('static', filename='portal.css') }}">
+</head>
+<body>
+  <header class="top-bar">
+    <button class="icon-btn" id="menuBtn" aria-label="Menu" aria-controls="sidebar" aria-expanded="false">&#9776;</button>
+    <div class="title"><span class="dot"></span>RHINO <span class="muted">// Tool Manager</span></div>
+    <div class="chips" id="statusChips" aria-live="polite"></div>
+  </header>
+
+  <nav class="sidebar" id="sidebar" aria-label="Sections">
+    <button class="nav-btn nav-top active" data-view="dash">Dashboard</button>
+    <div class="nav-group" data-group="tools">
+      <button class="nav-group-head" type="button" aria-expanded="true">Tools</button>
+      <div class="nav-items">
+        <button class="nav-btn" data-view="library">Tool library</button>
+        <button class="nav-btn" id="navAdd">+ Add a tool</button>
+      </div>
+    </div>
+    <div class="nav-group" data-group="hardware">
+      <button class="nav-group-head" type="button" aria-expanded="true">Hardware</button>
+      <div class="nav-items">
+        <button class="nav-btn" data-view="pins">Pins &amp; outputs</button>
+        <button class="nav-btn" data-view="hardware">System hardware</button>
+      </div>
+    </div>
+    <div class="nav-group" data-group="maint">
+      <button class="nav-group-head" type="button" aria-expanded="true">Maintenance <span class="nav-badge hidden" id="mBadgeGroup"></span></button>
+      <div class="nav-items">
+        <button class="nav-btn" data-view="mdue">Due &amp; upcoming <span class="nav-badge hidden" id="mBadge"></span></button>
+        <button class="nav-btn" data-view="mtasks">Tasks</button>
+        <button class="nav-btn" data-view="mlib">Task Library</button>
+        <button class="nav-btn" data-view="mhistory">Work log</button>
+        <button class="nav-btn" data-view="mmeters">Usage meters</button>
+      </div>
+    </div>
+    <div class="nav-group" data-group="admin">
+      <button class="nav-group-head" type="button" aria-expanded="true">Admin</button>
+      <div class="nav-items">
+        <button class="nav-btn" data-view="atools">Tool lists</button>
+        <button class="nav-btn" data-view="amaint">Maintenance lists</button>
+        <button class="nav-btn" data-view="astatus">Status codes</button>
+      </div>
+    </div>
+    <p class="version">v{{ version }}</p>
+  </nav>
+
+  <main class="main" id="main">
+    <div class="banner hidden" id="restartBanner" role="status" aria-live="polite">
+      <div class="banner-main">
+        <strong id="bannerTitle">Tool changes are saved but not live yet.</strong>
+        <div class="banner-sub" id="bannerWhy"></div>
+        <ul class="banner-list" id="bannerChanges"></ul>
+        <div class="banner-job hidden" id="bannerJob">
+          <div class="banner-job-line" id="bannerJobLine"></div>
+          <div class="progress" aria-hidden="true"><div class="progress-bar" id="bannerProgress"></div></div>
+          <div class="banner-job-times" id="bannerJobTimes"></div>
+        </div>
+        <div class="banner-note hidden" id="bannerNote"></div>
+      </div>
+      <div class="banner-actions">
+        <button class="btn" id="restartBtn">Restart Klipper</button>
+        <label class="check hidden" id="autoRestartLbl"><input type="checkbox" id="autoRestart"> Restart automatically when this job finishes</label>
+      </div>
+    </div>
+    <div class="toast hidden" id="toast" role="status"></div>
+
+    <section class="view" id="view-dash">
+      <div class="view-head"><h1>Dashboard</h1><span class="muted small" id="dashUpdated"></span></div>
+      <div id="dashBody"><p class="empty">Loading...</p></div>
+    </section>
+
+    <section class="view hidden" id="view-library">
+      <div class="view-head">
+        <h1>Tool library</h1>
+        <button class="btn" id="addBtn">+ Add a tool</button>
+      </div>
+      <div class="grid" id="toolGrid"></div>
+    </section>
+
+    <section class="view hidden" id="view-tool">
+      <div class="view-head"><button class="btn ghost small" type="button" data-view-link="library">&#8249; Tool library</button></div>
+      <div id="toolPage"></div>
+    </section>
+
+    <section class="view hidden" id="view-pins">
+      <div class="view-head"><h1>Pins &amp; outputs</h1></div>
+      <div class="card">
+        <h2>Tool connector (21-pin umbilical)</h2>
+        <p class="muted small">Every contact of the tool connector, the board pin behind it, what drives it in the Klipper config and which tools use it.</p>
+        <div class="table-wrap"><table class="tbl" id="contactTable"></table></div>
+      </div>
+      <div class="card">
+        <h2>Spare pins for new tool outputs</h2>
+        <p class="muted small">Board pins wired to the umbilical that a new tool may claim. A pin is free only if nothing in the Klipper config uses it.</p>
+        <div class="table-wrap"><table class="tbl" id="pinTable"></table></div>
+      </div>
+      <div class="card">
+        <h2>Output channels tools can share</h2>
+        <p class="muted small">Existing outputs a new powered tool may drive instead of using a new pin.</p>
+        <div class="table-wrap"><table class="tbl" id="channelTable"></table></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><h2>System hardware</h2><button class="btn ghost small" type="button" data-hwnew>+ Add system hardware</button></div>
+        <p class="muted small">Hardware on other board pins, not plugged into the umbilical: enclosure fans and lights, pumps, sensors.</p>
+        <div class="table-wrap"><table class="tbl" id="hwPinTable"></table></div>
+      </div>
+    </section>
+
+    <section class="view hidden" id="view-hardware">
+      <div class="view-head"><h1>System hardware</h1><button class="btn" type="button" data-hwnew>+ Add system hardware</button></div>
+      <p class="muted small view-intro">Hardware that belongs to the machine rather than a tool: enclosure fans and lights, air and vacuum pumps, door switches, sensors. It is wired to board pins that are not on the umbilical, works whatever tool is mounted, and gets the same guided set-up as a tool control.</p>
+      <div id="hwList"></div>
+    </section>
+
+    <!-- ===== Maintenance ===== -->
+    <section class="view hidden" id="view-mdue">
+      <div class="view-head"><h1>Maintenance</h1>
+        <div class="head-actions"><button class="btn ghost" data-mlibview>Task Library</button><button class="btn" data-mnew>+ New task</button></div></div>
+      <div id="mDue"></div>
+    </section>
+    <section class="view hidden" id="view-mtasks">
+      <div class="view-head"><h1>Tasks</h1>
+        <div class="head-actions"><button class="btn ghost" data-mlibview>Task Library</button><button class="btn" data-mnew>+ New task</button></div></div>
+      <div class="filter-row"><label class="lbl" for="mFilter">Show</label><select id="mFilter"></select></div>
+      <div id="mAsset"></div>
+      <div id="mTaskList"></div>
+    </section>
+    <section class="view hidden" id="view-mlib">
+      <div class="view-head"><h1>Task Library</h1>
+        <div class="head-actions"><button class="btn ghost" id="tplNew">+ Library task</button><button class="btn" id="bookNew">+ Task Book</button></div></div>
+      <p class="muted small view-intro">Library tasks are task definitions that are not tied to anything yet. A Task Book groups library tasks under one name: assign the book to a toolhead (or the whole machine) and it carries all of its tasks there. Those tasks stay linked to the library, so editing a library task updates every copy.</p>
+      <div class="tabs" id="libTabs" role="tablist"></div>
+      <div id="libBox"></div>
+    </section>
+    <section class="view hidden" id="view-mhistory">
+      <div class="view-head"><h1>Work log</h1></div>
+      <div class="filter-row"><label class="lbl" for="mHistFilter">Show</label><select id="mHistFilter"></select></div>
+      <div class="card"><div class="table-wrap"><table class="tbl" id="mHistory"></table></div></div>
+    </section>
+    <section class="view hidden" id="view-mmeters">
+      <div class="view-head"><h1>Usage meters</h1></div>
+      <div id="mMeters"></div>
+    </section>
+    <!-- ===== Admin ===== -->
+    <section class="view hidden" id="view-atools">
+      <div class="view-head"><h1>Tool lists</h1></div>
+      <p class="muted small view-intro">What the drop-down menus in Add a tool and System hardware offer.</p>
+      <div id="aTools"></div>
+    </section>
+    <section class="view hidden" id="view-amaint">
+      <div class="view-head"><h1>Maintenance lists</h1></div>
+      <p class="muted small view-intro">What the drop-down menus in the maintenance task editor offer.</p>
+      <div id="aMaint"></div>
+    </section>
+    <section class="view hidden" id="view-astatus">
+      <div class="view-head"><h1>Status codes</h1></div>
+      <p class="muted small view-intro">Built-in statuses are worked out from each task's schedule. Your own status codes are set by hand (from a task card or the Log work list) and follow the rules you give them.</p>
+      <div id="aStatus"></div>
+    </section>
+  </main>
+
+  <!-- ===== Add-a-tool wizard ===== -->
+  <div class="modal hidden" id="wizard" role="dialog" aria-modal="true" aria-labelledby="wizTitle">
+    <div class="modal-box">
+      <div class="modal-head"><h2 id="wizTitle">Add a tool</h2><button class="icon-btn" data-close aria-label="Close">&times;</button></div>
+      <ol class="steps" id="wizSteps"></ol>
+      <div class="modal-body" id="wizBody"></div>
+      <div class="form-error hidden" id="wizError" role="alert"></div>
+      <div class="modal-foot">
+        <button class="btn ghost" id="wizBack">Back</button>
+        <span class="spacer"></span>
+        <button class="btn ghost" data-close>Cancel</button>
+        <button class="btn" id="wizNext">Next</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Edit a tool ===== -->
+  <div class="modal hidden" id="editor" role="dialog" aria-modal="true" aria-labelledby="edTitle">
+    <div class="modal-box wide">
+      <div class="modal-head"><h2 id="edTitle">Edit tool</h2><button class="icon-btn" data-close aria-label="Close">&times;</button></div>
+      <div class="modal-body" id="edBody"></div>
+      <div class="form-error hidden" id="edError" role="alert"></div>
+      <div class="modal-foot">
+        <button class="btn danger" id="edDelete">Delete tool</button>
+        <span class="spacer"></span>
+        <button class="btn ghost" data-close>Cancel</button>
+        <button class="btn" id="edSave">Save changes</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Macro / control popup (opened from the wizard and the editor) ===== -->
+  <div class="modal hidden stacked" id="itemModal" role="dialog" aria-modal="true" aria-labelledby="itemTitle">
+    <div class="modal-box wide">
+      <div class="modal-head"><h2 id="itemTitle">Macro</h2><button class="icon-btn" data-close aria-label="Close">&times;</button></div>
+      <div class="modal-body" id="itemBody"></div>
+      <div class="form-error hidden" id="itemError" role="alert"></div>
+      <div class="modal-foot">
+        <button class="btn danger hidden" id="itemDelete">Remove hardware</button>
+        <span class="spacer"></span>
+        <button class="btn ghost" data-close>Cancel</button>
+        <button class="btn" id="itemSave">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Maintenance dialogs ===== -->
+  <div class="modal hidden" id="taskModal" role="dialog" aria-modal="true" aria-labelledby="taskTitle">
+    <div class="modal-box wide">
+      <div class="modal-head"><h2 id="taskTitle">Maintenance task</h2><button class="icon-btn" data-close aria-label="Close">&times;</button></div>
+      <div class="modal-body" id="taskBody"></div>
+      <div class="form-error hidden" id="taskError" role="alert"></div>
+      <div class="modal-foot">
+        <button class="btn danger" id="taskDelete">Delete task</button>
+        <span class="spacer"></span>
+        <button class="btn ghost" data-close>Cancel</button>
+        <button class="btn" id="taskSave">Save</button>
+      </div>
+    </div>
+  </div>
+  <div class="modal hidden stacked" id="doneModal" role="dialog" aria-modal="true" aria-labelledby="doneTitle">
+    <div class="modal-box">
+      <div class="modal-head"><h2 id="doneTitle">Log work</h2><button class="icon-btn" data-close aria-label="Close">&times;</button></div>
+      <div class="modal-body" id="doneBody"></div>
+      <div class="form-error hidden" id="doneError" role="alert"></div>
+      <div class="modal-foot"><span class="spacer"></span><button class="btn ghost" data-close>Cancel</button><button class="btn" id="doneSave">Save to the work log</button></div>
+    </div>
+  </div>
+  <div class="modal hidden" id="meterModal" role="dialog" aria-modal="true" aria-labelledby="meterTitle">
+    <div class="modal-box">
+      <div class="modal-head"><h2 id="meterTitle">Set a meter reading</h2><button class="icon-btn" data-close aria-label="Close">&times;</button></div>
+      <div class="modal-body" id="meterBody"></div>
+      <div class="form-error hidden" id="meterError" role="alert"></div>
+      <div class="modal-foot"><span class="spacer"></span><button class="btn ghost" data-close>Cancel</button><button class="btn" id="meterSave">Set reading</button></div>
+    </div>
+  </div>
+
+  <div class="modal hidden" id="bookModal" role="dialog" aria-modal="true" aria-labelledby="bookTitle">
+    <div class="modal-box wide">
+      <div class="modal-head"><h2 id="bookTitle">Task Book</h2><button class="icon-btn" data-close aria-label="Close">&times;</button></div>
+      <div class="modal-body" id="bookBody"></div>
+      <div class="form-error hidden" id="bookError" role="alert"></div>
+      <div class="modal-foot"><button class="btn danger" id="bookDelete">Delete book</button><span class="spacer"></span><button class="btn ghost" data-close>Cancel</button><button class="btn" id="bookSave">Save book</button></div>
+    </div>
+  </div>
+  <div class="modal hidden stacked" id="assignModal" role="dialog" aria-modal="true" aria-labelledby="assignTitle">
+    <div class="modal-box">
+      <div class="modal-head"><h2 id="assignTitle">Assign</h2><button class="icon-btn" data-close aria-label="Close">&times;</button></div>
+      <div class="modal-body" id="assignBody"></div>
+      <div class="form-error hidden" id="assignError" role="alert"></div>
+      <div class="modal-foot"><span class="spacer"></span><button class="btn ghost" data-close>Cancel</button><button class="btn" id="assignSave">Assign</button></div>
+    </div>
+  </div>
+  <div class="modal hidden stacked" id="statusModal" role="dialog" aria-modal="true" aria-labelledby="statusTitle">
+    <div class="modal-box">
+      <div class="modal-head"><h2 id="statusTitle">Set status</h2><button class="icon-btn" data-close aria-label="Close">&times;</button></div>
+      <div class="modal-body" id="statusBody"></div>
+      <div class="form-error hidden" id="statusError" role="alert"></div>
+      <div class="modal-foot"><span class="spacer"></span><button class="btn ghost" data-close>Cancel</button><button class="btn" id="statusSave">Set status</button></div>
+    </div>
+  </div>
+
+  <script src="{{ url_for('static', filename='portal.js') }}"></script>
+  <script src="{{ url_for('static', filename='maint.js') }}"></script>
+  <script src="{{ url_for('static', filename='admin.js') }}"></script>
+  <script src="{{ url_for('static', filename='dash.js') }}"></script>
+  <script src="{{ url_for('static', filename='toolpage.js') }}"></script>
+</body>
+</html>

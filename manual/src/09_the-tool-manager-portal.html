@@ -1,0 +1,65 @@
+<h2 id="the-tool-manager-portal">The Tool Manager portal</h2>
+<p>Open <code>http://&lt;printer address&gt;:5000</code>. The portal adds, edits, renames and deletes your own tools, stores photos of them, shows which connector pins are free, and restarts Klipper when changes need loading. The screenshots below come from a test run with two example tools (Needle, PenPlotter) and placeholder photos.</p>
+<h3 id="tool-library">Tool library</h3>
+<p>Every tool is a card: slot, type, outputs, materials, notes and photos. The chips at the top right show Klipper&#39;s state, the job state and the mounted tool. Built-in tools are read-only here; your tools have an <strong>Edit</strong> button.</p>
+<p><img src="blob/23b9a385-d9c4" alt="Tool library with built-in and added tools"></p>
+<h3 id="adding-a-tool">Adding a tool</h3>
+<p>Press <strong>+ Add a tool</strong>. The wizard&#39;s steps depend on the kind of tool: powered tools get all seven, passive tools skip Hardware and Limits, print-head clones skip Limits and Materials. Every kind gets Controls and Macros.</p>
+<p><strong>1. Tool</strong> – pick the kind (hot wire, needle/vibrating knife, other powered, passive, or a print-head clone), type a name and optional notes. Choosing a kind fills in safe starting values. The name is what G-code and slicers use: 2–24 letters, digits or <code>_</code>, starting with a letter.</p>
+<p><img src="blob/417cf0a5-d8c4" alt="Step 1: kind, name and notes"></p>
+<p><strong>2. Hardware</strong> – choose where the power comes from: a new pin (only free tool-connector pins are offered) or an existing PWM output the tool plugs into, such as the spindle ESC channel. An optional enable line adds a relay or driver-enable pin.</p>
+<p><img src="blob/dc9e550c-fa4a" alt="Step 2: power output and enable line"></p>
+<p><strong>3. Limits</strong> – the power cap (a hard ceiling whatever the G-code asks), minimum and idle levels, the watchdog&#39;s maximum on-time, and the <code>S</code> value that means full power.</p>
+<p><img src="blob/8b42d3cf-2059" alt="Step 3: power limits and watchdog"></p>
+<p><strong>4. Materials</strong> – the presets you pick when starting a job (power, feed, Z offset), and the pre-job checklist shown before every job with this tool.</p>
+<p><img src="blob/2956d305-3466" alt="Step 4: materials and checklist"></p>
+<p><strong>5. Controls</strong> – extra outputs and inputs the tool brings: a vacuum relay, a cooling fan, a servo, a lid switch. Leave it empty if the tool has none. The tool&#39;s main power output stays on the Hardware step.</p>
+<p><img src="blob/b5f5005e-2622" alt="Step 5: the tool&#39;s extra controls"></p>
+<p>Press <strong>+ Add a control</strong> and answer the guide&#39;s questions. You describe what the control does; the portal works out which Klipper section that needs and shows the exact text it will write.</p>
+<ol><li><p><strong>Name and purpose.</strong> Lower-case letters, digits and <code>_</code>, such as <code>needle_vacuum</code>. G-code uses the name (<code>SET_PIN PIN=needle_vacuum</code>), so it must not match anything else in your config.</p></li><li><p><strong>Which way does the signal go?</strong> Rhino controls something on the tool, or the tool sends a signal to Rhino.</p></li><li><p><strong>What should Rhino do with it?</strong> Pick the closest match:</p></li></ol>
+<table><thead><tr><th>You pick</th><th>Klipper section</th><th>Typical use</th></tr></thead><tbody><tr><td>Switch it on and off</td><td><code>output_pin</code></td><td>Relay, solenoid, vacuum pump, light, valve</td></tr><tr><td>Set a level</td><td><code>output_pin</code> with <code>pwm: True</code></td><td>Driver board, LED dimmer, small heater</td></tr><tr><td>Run it like a fan</td><td><code>fan_generic</code></td><td>Fan or blower set by speed, with a kick-start</td></tr><tr><td>Run it automatically while a heater is hot</td><td><code>heater_fan</code></td><td>Hotend or heat-break cooling</td></tr><tr><td>Move it to an angle</td><td><code>servo</code></td><td>Gate, pen lift, deflector</td></tr><tr><td>The tool sends a signal to Rhino</td><td><code>gcode_button</code></td><td>Lid switch, limit switch, foot pedal, sensor</td></tr></tbody></table>
+<ol start="4"><li><p><strong>Which pin?</strong> Only free tool-connector pins are listed. If <code>myrhino/umbilical.json</code> says what each pin is (<code>&quot;type&quot;: &quot;logic&quot;</code> or <code>&quot;type&quot;: &quot;mosfet&quot;</code>), pins that cannot do the job are greyed out. A switched power output, for example, cannot read a switch or drive a servo.</p></li><li><p><strong>How does it behave?</strong> The questions depend on step 3: active-low wiring and the state at power-up for a switch; the maximum level and PWM cycle time for a level or a fan; the heater and turn-on temperature for a heater fan; the pulse widths for a servo.</p></li><li><p><strong>Safety and shortcuts.</strong></p><ul><li><p><strong>Switch it off whenever the machine is made safe</strong> (ticked by default): it goes off at the end of a job, on cancel, on a tool swap and on <code>EMERGENCY_STOP</code>.</p></li><li><p><strong>If Klipper shuts down:</strong> switch it off (recommended), or leave it on for cooling.</p></li><li><p><strong>Make macros for it</strong> creates <code>NAME_ON</code> / <code>NAME_OFF</code> (or <code>NAME_SET</code>, <code>NAME_ANGLE</code>) for job files and the console. They can be limited to only switch it on while this tool is mounted.</p></li></ul></li></ol>
+<p><img src="blob/f47a68e2-31c1" alt="A new control: name, direction and what it does"></p>
+<p><img src="blob/0eab69c6-bc39" alt="The bottom of the guide: safety options and the text written to custom_tools.cfg"></p>
+<p>For a signal from the tool, the guide asks how it is wired. A switch to ground turns on the pin&#39;s pull-up; a sensor that drives the line needs none. It then asks what happens when the signal triggers and when it is released: show a message, pause the job (only while one is running), emergency stop, or run a command or macro.</p>
+<p><img src="blob/f2ef3543-4601" alt="A lid switch that pauses the job when opened"></p>
+<p><strong>Add control</strong> saves only a valid entry. A name that is already used, a pin that is taken, or two controls on one pin are refused, with the reason shown in the preview box.</p>
+<p><strong>6. Macros</strong> – G-code macros that belong to this tool: a test cut, a purge, a park move. They are written to <code>custom_tools.cfg</code> with the tool and removed with it. Macros your controls made are listed underneath.</p>
+<p><img src="blob/2bc325cf-464d" alt="Step 6: the tool&#39;s macros"></p>
+<p>Press <strong>+ Add a macro</strong>:</p>
+<ul><li><p><strong>Macro name</strong> – letters, digits and <code>_</code>. Klipper ignores letter case, so it is saved in capitals.</p></li><li><p><strong>Purpose</strong> – one line. It becomes the macro&#39;s <code>description:</code>, so Mainsail shows it in the macro list and console autocomplete.</p></li><li><p><strong>Only run when this tool is mounted</strong> – adds a check at the top. With another tool on the machine, the macro refuses with a message and runs nothing.</p></li><li><p><strong>Macro</strong> – Klipper G-code and Jinja (<code>{% if %}</code>, <code>{params.S}</code>), exactly as in a <code>[gcode_macro]</code>.</p></li></ul>
+<p>The box underneath shows exactly what will be written. Before saving, the portal parses the section the way Klipper does and compiles its template.</p>
+<ul><li><p><strong>Refused:</strong> a name used by any macro or Klipper command (<code>SET_PIN</code>, <code>home</code>, <code>PAUSE</code>), G-code words such as <code>M3</code> or <code>G28</code>, and template errors such as a missing <code>{% endif %}</code>.</p></li><li><p><span style="white-space:pre-wrap"><strong>Warned, not refused:</strong> <code>SAVE_CONFIG</code>, <code>FIRMWARE_RESTART</code> or <code>M112</code> in the body; a command the portal does not recognise (usually a typo); and text after <code> #</code> or <code> ;</code>, which Klipper drops as a comment.</span></p></li></ul>
+<p><img src="blob/596f6f79-0a7e" alt="A macro with its live preview"></p>
+<p><strong>7. Review</strong> – the portal checks everything against your live Klipper config and tells you the slot the tool will get. Add up to six photos here, then <strong>Create tool</strong>.</p>
+<p><img src="blob/8a315c3e-64ab" alt="Step 7: review, with the controls and macros listed"></p>
+<p>Mistakes are caught before you move on, with the rule spelled out:</p>
+<p><img src="blob/8f88f865-9bb0" alt="A name that breaks the rules is refused at step 1"></p>
+<h3 id="restarting-klipper-to-load-changes">Restarting Klipper to load changes</h3>
+<p>A new or changed tool is saved immediately but is not live until Klipper restarts. A yellow banner says so; press <strong>Restart Klipper</strong> when the machine is idle.</p>
+<p><img src="blob/4ec37a5d-1100" alt="New tool added; banner asks for a restart"></p>
+<p>The banner lists what is waiting, newest last, whether the change came from the portal or the console. Changes made during a job are saved and queued. Only the restart waits, so it can never kill a job.</p>
+<p>While a job is printing or paused, <strong>Restart Klipper</strong> is greyed out and the banner says why. It also shows the job itself:</p>
+<ul><li><p>the file name and a progress bar;</p></li><li><p>time elapsed and time left;</p></li><li><p>the clock time when a restart becomes possible;</p></li><li><p>while paused, how long it has been paused. The countdown stops during a pause.</p></li></ul>
+<p><img src="blob/d8e31c77-16e8" alt="A print running: progress, time left and when a restart is possible"></p>
+<p><img src="blob/430710c0-8b06" alt="The same job paused: the timer stops and the pause time is shown"></p>
+<p>Time left comes from the slicer&#39;s estimate for 3D prints. Laser, CNC and cutter files usually carry no estimate, so the portal works it out from the file progress, the same way Mainsail does, and says so. Very early in such a job it shows <em>time left unknown</em> until there is enough progress to estimate.</p>
+<p><img src="blob/f295be08-ca0f" alt="A laser job: time left estimated from file progress"></p>
+<p><strong>Restart automatically when this job finishes</strong> is off by default. Tick it and the portal restarts Klipper 30 seconds after the job completes or is cancelled, which leaves time for <code>END_PRINT</code> or <code>CANCEL_PRINT</code> to finish. If the job ends with an error it does not restart, so you can see what happened. The banner then explains why. A restart started anywhere else (Mainsail, <code>RESTART_FOR_TOOLS</code>) also clears the banner, because Klipper re-reads its whole config at every start.</p>
+<p>The console commands (<code>ADD_TOOLHEAD</code> and the rest) are still refused during a job. They run a shell command, and Klipper waits for it, which would stall the job&#39;s G-code.</p>
+<h3 id="editing-a-tool">Editing a tool</h3>
+<p>Press <strong>Edit</strong> on the tool&#39;s card. You can rename it, change its power limits, add, change or remove materials, edit the checklist and notes, and manage photos. Press <strong>Save changes</strong>, then restart Klipper.</p>
+<p><img src="blob/25c512a1-1967" alt="Edit window: name, limits and materials"></p>
+<p>Scroll down for the checklist, notes and photos. <strong>x</strong> on a photo deletes it; <strong>Choose Files</strong> adds more. Photos are kept in <code>~/printer_data/rhino_data/images/</code>, outside the config folder, so config backups stay small.</p>
+<p><img src="blob/16a654ae-c7b4" alt="Edit window: checklist, notes and photos"></p>
+<p>The edit window has three tabs. <strong>Settings</strong> holds everything above. <strong>Controls</strong> and <strong>Macros</strong> work exactly like steps 5 and 6 of the wizard. Their changes are saved with <strong>Save changes</strong> and are live after the restart.</p>
+<p><img src="blob/f7da476e-1c20" alt="Edit window, Controls tab"></p>
+<h3 id="deleting-a-tool">Deleting a tool</h3>
+<p>In the edit window press <strong>Delete tool</strong>. The button changes to <strong>Click again to delete &lt;name&gt;</strong>; press it within 4 seconds to confirm. The tool&#39;s pins are freed and its photos removed. Restart Klipper afterwards.</p>
+<p><img src="blob/3eb52d08-a04b" alt="Two-click delete confirmation"></p>
+<h3 id="pins-and-outputs">Pins and outputs</h3>
+<p><strong>Pins &amp; outputs</strong> shows every tool-connector pin as <em>Free</em>, <em>In use (config)</em> with the file and section that uses it, or <em>Reserved by a tool</em>. The second table lists the outputs a powered tool can share and their idle levels.</p>
+<p><img src="blob/886b9c5c-1d2a" alt="Pins &amp; outputs"></p>
+<h3 id="on-a-phone">On a phone</h3>
+<p>The portal works on a phone: the menu folds behind <strong>☰</strong>, and the status chips scroll sideways in the top bar.</p>
+<p><img src="blob/08f03427-dc5e" alt="Portal on a phone"></p>

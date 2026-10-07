@@ -1,0 +1,4 @@
+# Portal (on the Pi):  pip install -r requirements.txt   (or: sudo apt install python3-flask)
+flask>=2.2
+waitress>=2.1        # optional: production web server; the portal falls back to Flask's if missing
+# Dev tests only (dev/):  pip install jinja2

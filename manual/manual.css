@@ -1,0 +1,143 @@
+/* Rhino User Manual - print layout. Letter, double-sided. Running headers and page tabs are
+   stamped on afterwards by paginate.py, so this file only lays out the body of each page. */
+@page { size: 8.5in 11in; margin: 0.95in 0.85in 0.95in 0.85in; }
+:root { --ink: #161616; --rule: #111; --grey: #6b6b6b; --line: #9c9c9c; --red: #c00000; --soft: #f2f2f2; }
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body { font-family: "Inter"; font-size: 9.8pt; line-height: 1.45; color: var(--ink); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.mk { position: absolute; left: 0; top: 0; font-size: 2pt; color: #fff; line-height: 1; white-space: nowrap; }
+section.sec, .fixed, .partpage, .cover { position: relative; }
+p { margin: 0 0 6.5pt; orphans: 3; widows: 3; }
+ul, ol { margin: 0 0 7pt; padding-left: 18pt; } li { margin: 0 0 3pt; } li p { margin: 0 0 2pt; }
+b, strong { font-weight: 650; }
+code { font-family: "DejaVu Sans Mono"; font-size: 7.9pt; background: var(--soft); padding: 0 2pt; border-radius: 2pt; }
+a { color: inherit; text-decoration: none; }
+
+/* headings, in the style of the Rhino literature: bold title on a full-width rule */
+h2.sec { break-before: page; font-family: "Inter Display"; font-weight: 700; font-size: 19pt; line-height: 1.15;
+         margin: 0 0 10pt; padding-bottom: 4pt; border-bottom: 1.6pt solid var(--rule); position: relative; }
+h3 { font-family: "Inter Display"; font-weight: 700; font-size: 12pt; margin: 13pt 0 4pt; break-after: avoid; }
+h4 { font-size: 10.5pt; margin: 10pt 0 3pt; }
+.htitle { font-family: "Inter Display"; font-weight: 700; font-size: 17pt; line-height: 1.15; padding-bottom: 3pt; border-bottom: 1.6pt solid var(--rule); }
+.hsub { font-size: 9.5pt; color: var(--ink); padding: 3pt 0 2pt; border-bottom: 0.8pt solid var(--rule); margin-bottom: 9pt; }
+.htitle + :not(.hsub) { margin-top: 9pt; }
+.small { font-size: 8.5pt; color: var(--grey); }
+
+/* keep a step with its picture, a heading with what follows */
+.keep { break-inside: avoid; page-break-inside: avoid; }
+.step { margin: 0 0 4pt; }
+.step p.st { margin-bottom: 4pt; }
+figure { margin: 3pt 0 11pt; text-align: center; break-inside: avoid; }
+figure img { max-width: 100%; max-height: 4.8in; border: 0.6pt solid #8a8a8a; display: inline-block; }
+figure.plain img { border: 0; }
+figcaption { font-size: 8pt; color: var(--grey); font-style: italic; margin-top: 2.5pt; }
+.callout { border-left: 3pt solid var(--rule); background: var(--soft); padding: 6pt 9pt; margin: 6pt 0 9pt; font-size: 9pt; break-inside: avoid; }
+
+/* tables: black header rows, grey rules - as in the Rhino literature */
+table { border-collapse: collapse; width: 100%; margin: 3pt 0 9pt; font-size: 8.8pt; table-layout: fixed; }
+thead { display: table-header-group; }
+th { background: #111; color: #fff; font-weight: 650; text-align: left; padding: 3pt 6pt; border: 0.6pt solid #111; }
+td { border: 0.6pt solid var(--line); padding: 2.4pt 6pt; vertical-align: top; overflow-wrap: anywhere; }
+tr { break-inside: avoid; }
+.rn { color: var(--grey); font-size: 8pt; }
+table.compact td { padding: 1.6pt 6pt; }
+table.spec td:first-child, table.pins td:first-child, table.pinmap td:first-child { text-align: center; }
+table.pins td, table.pinmap td { padding: 1.6pt 6pt; height: 14pt; }
+table.pins td { height: 13.2pt; padding: 1.2pt 6pt; font-size: 8.6pt; }
+table.pinmap.tall td { height: 20pt; }
+table.parts td { padding: 1.4pt 6pt; height: 13.6pt; } table.parts td:first-child { text-align: center; }
+table.info th { display: none; } table.info thead { display: none; }
+table.info td { padding: 3pt 6pt; }
+table.fillin td { height: 18pt; }
+table.pins.fillin td { height: 14.4pt; }
+.note { font-size: 7.5pt; color: #2f7fbf; font-style: italic; }
+.lab, .lab2 { color: #2f7fbf; font-size: 7.8pt; }
+.lab2 { font-weight: 700; color: var(--ink); font-size: 9.5pt; margin: 7pt 0 3pt; }
+
+/* fixed, designed pages */
+.fixed { break-before: page; break-after: page; height: 9.05in; overflow: hidden; }
+.fixed + section.sec h2.sec, .fixed + .fixed { break-before: page; }
+svg.conn { display: block; margin: 2pt auto 6pt; }
+.about { font-size: 9.8pt; margin: 8pt 0 6pt; }
+.twocol { display: grid; grid-template-columns: 1fr 1.3fr; gap: 0.35in; align-items: start; margin-top: 8pt; }
+img.connector { width: 100%; max-height: 7.6in; object-fit: contain; }
+table.chart td { height: 0.31in; text-align: center; }
+.fill { display: flex; gap: 8pt; align-items: flex-end; margin: 6pt 0; font-size: 10pt; } .fill i { flex: 1; border-bottom: 0.8pt solid var(--rule); height: 12pt; }
+.lines i, .lines3 i { display: block; border-bottom: 0.7pt solid var(--line); height: 18pt; }
+.lines3 { margin: 2pt 0 10pt; }
+
+/* stepper cards */
+.scard { display: grid; grid-template-columns: 1.15in 1fr; border: 1.5pt solid #111; margin-top: 6pt; }
+.saxis { background: #111; color: #fff; font: 700 46pt/1 "Inter Display"; display: flex; align-items: center; justify-content: center; }
+.saxis sub { font-size: 24pt; }
+table.sgrid { margin: 0; font-size: 9.5pt; } table.sgrid td { height: 18pt; }
+table.sgrid td.red { background: var(--red); color: #fff; text-align: center; font-weight: 600; }
+table.sgrid .val { text-align: center; font-size: 10pt; padding: 2pt 0; min-height: 13pt; } table.sgrid td.val { text-align: center; color: #2f7fbf; font-style: italic; }
+.cardnote { font-size: 8pt; color: var(--grey); font-style: italic; margin: 3pt 0 10pt; }
+
+/* wiring diagrams, two per page */
+.diag2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.3in; margin-top: 10pt; }
+.diag2 figure img { max-height: 7.6in; }
+
+/* tool art pages */
+.artwrap { height: 7.25in; display: flex; align-items: center; justify-content: center; }
+img.art { max-height: 7.2in; max-width: 6.2in; }
+.redfoot { color: var(--red); font-size: 8.2pt; text-align: center; margin: 2pt 0; }
+.redfoot.center { margin-top: 8pt; }
+.toolnotes { margin-top: 8pt; border-top: 0.8pt solid var(--rule); padding-top: 6pt; font-size: 9pt; }
+
+/* tools log */
+.loggrid { display: grid; grid-template-columns: 1fr 1fr; gap: 7pt 14pt; margin-top: 8pt; }
+.logbox { border: 1.2pt solid #111; break-inside: avoid; } .logbox.wide { margin: 0 0 9pt; }
+.lbh { background: #111; color: #fff; padding: 2pt 6pt; font-weight: 600; font-size: 10pt; }
+.lbh.name { background: #fff; color: #9ccfe8; border-bottom: 1.2pt solid #111; }
+.lbr { display: grid; grid-template-columns: 1.05fr 1fr; } .lbr > div { padding: 2pt 6pt 4pt; } .lbr > div + div { border-left: 1.2pt solid #111; }
+.opts { font-size: 8.2pt; font-weight: 650; margin-top: 4pt; }
+table.logt { margin: 0; font-size: 8pt; } table.logt th { background: #fff; color: #9a9a9a; font-weight: 400; text-align: center; border: 0.6pt solid var(--line); }
+table.logt td { height: 17pt; text-align: center; font-size: 7.6pt; font-weight: 650; } table.logt.nohead thead { display: none; }
+.box { display: inline-block; width: 8pt; height: 8pt; border: 0.8pt solid #111; margin-right: 3pt; vertical-align: -1pt; }
+
+/* parts */
+.partpage { break-before: page; break-after: page; height: 9.05in; display: flex; flex-direction: column; justify-content: center; padding: 0 0.2in; }
+.partnum { font: 700 13pt "Inter"; letter-spacing: 3pt; color: var(--grey); }
+.parttitle { font: 700 40pt/1.05 "Inter Display"; margin: 6pt 0 10pt; }
+.partbar { height: 7pt; background: #111; width: 2.2in; margin-bottom: 18pt; }
+.partblurb { font-size: 11.5pt; max-width: 5in; }
+.partlist { list-style: none; padding: 0; margin-top: 14pt; border-top: 0.8pt solid var(--rule); }
+.partlist li { padding: 5pt 0; border-bottom: 0.6pt solid #ccc; font-size: 10.5pt; }
+
+/* contents */
+.tocpage .htitle { margin-bottom: 12pt; }
+.toc1, .toc2, .toc3 { display: flex; align-items: baseline; gap: 4pt; }
+.toc1 { font: 700 11pt "Inter Display"; margin: 11pt 0 3pt; padding-top: 4pt; border-top: 0.8pt solid var(--rule); }
+.toc2 { font-size: 9.6pt; padding: 1.4pt 0 1.4pt 14pt; }
+.toc3 { font-size: 8.8pt; padding: 0.8pt 0 0.8pt 30pt; color: #333; }
+.dots { flex: 1; border-bottom: 0.8pt dotted #999; transform: translateY(-3pt); }
+.pn { min-width: 20pt; text-align: right; font-variant-numeric: tabular-nums; }
+
+/* cover */
+.cover { height: 9.05in; break-after: page; display: flex; flex-direction: column; }
+.covertitle { font: 700 30pt/1.1 "Inter Display"; margin-top: 0.9in; }
+.coverrule { height: 2pt; background: #111; margin: 8pt 0 6pt; }
+.coversub { font: 500 15pt "Inter"; color: var(--grey); }
+.coverimg { width: 100%; margin: 0.4in 0 0.3in; border: 0.6pt solid #999; }
+.coverblurb { font-size: 11pt; max-width: 4.6in; }
+.tag { margin-top: auto; align-self: flex-end; background: #111; color: #fff; width: 1.15in; padding: 6pt 6pt 8pt; text-align: right; }
+.tag img { width: 100%; display: block; background: #fff; } .tag div { font-size: 13pt; margin-top: 6pt; } .tag small { font-size: 8pt; line-height: 1.25; display: block; }
+
+.phones { display: flex; gap: 0.25in; justify-content: center; }
+.phones figure img { max-height: 3.6in; }
+input[type=checkbox] { width: 9pt; height: 9pt; margin: 0 4pt 0 0; vertical-align: -1pt; }
+li[data-checked] { list-style: none; margin-left: -14pt; }
+table.parts.dense td { height: 11.6pt; padding: 0.6pt 6pt; font-size: 8.3pt; line-height: 1.25; }
+.toc1 .pk { margin-right: 0; } .toc1 .pd { margin: 0 6pt; color: var(--grey); }
+
+/* 1.2 additions */
+figure.wdfig { margin: 4pt 0 10pt; break-inside: avoid; text-align: left; }
+figure.wdfig .wdt { font: 700 11pt "Inter Display"; margin: 0 0 3pt; }
+svg.wd { width: 100%; height: auto; display: block; border: 0.6pt solid #9c9c9c; border-radius: 3pt; }
+figure.wdfig figcaption { text-align: left; font-style: normal; color: #444; font-size: 8.4pt; }
+pre.code { font-family: "DejaVu Sans Mono"; font-size: 7.8pt; background: var(--soft); padding: 6pt 8pt; border-left: 3pt solid var(--rule);
+           white-space: pre-wrap; margin: 4pt 0 8pt; break-inside: avoid; }
+table.notelog td { height: 0.29in; }
+table.pins.fillin.tight td { height: 13.4pt; }

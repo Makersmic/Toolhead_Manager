@@ -1,0 +1,43 @@
+<h2 id="maintenance-tracking">Maintenance tracking</h2>
+<p>The portal keeps track of preventive maintenance for the machine and every tool. It tells you what is overdue, what is coming up, and what parts to have ready. It never blocks a job, a swap or a command. Open it from <strong>Maintenance</strong> in the sidebar: <em>Due &amp; upcoming</em>, <em>All tasks</em>, <em>Work log</em> and <em>Usage meters</em>.</p>
+<h3 id="getting-started">Getting started</h3>
+<p>The first time, <em>Due &amp; upcoming</em> offers <strong>Choose starter tasks</strong>. You can also use <strong>Starter tasks</strong> on any maintenance page.</p>
+<p>The list covers each machine area (Motion X/Y, Motion Z, frame, electronics, umbilical) and each kind of tool on your machine:</p>
+<ul><li><p>print heads: nozzle cleaning and replacement, extruder gears;</p></li><li><p>LightSaber: lens, focus, fan;</p></li><li><p>HotJoe: collet, runout, chips;</p></li><li><p>DragKnife: blade, bearing;</p></li><li><p>the tools you add: hot wire, needle, other powered or passive tools;</p></li><li><p>every tool: its connector pins.</p></li></ul>
+<p>Tick what you want and press <strong>Add selected</strong>. The intervals are starting points; edit them to match how your machine wears. When you add a new tool, the confirmation offers <strong>Add maintenance tasks</strong> for it.</p>
+<p><img src="blob/e334e325-f8b1" alt="Starter tasks, grouped by machine area and tool"></p>
+<h3 id="due-upcoming">Due &amp; upcoming</h3>
+<p>Tasks are grouped by status:</p>
+<table><thead><tr><th>Group</th><th>Meaning</th></tr></thead><tbody><tr><td>Overdue</td><td>Past the due point</td></tr><tr><td>Due soon</td><td>Inside the early alarm: time to plan the work and order parts</td></tr><tr><td>Snoozed</td><td>Put off on purpose</td></tr><tr><td>Coming up</td><td>The next eight tasks, by how close they are to due</td></tr></tbody></table>
+<p>Each card shows every rule with a progress bar, how far off it is, and an estimate in days at your usual rate of use. Once the early alarm goes off, the card lists the parts to <strong>Have ready</strong>.</p>
+<ul><li><p><strong>Log work</strong> records the task as done.</p></li><li><p><strong>Snooze</strong> puts an overdue or due-soon task off for 1 day to 2 weeks.</p></li><li><p><strong>Details</strong> opens the task.</p></li></ul>
+<p>The sidebar badge and a chip in the top bar show the count. The chip is red for overdue and amber for due soon.</p>
+<p><img src="blob/20090a51-e194" alt="Due &amp; upcoming"></p>
+<h3 id="creating-a-task">Creating a task</h3>
+<p><strong>+ New task</strong>, or <strong>Details</strong> on a card, opens the task editor:</p>
+<ul><li><p><strong>Task</strong> – a short title. It is also shown in the Mainsail reminder.</p></li><li><p><strong>For</strong> – a machine area or a tool.</p></li><li><p><strong>Kind of work</strong> and <strong>Priority</strong> – used for sorting and the card&#39;s label.</p></li><li><p><strong>When is it due?</strong> – up to four rules. The task is due when the first of them is reached.</p></li><li><p><strong>Start counting from</strong> (new tasks only) – now, or the date it was last done. With a date you can also enter the meter readings at that time.</p></li><li><p><strong>How to do it</strong> – steps, parts and consumables, tools needed, time needed, safety notes, and links to manuals or videos.</p></li><li><p><strong>Reminders</strong> – include it in the start-up reminder, or pause the task.</p></li></ul>
+<p><img src="blob/33aa834b-6821" alt="The task editor with a time rule and a usage rule"></p>
+<p>The rule types:</p>
+<table><thead><tr><th>Rule</th><th>Example</th><th>Early alarm</th></tr></thead><tbody><tr><td>Every so often</td><td>every 3 months</td><td>14 days before</td></tr><tr><td>After so much use</td><td>every 100 working hours of this tool</td><td>10 h before</td></tr><tr><td>After each event</td><td>after each emergency stop or Klipper shutdown</td><td>due straight away</td></tr><tr><td>Once, on a date</td><td>1 Dec 2026</td><td>7 days before</td></tr></tbody></table>
+<p>Time rules count from when the task was last done, so doing it late moves the next one later. Choose <strong>On a fixed calendar</strong> to keep the same dates every time, such as the 1st of every month. A usage rule&#39;s early alarm is in the meter&#39;s own unit. Leave it empty for 10% of the interval.</p>
+<p>Events are: a tool swap, this tool being mounted, a job, and an emergency stop or shutdown.</p>
+<h3 id="logging-work">Logging work</h3>
+<p><strong>Log work</strong> shows the task&#39;s steps and safety notes. Choose <strong>Done</strong>, or <strong>Skipped – not needed this time</strong> if you checked and nothing needed doing. Either way the schedule starts again from here, and so do a part&#39;s hours, so a new nozzle starts at zero. You can backdate the entry and add notes. The current meter readings are saved with it.</p>
+<p><img src="blob/1a244df4-8d20" alt="Logging the lens cleaning"></p>
+<p>The <strong>Work log</strong> lists every entry, newest first, and can be filtered by machine area or tool. Meter changes are listed there too.</p>
+<p><img src="blob/ee3836d3-7a0a" alt="Work log"></p>
+<h3 id="all-tasks">All tasks</h3>
+<p>Every task in one table, sorted overdue first. <strong>Show</strong> filters it: overdue and due soon, one machine area, one tool, or archived. Choosing an area or a tool also shows its usage meters.</p>
+<p><img src="blob/a8f5d77f-5c98" alt="All tasks, filtered to LightSaber"></p>
+<h3 id="usage-meters">Usage meters</h3>
+<p>Usage rules count these meters. The portal reads them from Moonraker every few seconds and from Moonraker&#39;s job history.</p>
+<table><thead><tr><th>Meter</th><th>Machine</th><th>Each tool</th><th>Counts</th></tr></thead><tbody><tr><td>Machine up hours</td><td>yes</td><td>–</td><td>Klipper running and ready</td></tr><tr><td>Production hours</td><td>yes</td><td>yes</td><td>A job running. Pauses are not counted.</td></tr><tr><td>Hours mounted</td><td>–</td><td>yes</td><td>The tool on the machine while Klipper is up</td></tr><tr><td>Working hours</td><td>–</td><td>yes</td><td>Print heads: nozzle heater on. LightSaber: laser on. HotJoe: spindle running. Added powered tools: output on. Passive tools and DragKnife: running a job.</td></tr><tr><td>Jobs</td><td>yes</td><td>yes</td><td>Finished jobs, from the job history</td></tr><tr><td>Filament used</td><td>yes</td><td>print heads</td><td>From the job history</td></tr><tr><td>Tool swaps / Times mounted</td><td>yes</td><td>yes</td><td>A different tool mounted. A restart is not a swap.</td></tr><tr><td>Emergency stops and shutdowns</td><td>yes</td><td>–</td><td>Klipper entering shutdown</td></tr></tbody></table>
+<p>The first time the portal runs, it imports the jobs already in Moonraker&#39;s history as the machine&#39;s starting reading. If the machine had hours before that, press <strong>Set</strong> on a meter and note why; the change goes in the work log. Jobs that ran while the portal was stopped are filled in from the history the next time it starts.</p>
+<p><img src="blob/74e18d06-c469" alt="Usage meters"></p>
+<p>This page also has the reminder switch and the list of machine areas, which you can rename or add to.</p>
+<h3 id="reminders-in-mainsail">Reminders in Mainsail</h3>
+<p>After Klipper starts, once you answer <em>which toolhead is mounted?</em>, Mainsail shows a <strong>Maintenance due</strong> pop-up with up to eight overdue and due-soon tasks, overdue first. It appears once per start; close it with <strong>OK</strong>. Snoozed tasks and tasks with the reminder unticked are left out.</p>
+<p>The portal keeps <code>myrhino/maintenance_status.cfg</code> up to date, and Klipper reads it when it starts. At any other time, type <code>PM_STATUS</code> in the console for the live list, or <code>PM_REMINDER</code> to show the start-up pop-up again.</p>
+<p>Renaming a tool moves its tasks and meters with it. Removing a tool archives its tasks (filter <strong>Archived</strong>) and keeps their work-log entries.</p>
+<p>The maintenance pages work on a phone too.</p>
+<p><img src="blob/0070c62c-e9ad" alt="Maintenance on a phone"></p>

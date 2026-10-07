@@ -1,0 +1,3 @@
+<h2 id="how-the-software-fits-together">How the software fits together</h2>
+<figure data-embed="node/a958ef33-e605"><figcaption>How the Rhino tool manager connects to Mainsail and Klipper</figcaption></figure>
+<p>You change tools in the portal or the console; both write the same registry, which generates <code>custom_tools.cfg</code>. Klipper picks up the change at its next restart, which the portal requests through Moonraker only when no job is running.</p>

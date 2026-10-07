@@ -1,0 +1,25 @@
+# Install:  sudo cp service/rhino-portal.service /etc/systemd/system/
+#           sudo systemctl daemon-reload && sudo systemctl enable --now rhino-portal
+# Logs:     journalctl -u rhino-portal -f
+# Change User= and the paths if your login is not "pi".
+[Unit]
+Description=Rhino tool manager (web portal)
+After=network-online.target moonraker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/printer_data/config
+Environment=PYTHONDONTWRITEBYTECODE=1
+Environment=RHINO_CONFIG_DIR=/home/pi/printer_data/config
+# Use --host 127.0.0.1 to keep the portal off the network (reach it over an SSH tunnel or a reverse proxy).
+ExecStart=/usr/bin/python3 /home/pi/printer_data/config/scripts/rhino_portal.py --host 0.0.0.0 --port 5000
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+ProtectSystem=full
+ReadWritePaths=/home/pi/printer_data
+
+[Install]
+WantedBy=multi-user.target
