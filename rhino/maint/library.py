@@ -47,7 +47,7 @@ MACHINE = [
      "steps": ["Clean the three leadscrews with a dry brush or cloth", "Apply leadscrew grease sparingly along the thread",
                "Run Z through its full travel", "Check the nuts for backlash"],
      "parts": ["Leadscrew grease (PTFE or lithium)"], "minutes": 20},
-    {"id": "z_belt", "area": "motion_z", "title": "Check the Z belt drive (3:1 reduction)", "type": "inspect",
+    {"id": "z_belt", "area": "motion_z", "title": "Check the Z belt drive (2:1 reduction)", "type": "inspect",
      "rules": [_m("prod_h", 500, 50), _t(6, lead=14)],
      "steps": ["Belt tension and condition", "Pulley set screws on the motor and all three leadscrews",
                "Turn the drive by hand: all three screws must move together", "Run Z_TILT_ADJUST afterwards"],

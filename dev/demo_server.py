@@ -109,8 +109,9 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--port", type=int, default=5055)
     ap.add_argument("--monitor-interval", type=float, default=2.0)
+    ap.add_argument("--config", help="use this already-made config folder instead of a fresh copy")
     a = ap.parse_args()
-    cfg = make_config()
+    cfg = a.config or make_config()
     sys.path.insert(0, cfg)
     from rhino.portal import create_app
     fake = start_fake()

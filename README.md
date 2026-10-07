@@ -48,6 +48,13 @@ A dashboard on port 5000 that follows Mainsail's light or dark theme and colour.
 </tr>
 </table>
 
+## Maintenance at a glance
+
+<a href="docs/maintenance/"><img src="docs/maintenance/00-preview.png" alt="Due and upcoming maintenance" width="100%"></a>
+
+<sub>A year of maintenance on the Rhino: what's due, what's on hold for parts and what's coming up.
+<a href="docs/maintenance/">See the full maintenance showcase &rarr;</a></sub>
+
 ## What's in it
 
 | | |
@@ -57,7 +64,7 @@ A dashboard on port 5000 that follows Mainsail's light or dark theme and colour.
 | 🌡️ **Print start** | Tool-and-material check, preheat, prime line and pressure advance before the file runs |
 | 📏 **Paper-test Z** | `NOZZLE_HEIGHT_CALIBRATE` - a Mainsail button for setting nozzle height |
 | 🛠️ **Add your own tools** | Hot wire, needle cutter or any powered or passive tool, from the portal with photos |
-| 🧰 **Maintenance** | Tasks by hours, jobs, swaps or calendar, for the machine and every tool, with a work log |
+| 🧰 **Maintenance** | Tasks by hours, jobs, swaps or calendar, for the machine and every tool, with a work log - [see it in action](docs/maintenance/) |
 | 🖨️ **OrcaSlicer profiles** | BlockOne printer, process, PLA and PETG in `slicer/orca/` |
 | 📦 **Menu installer** | KIAUH-style menu: preview, install, update from a zip, undo from a backup |
 | 📘 **User manual** | `manual/Rhino-User-Manual.pdf` - install, every tool, wiring and maintenance |
