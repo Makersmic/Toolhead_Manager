@@ -8,7 +8,7 @@
 <p><img src="blob/92ce6612-4a37" alt="X-carriage, rendered from the build files"></p>
 
 <h3 id="z-axis">Z axis</h3>
-<p>The bed rides three leadscrews — one T12×2 at the rear, two T8×2 at the front — joined to the plate by kinematic couplings. Each screw is belt-driven through a 3:1 reduction (60/20-tooth rear, 30/10-tooth front) on closed-loop 15 mm GT2 belts of 180–190 mm. printer.cfg sets <code>gear_ratio: 2:1</code> on all three Z steppers, the value that measures correctly on the machine. Because each corner has its own motor, Klipper trams the bed with <code>Z_TILT_ADJUST</code>.</p>
+<p>The bed rides three leadscrews — one T12×2 at the rear, two T8×2 at the front — joined to the plate by kinematic couplings. Each screw is belt-driven through a 2:1 reduction on closed-loop 15 mm GT2 belts of 180–190 mm, and printer.cfg matches it with <code>gear_ratio: 2:1</code> on all three Z steppers. Because each corner has its own motor, Klipper trams the bed with <code>Z_TILT_ADJUST</code>.</p>
 <h3 id="electrical-cabinet">Electrical cabinet</h3>
 <p>The BTT Octopus controller switches every heavy load through a DIN-rail relay, which keeps high currents off the board and makes a failed relay a quick swap.</p>
 <table><thead><tr><th>Circuit</th><th>Switched by</th></tr></thead><tbody><tr><td>12 V low-current: LED and NeoPixel lighting, fans</td><td>700-TBR24 6 A relay</td></tr><tr><td>12 V high-current: laser module, vacuum pump</td><td>JQX-13FL 10 A relay</td></tr><tr><td>24 V spindle (ESC power)</td><td>JQX-38F 40 A relay</td></tr><tr><td>Heated bed mats</td><td>Solid-state relays</td></tr></tbody></table>
