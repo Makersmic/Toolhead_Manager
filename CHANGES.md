@@ -1,5 +1,18 @@
 # What changed
 
+## Not released yet - tests only (no config change)
+
+- **Motion tests** (`dev/test_motion.py`): the simulator now follows where the bed and head go, the way Klipper
+  does, and refuses moves past the limits in `printer.cfg`. Everyday flows are checked by position, and a sweep runs
+  every macro and button from 7 machine states with each toolhead against five safety rules.
+- **Browser smoke test** (`dev/test_browser.py`): every portal screen and dialog opened in headless Chromium, desktop
+  and phone; fails on any script error. Both run on every push.
+- **Findings M1-M7** (in `docs/testing.md`), waiting on a decision. The important one: **M1 - 1.3.7 prints the first
+  layer without the paper-test height** (Klipper's resume puts back the offsets from when the file was held). Watch
+  the first layer in test D2.
+- Manual: the wiring items at the end of *Still to check on the machine* were repeated after every list; now once,
+  under *Wiring to confirm*.
+
 ## 1.3.7 - review fixes and clearer pop-ups
 
 From a code review of 1.3.6:

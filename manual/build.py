@@ -765,7 +765,8 @@ def still_to_check():
              'lists 24 V power activate on contacts 11–12, while its servo wiring diagram feeds the regulator from 12 V activate.</p></li>'
              '<li data-checked="false"><p><input type="checkbox" disabled> <strong>Fan labels.</strong> On the Octopus v1.1 PA8 is FAN0 '
              'and PE5 is FAN1; the pin sheets label them Fan5 and Fan0. The pins are right; only the labels differ.</p></li></ul>')
-    return xsec("17_still-to-check-on-the-machine.html", [("</ul>", extra)])
+    last = "the macros that call it (cancel, emergency stop).</p></li></ul>"   # end of the chapter's last list
+    return xsec("17_still-to-check-on-the-machine.html", [(last, last + "<h3>Wiring to confirm</h3><ul>" + extra)])
 
 
 ORCA_OLD = ('<p><strong>OrcaSlicer (printing).</strong> The printer profile&#39;s start G-code must call <code>START_JOB</code> with the '

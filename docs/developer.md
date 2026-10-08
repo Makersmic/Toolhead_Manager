@@ -6,15 +6,23 @@ For changing the Tool Manager itself. Users don't need any of this - see the use
 
 ```
 pip install flask jinja2
+pip install playwright && python3 -m playwright install chromium    # only for the browser test
 sh dev/run_all.sh                  # lint + every test suite (see docs/testing.md)
+python3 dev/test_motion.py --quick # motion flows without the minute-long sweep
 python3 dev/demo_server.py         # the portal against a copy of this config and a fake Moonraker
 python3 dev/maint_year_demo.py /tmp/rhino-year   # a config with a simulated year of maintenance
 python3 dev/demo_server.py --config /tmp/rhino-year/printer_data/config
 ```
 
 The simulator (`dev/klippersim.py`) reproduces Klipper's template rules - a macro is rendered whole before any of
-its lines run - against the real Mainsail macros in `dev/fixtures/mainsail.cfg`. It is not Klipper: test new tools
+its lines run - against the real Mainsail macros in `dev/fixtures/mainsail.cfg`. `Sim(root, motion=True)` also follows the machine
+position the way Klipper does (G90/G91, G92, offsets, `[safe_z_home]`, saved G-code states, pause/resume) and
+refuses moves past the limits in `printer.cfg`; every move is in `sim.moves` with the macro chain that made it.
+`sim.clone()` copies a loaded simulator, which is what makes the sweep fast. It is not Klipper: test new tools
 on the real machine, powered from a current-limited supply first.
+
+A new macro that moves anything gets a flow in `dev/test_motion.py`; the sweep picks up every macro and button by
+itself.
 
 ## Where things are
 

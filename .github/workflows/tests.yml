@@ -10,5 +10,6 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - run: pip install flask jinja2
+      - run: pip install flask jinja2 playwright
+      - run: python3 -m playwright install --with-deps chromium
       - run: sh dev/run_all.sh

@@ -10,6 +10,13 @@ Mirrors the Klipper behaviours that matter for these macros:
     printer["gcode_macro X"].name
   * SAVE_VARIABLE / SET_GCODE_VARIABLE use literal_eval
   * printer["..."] returns a COPY of an object's status dict
+
+With Sim(root, motion=True) it also follows the machine position the way Klipper's gcode_move,
+toolhead and safe_z_home do: G90/G91, G92, G0/G1 (and their renamed G0.1/G1.1), G28 with the
+config's [safe_z_home] (including its blind Z hop when Z is not homed), SET_GCODE_OFFSET
+(MOVE=1 too), SAVE/RESTORE_GCODE_STATE (MOVE=1 too), SET_KINEMATIC_POSITION and Z_TILT_ADJUST.
+A move to an unhomed axis or past position_min/max raises the same error Klipper gives, and
+every move is recorded in sim.moves for the tests to check.
 """
 import ast, configparser, glob, os, re, shlex, copy
 import jinja2
@@ -57,8 +64,28 @@ class Status(dict):
             raise AttributeError(key)
 
 class Sim:
-    def __init__(self, root):
+    _tmpl_cache = {}         # compiled templates, shared (same text -> same template)
+
+    def clone(self):
+        """A fresh copy of a loaded Sim (much faster than load() for sweeps)."""
+        new = Sim.__new__(Sim)
+        jenv, printer = self.jenv, self.printer
+        self.jenv = self.printer = None
+        try:
+            new.__dict__.update(copy.deepcopy(self.__dict__))
+        finally:
+            self.jenv, self.printer = jenv, printer
+        new.jenv = jenv
+        new.printer = Status(new)
+        return new
+
+    def __init__(self, root, motion=False):
         self.root = root
+        self.motion = motion
+        self.moves = []          # motion=True: {'frm','to','line','stack','kind'} per move
+        self.stack = []          # macro call stack (for reporting who moved)
+        self.motion_strict = True  # False: record would-be Klipper motion errors in motion_errors and carry on
+        self.motion_errors = []
         self.macros = {}         # NAME -> {'gcode':..., 'description':...}
         self.macro_vars = {}     # NAME -> {var: value}
         self.delayed = {}        # NAME -> gcode
@@ -121,7 +148,193 @@ class Sim:
                   "CANCEL_PRINT_BASE", "SDCARD_PRINT_FILE", "TURN_OFF_HEATERS"):
             self.macros.setdefault(n, {"gcode": ""})
             self.macro_vars.setdefault(n, {})
+        self._load_kinematics()
         return self
+
+    def _load_kinematics(self):
+        th = self.objects["toolhead"]
+        for a in "xyz":
+            st = self.config_sections.get("stepper_" + a, {})
+            if "position_max" in st:
+                th["axis_maximum"][a] = float(st["position_max"].split()[0])
+                th["axis_minimum"][a] = float(st.get("position_min", "0").split()[0])
+        self.kin = {"endstop": {a: float(self.config_sections.get("stepper_" + a, {}).get("position_endstop", "0").split()[0] or 0)
+                                for a in "xy"},
+                    "probe_z": float(self.config_sections.get("probe", {}).get("z_offset", "0").split()[0] or 0)}
+        sz = self.config_sections.get("safe_z_home")
+        if sz:
+            hx, hy = [float(v) for v in sz["home_xy_position"].split(",")]
+            self.kin["safe_z"] = {"x": hx, "y": hy, "z_hop": float(sz.get("z_hop", "0").split()[0] or 0),
+                                  "move_to_previous": str(sz.get("move_to_previous", "False")).lower() in ("true", "1")}
+        zt = self.config_sections.get("z_tilt")
+        if zt:
+            pts = [l.split("#")[0].strip() for l in zt.get("points", "").splitlines()]
+            self.kin["z_tilt"] = {"points": [tuple(float(v) for v in l.split(",")) for l in pts if l],
+                                  "z": float(zt.get("horizontal_move_z", "5").split()[0])}
+        self.base = {a: 0.0 for a in "xyz"}            # Klipper gcode_move base_position
+        self.saved_states = {}
+        self._sync()
+
+    # ---------------- motion model (motion=True) ----------------
+    def place(self, x=None, y=None, z=None, homed=None):
+        """Put the machine somewhere (test set-up): machine coordinates, offsets unchanged."""
+        pos = self.objects["toolhead"]["position"]
+        for a, v in (("x", x), ("y", y), ("z", z)):
+            if v is not None:
+                pos[a] = float(v)
+        if homed is not None:
+            self._set_homed(homed)
+        self._sync()
+        return self
+
+    def _homed(self):
+        return self.objects["toolhead"]["homed_axes"]
+
+    def _set_homed(self, axes):
+        axes = "".join(a for a in "xyz" if a in axes)
+        self.objects["toolhead"]["homed_axes"] = axes
+        self.objects["homed_axes"] = axes
+
+    def _sync(self):
+        pos = self.objects["toolhead"]["position"]
+        gm = self.objects["gcode_move"]
+        gm["position"] = {a: pos[a] for a in "xyz"}
+        gm["position"]["e"] = pos.get("e", 0.0)
+        if self.motion:
+            gm["gcode_position"] = {a: pos[a] - self.base[a] for a in "xyz"}
+
+    def _motion_error(self, msg):
+        if self.motion_strict:
+            raise KlipperError(msg)
+        self.motion_errors.append((msg, tuple(self.stack)))
+
+    def _do_move(self, target, line, kind="move"):
+        th = self.objects["toolhead"]
+        pos = th["position"]
+        moving = [a for a in "xyz" if abs(target[a] - pos[a]) > 1e-9]
+        if not moving:
+            return
+        homed = self._homed()
+        for a in moving:
+            if a not in homed:
+                return self._motion_error("Must home axis first: %.3f %.3f %.3f [%.3f]" % (target["x"], target["y"], target["z"], pos.get("e", 0)))
+            if target[a] < th["axis_minimum"][a] - 1e-9 or target[a] > th["axis_maximum"][a] + 1e-9:
+                return self._motion_error("Move out of range: %.3f %.3f %.3f [%.3f]" % (target["x"], target["y"], target["z"], pos.get("e", 0)))
+        self.moves.append({"frm": {a: pos[a] for a in "xyz"}, "to": {a: target[a] for a in "xyz"},
+                           "line": line, "stack": tuple(self.stack), "kind": kind,
+                           "tool": self.macro_vars.get("SWAP_TOOL", {}).get("current_tool")})
+        for a in "xyz":
+            pos[a] = target[a]
+        self._sync()
+
+    def _gmove(self, p, line):
+        pos = self.objects["toolhead"]["position"]
+        absolute = self.objects["gcode_move"]["absolute_coordinates"]
+        target = {a: pos[a] for a in "xyz"}
+        for a in "xyz":
+            if a.upper() in p and p[a.upper()] != "":
+                v = float(p[a.upper()])
+                target[a] = v + self.base[a] if absolute else pos[a] + v
+        self._do_move(target, line)
+
+    def _g28(self, p, line):
+        kin = self.kin
+        sz = kin.get("safe_z")
+        pos = self.objects["toolhead"]["position"]
+        want = [a for a in "xyz" if a.upper() in p] or list("xyz")
+        if sz and sz["z_hop"]:
+            if "z" not in self._homed():
+                # safe_z_home: Z not homed -> call the current spot Z=0 and lift by z_hop, then forget Z again
+                start = dict(pos)
+                self.moves.append({"frm": {a: start[a] for a in "xyz"}, "to": {"x": start["x"], "y": start["y"], "z": None},
+                                   "line": line, "stack": tuple(self.stack), "kind": "blind_z_hop", "dz": sz["z_hop"],
+                                   "tool": self.macro_vars.get("SWAP_TOOL", {}).get("current_tool")})
+            elif pos["z"] < sz["z_hop"]:
+                self._do_move(dict(pos, z=sz["z_hop"]), line, "z_hop")
+        homed = set(self._homed())
+        for a in ("x", "y"):
+            if a in want:
+                self.moves.append({"frm": {k: pos[k] for k in "xyz"}, "to": dict({k: pos[k] for k in "xyz"}, **{a: kin["endstop"][a]}),
+                                   "line": line, "stack": tuple(self.stack), "kind": "home_" + a,
+                                   "tool": self.macro_vars.get("SWAP_TOOL", {}).get("current_tool")})
+                pos[a] = kin["endstop"][a]
+                homed.add(a)
+                self.base[a] = self.objects["gcode_move"]["homing_origin"][a]
+        self._set_homed("".join(homed))
+        if "z" in want:
+            if not {"x", "y"} <= homed:
+                raise KlipperError("Must home X and Y axes first")
+            if sz:
+                self._do_move(dict(pos, x=sz["x"], y=sz["y"]), line, "safe_z_xy")
+            self.moves.append({"frm": {k: pos[k] for k in "xyz"}, "to": dict({k: pos[k] for k in "xyz"}, z=kin["probe_z"]),
+                               "line": line, "stack": tuple(self.stack), "kind": "home_z",
+                               "tool": self.macro_vars.get("SWAP_TOOL", {}).get("current_tool")})
+            pos["z"] = kin["probe_z"]
+            homed.add("z")
+            self._set_homed("".join(homed))
+            self.base["z"] = self.objects["gcode_move"]["homing_origin"]["z"]
+            if sz and sz["z_hop"] and pos["z"] < sz["z_hop"]:
+                self._do_move(dict(pos, z=sz["z_hop"]), line, "z_hop")
+        self._sync()
+
+    def _motion_line(self, cmd, p, line):
+        """Handle a motion command when motion=True. Returns True if handled."""
+        gm = self.objects["gcode_move"]
+        pos = self.objects["toolhead"]["position"]
+        if cmd in ("G0", "G1", "G0.1", "G1.1"):
+            self._gmove(p, line)
+        elif cmd == "G90":
+            gm["absolute_coordinates"] = True
+        elif cmd == "G91":
+            gm["absolute_coordinates"] = False
+        elif cmd == "M82":
+            gm["absolute_extrude"] = True
+        elif cmd == "M83":
+            gm["absolute_extrude"] = False
+        elif cmd == "G92":
+            for a in "xyz":
+                if a.upper() in p:
+                    self.base[a] = pos[a] - float(p[a.upper()] or 0)
+            self._sync()
+        elif cmd == "G28":
+            self._g28(p, line)
+        elif cmd == "SET_KINEMATIC_POSITION":
+            for a in "xyz":
+                if a.upper() in p:
+                    pos[a] = float(p[a.upper()])
+            if "SET_HOMED" in p:
+                h = set(self._homed()) | set(p["SET_HOMED"].lower())
+            else:
+                h = set("xyz")   # Klipper's default: all axes marked homed
+            self.moves.append({"frm": None, "to": {a: pos[a] for a in "xyz"}, "line": line, "stack": tuple(self.stack),
+                               "kind": "set_position", "tool": self.macro_vars.get("SWAP_TOOL", {}).get("current_tool")})
+            self._set_homed("".join(h))
+            self._sync()
+        elif cmd == "Z_TILT_ADJUST":
+            zt = self.kin.get("z_tilt")
+            if self._homed() != "xyz":
+                raise KlipperError("Must home axis first")
+            if zt:
+                for x, y in zt["points"]:
+                    self._do_move(dict(pos, z=max(pos["z"], zt["z"])), line, "z_tilt")
+                    self._do_move(dict(pos, x=x, y=y), line, "z_tilt")
+        elif cmd == "SAVE_GCODE_STATE":
+            self.saved_states[p.get("NAME", "default").lower()] = {
+                "abs": gm["absolute_coordinates"], "abs_e": gm["absolute_extrude"], "base": dict(self.base),
+                "origin": dict(gm["homing_origin"]), "pos": {a: pos[a] for a in "xyz"}}
+        elif cmd == "RESTORE_GCODE_STATE":
+            st = self.saved_states.get(p.get("NAME", "default").lower())
+            if st is None:
+                return self._motion_error("Unknown g-code state: %s" % p.get("NAME", "default")) or True
+            gm["absolute_coordinates"], gm["absolute_extrude"] = st["abs"], st["abs_e"]
+            gm["homing_origin"] = dict(st["origin"])
+            self.base = dict(st["base"])
+            if p.get("MOVE") == "1":
+                self._do_move(dict(st["pos"]), line, "restore")
+            self._sync()
+        else:
+            return False
+        return True
 
     def _read(self, path, parts, seen):
         if path in seen:
@@ -161,7 +374,10 @@ class Sim:
 
     def render(self, name, gcode, params=None, rawparams=""):
         ctx = self._context(name, params or {}, rawparams)
-        tmpl = self.jenv.from_string(gcode)
+        cache = Sim._tmpl_cache
+        tmpl = cache.get(gcode)
+        if tmpl is None:
+            tmpl = cache[gcode] = self.jenv.from_string(gcode)
         return tmpl.render(**ctx)
 
     def run_macro(self, name, params=None, rawparams=""):
@@ -170,6 +386,7 @@ class Sim:
         if name not in self.macros:
             raise KlipperError(f"Unknown command: {name}")
         self.depth += 1
+        self.stack.append(name)
         if self.depth > 40:
             raise KlipperError("macro recursion too deep (possible loop)")
         try:
@@ -178,6 +395,7 @@ class Sim:
                 self.run_line(line)
         finally:
             self.depth -= 1
+            self.stack.pop()
 
     def run_script(self, script):
         for line in script.strip().splitlines():
@@ -199,6 +417,9 @@ class Sim:
             else:
                 params[tok[0].upper()] = tok[1:]
         self.log.append(("cmd", line))
+        if self.motion and (cmd not in self.macros or self.macros[cmd].get("gcode", "") == "") \
+                and cmd not in getattr(self, "extra_cmds", {}) and self._motion_line(cmd, params, line):
+            return
         extra = getattr(self, "extra_cmds", {})
         if cmd in extra:
             return extra[cmd](params, rest)
@@ -267,12 +488,35 @@ class Sim:
                 self.offsets[ax] = float(p[ax])
         if p.get("MOVE") == "1":
             self.moved = True
+        if self.motion:
+            gm = self.objects["gcode_move"]
+            pos = self.objects["toolhead"]["position"]
+            target = {a: pos[a] for a in "xyz"}
+            for a in "xyz":
+                new = None
+                if a.upper() in p:
+                    new = float(p[a.upper()])
+                elif a.upper() + "_ADJUST" in p:
+                    new = gm["homing_origin"][a] + float(p[a.upper() + "_ADJUST"])
+                if new is None:
+                    continue
+                delta = new - gm["homing_origin"][a]
+                gm["homing_origin"][a] = new
+                self.base[a] += delta
+                target[a] += delta
+            if p.get("MOVE") == "1":
+                self._do_move(target, "SET_GCODE_OFFSET MOVE=1", "offset_move")
+            self._sync()
 
     def cmd_PAUSE_BASE(self, p, rest):
+        if self.motion and not self.objects["pause_resume"]["is_paused"]:
+            self._motion_line("SAVE_GCODE_STATE", {"NAME": "PAUSE_STATE"}, "PAUSE_BASE")   # like Klipper's pause_resume
         self.objects["print_stats"]["state"] = "paused"
         self.objects["pause_resume"]["is_paused"] = True
 
     def cmd_RESUME_BASE(self, p, rest):
+        if self.motion and self.objects["pause_resume"]["is_paused"] and "pause_state" in self.saved_states:
+            self._motion_line("RESTORE_GCODE_STATE", {"NAME": "PAUSE_STATE", "MOVE": "1"}, "RESUME_BASE")
         self.objects["print_stats"]["state"] = "printing"
         self.objects["pause_resume"]["is_paused"] = False
 
