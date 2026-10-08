@@ -50,8 +50,8 @@ TOOLS = {1: ("BlockOne", "PLA"), 2: ("SwitchFly", "PLA"), 3: ("LightSaber", "PLY
          4: ("HotJoe", "SOFT_WOOD"), 5: ("DragKnife", "VINYL")}
 PRINT_HEADS = {1, 2}
 SAFE_Z = 150.0          # bed clear of every tool's lowest point (measured on the machine) - deliberately not read from the config
-PARK_X = BASE.macro_vars["VARIABLES"]["tool_swap_park_x"]
-PARK_Y = BASE.macro_vars["VARIABLES"]["tool_swap_park_y"]
+PARK_X = BASE.macro_vars["RHINO_POSITIONS"]["swap_x"]
+PARK_Y = BASE.macro_vars["RHINO_POSITIONS"]["swap_y"]
 
 
 def sim(slot, x=288.0, y=203.0, z=20.0, homed="xyz", job="standby", **save):
@@ -114,7 +114,7 @@ print("== limits from printer.cfg ==")
 ok(LIM_MAX == {"x": 576.0, "y": 406.0, "z": 400.0} and LIM_MIN == {"x": 0.0, "y": 0.0, "z": -10.0},
    f"travel limits read from printer.cfg: X0-576 Y0-406 Z-10-400 ({LIM_MIN}, {LIM_MAX})")
 
-ok(BASE.macro_vars["_RHINO_PARK"]["safe_z"] == SAFE_Z, f"_RHINO_PARK safe_z is the measured {SAFE_Z:g} mm")
+ok(BASE.macro_vars["RHINO_POSITIONS"]["safe_z"] == SAFE_Z, f"positions.cfg safe_z is the measured {SAFE_Z:g} mm")
 
 print("== homing ==")
 s = sim(1, homed="")
@@ -174,8 +174,8 @@ for slot in (3, 4, 5):
 s = sim(0, homed="")
 ok("confirmed print head" in (run(s, "G28") or "") and not s.moves, "after a restart, before the tool question is answered: G28 refused")
 ok(run(s, "G28 X") is None and s._homed() == "x", "...G28 X still works")
-s = sim(3, homed="")
-ok("only homed with a print head" in (run(s, "HOME") or ""), "the old HOME macro goes through the guard too")
+ok("HOME" not in BASE.macros and "TEST_SERVO" not in BASE.macros and "BACKUP_CONFIG" not in BASE.macros,
+   "old test macros are gone (HOME, TEST_SERVO, BACKUP_CONFIG ...)")
 s = sim(1, homed="")
 ok(run(s, "G28") is None and s._homed() == "xyz", "with BlockOne: G28 homes everything as before")
 
@@ -331,6 +331,68 @@ start = pos(s)
 s.run_script("FILAMENT_CHANGE")
 s.press("Heat and start")
 ok(all(m["to"]["z"] >= 12.0 for m in moves(s)), "filament change only lowers the bed")
+
+print("== positions come from myrhino/positions.cfg ==")
+import re as _re, shutil as _sh, tempfile as _tf
+def edited_config(positions=None, printer_cfg=None):
+    """A copy of this config with positions.cfg (and optionally printer.cfg) edited the way a person would."""
+    d = _tf.mkdtemp(prefix="rhino-pos-")
+    _sh.copytree(ROOT, d + "/c", ignore=_sh.ignore_patterns(".git", "__pycache__", "dev", "manual", "docs", "node_modules"))
+    _sh.copytree(os.path.join(HERE, "fixtures"), d + "/c/dev/fixtures")
+    for f, changes in (("myrhino/positions.cfg", positions), ("printer.cfg", printer_cfg)):
+        txt = open(f"{d}/c/{f}").read()
+        for key, val in (changes or {}).items():
+            txt, n = _re.subn(rf"^{_re.escape(key)}:.*$", f"{key}: {val}", txt, flags=_re.M)
+            assert n == 1, key
+        open(f"{d}/c/{f}", "w").write(txt)
+    sm = Sim(d + "/c", motion=True).load()
+    _sh.rmtree(d, ignore_errors=True)
+    return sm
+def esim(base, slot, x=288.0, y=203.0, z=20.0, homed="xyz", job="standby", **save):
+    s = base.clone()
+    s.macro_vars["SWAP_TOOL"]["current_tool"] = slot
+    s.save_vars.update(current_tool=slot, set_material_toolhead=TOOLS[slot][0], set_material_material=TOOLS[slot][1],
+                       set_material_nozzle_size=0.4, set_material_extruder_index=0, **save)
+    s.objects["print_stats"]["state"] = job
+    return s.place(x, y, z, homed=homed)
+E = edited_config({"variable_park_x": "500.0", "variable_park_y": "350.0", "variable_swap_x": "120.0", "variable_swap_y": "90.0",
+                   "variable_safe_z": "160.0", "variable_zero_max_z": "370.0", "variable_prime_x": "20.0",
+                   "variable_prime_y": "30.0", "variable_prime_length": "100.0"})
+s = esim(E, 1, x=200, y=150, z=0.3, job="printing"); s.run_script("CANCEL_PRINT")
+ok(pos(s) == (500.0, 350.0, 160.0), f"edited park and safe height: cancel ends at X500 Y350 Z160 {pos(s)}")
+s = esim(E, 1, z=20.0); s.run_script("SWAP_TOOL TOOL=3")
+ok(pos(s) == (120.0, 90.0, 160.0), f"edited swap spot: the swap goes to X120 Y90, bed at Z160 {pos(s)}")
+s = esim(E, 1); s.fire_delayed("_RHINO_POSITIONS_APPLY")
+cv = s.macro_vars["_CLIENT_VARIABLE"]
+ok((cv["custom_park_x"], cv["custom_park_y"]) == (500.0, 350.0), "at start-up the park spot is copied to Mainsail's _CLIENT_VARIABLE")
+s.objects["print_stats"]["state"] = "printing"; s.run_script("PAUSE")
+ok(pos(s)[:2] == (500.0, 350.0), f"...so Mainsail's own pause parks there too {pos(s)}")
+s = esim(E, 4, z=362.0); s.run_script("SET_Z_ZERO"); s.press("Bed down 10")
+ok(pos(s)[2] == 370.0, f"edited Set Z zero limit: Bed down stops at Z370 ({pos(s)[2]})")
+s = esim(E, 1, rhino_zcal_blockone=-1.3, set_material_extruder_temp=210.0); s.run_script("PRIME_LINE")
+pl = [m for m in s.moves if "PRIME_LINE" in m["stack"]]
+draw = [m for m in pl if m["to"]["y"] != m["frm"]["y"] and abs(m["to"]["z"] - m["frm"]["z"]) < 1e-9 and m["to"]["z"] < 1]
+ok(draw and (draw[0]["frm"]["x"], draw[0]["frm"]["y"], draw[0]["to"]["y"]) == (20.0, 30.0, 130.0),
+   "edited prime line: starts at X20 Y30 and runs 100 mm to Y130")
+E2 = edited_config({"variable_park_x": "600.0", "variable_prime_length": "500.0"})
+s = esim(E2, 1); s.fire_delayed("_RHINO_POSITIONS_APPLY")
+errs = [m for k, m in [(x[0], x[1]) for x in s.log] if k == "error"]
+ok(any("Park X600.0 is outside X 0.0-576.0" in e for e in errs) and any("Prime line end Y510.0" in e for e in errs),
+   f"a position outside the travel limits is reported in the console at start-up ({errs[:2]})")
+s = sim(1); s.run_script("RHINO_POSITIONS")
+ok(any("All positions are inside the travel limits" in str(x[1]) for x in s.log), "RHINO_POSITIONS lists them; the shipped numbers are all inside the limits")
+E3 = edited_config(printer_cfg={"home_xy_position": "300,200"})
+s = esim(E3, 1, homed=""); s.run_script("NOZZLE_HEIGHT_CALIBRATE")
+ok(pos(s)[:2] == (320.0, 205.0), f"paper test spot follows [safe_z_home] + probe offset in printer.cfg (300,200 + 20,5) {pos(s)}")
+leftover = []
+for base, _, files in os.walk(ROOT):
+    if any(x in base for x in ("/dev", "/.git", "/manual", "/docs", "node_modules")):
+        continue
+    for f in files:
+        if f.endswith(".cfg") and f not in ("positions.cfg", "printer.cfg", "client_macros.cfg"):
+            t = open(os.path.join(base, f), errors="ignore").read()
+            leftover += [f"{f}: {m}" for m in _re.findall(r"tool_swap_park_[xyz]|\b(?:551|381)\.0\b|variable_safe_z|variable_max_z", t)]
+ok(not leftover, f"no macro keeps its own copy of a position ({leftover[:4]})")
 
 # =============================================================== Part 2: sweep
 KNOWN = {

@@ -29,6 +29,7 @@ itself.
 
 | To change... | Edit |
 |---|---|
+| park, tool-swap, safe-height, Set Z zero and prime-line positions | `myrhino/positions.cfg` (installed once, never overwritten) |
 | default power caps, materials, checklists, allowed characters, limits | `rhino/presets.py` |
 | which pins reach the tool connector | `myrhino/umbilical.json` (copy `umbilical.example.json`) |
 | validation rules (what is refused, and the message) | `rhino/builders.py` |

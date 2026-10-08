@@ -157,7 +157,7 @@ os.makedirs(CFG)
 open(os.path.join(CFG, "printer.cfg"), "w").write("[include mainsail.cfg]\n[printer]\nkinematics: cartesian\n\n"
                                                   f"{MARK}\n#*# [probe]\n#*# z_offset = 1.234\n")
 open(os.path.join(CFG, "moonraker.conf"), "w").write("[server]\nhost: 0.0.0.0\n")
-open(os.path.join(CFG, "variables.cfg"), "w").write("[Variables]\nrhino_zcal_blockone = -1.234\ncurrent_tool = 1\n")
+open(os.path.join(CFG, "variables.cfg"), "w").write("[gcode_macro VARIABLES]\nvariable_tool_swap_park_x: 100.0\nvariable_tool_swap_park_y: 100.0\ngcode:\n")
 os.makedirs(os.path.join(CFG, ".git", "refs", "heads"))
 open(os.path.join(CFG, ".git", "HEAD"), "w").write("ref: refs/heads/main\n")
 open(os.path.join(CFG, ".git", "refs", "heads", "main"), "w").write("1111111111111111111111111111111111111111\n")
@@ -220,12 +220,18 @@ try:
     ok("User=tester" in svc and f"WorkingDirectory={CFG}" in svc and f"{CFG}/scripts/rhino_portal.py" in svc and "/home/pi" not in svc,
        "service file installed for this login (User, folder, start command)")
     ok(portal_up(), "the portal started from that service file answers on port 5000")
+    ok(os.path.isfile(os.path.join(CFG, "myrhino", "positions.cfg")) and "myrhino/positions.cfg is new" in out,
+       "positions.cfg put in place (first install), and the install says so")
+    ok("You can delete those three lines" in out, "...and it points out the old tool_swap_park lines in variables.cfg")
     calls = open(LOG).read()
     ok("systemctl daemon-reload" in calls and "systemctl enable --now rhino-portal" in calls, "service enabled to start at boot")
 
     # ============================================================ update over the top
     print("== update (install again) ==")
     open(os.path.join(CFG, "myrhino", "custom_tools.cfg"), "a").write("# a tool added in the portal\n")
+    posf = os.path.join(CFG, "myrhino", "positions.cfg")
+    txt = open(posf).read()
+    open(posf, "w").write(txt.replace("variable_park_x: 551.0", "variable_park_x: 540.0"))
     before_update = tree(CFG)
     rc, out = run(f"{PKG}/install.sh")
     ok(rc == 0 and "an existing rhino-portal service was found" in out and "used by the old rhino-portal service" in out,
@@ -235,6 +241,8 @@ try:
        f"a second backup of its own, even in the same minute - not copied inside the first ({bks})")
     ok(open(os.path.join(CFG, "printer.cfg")).read().count(MARK) == 1, "still exactly one SAVE_CONFIG block")
     ok(tree(CFG)["myrhino/custom_tools.cfg"] == before_update["myrhino/custom_tools.cfg"], "tools added in the portal (custom_tools.cfg) kept")
+    ok("variable_park_x: 540.0" in open(posf).read() and "positions (myrhino/positions.cfg) kept" in out,
+       "your edited positions (myrhino/positions.cfg) kept on update")
     ok(portal_up(), "portal back up after the update")
 
     # ============================================================ undo

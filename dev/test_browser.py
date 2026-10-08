@@ -126,7 +126,7 @@ try:
         page.reload()
         settle(page, 1000)
         ok(visible_view(page) == ["view-dash"] and page.locator("#view-dash").inner_text().strip() != "", "dashboard opens first and has content")
-        ok("1.3" in page.locator(".version").inner_text(), f"version shown in the sidebar ({page.locator('.version').inner_text()})")
+        ok(open(os.path.join(os.path.dirname(HERE), "VERSION")).read().strip() in page.locator(".version").inner_text(), f"version shown in the sidebar ({page.locator('.version').inner_text()})")
         for view, label in VIEWS.items():
             page.locator(f'.nav-btn[data-view="{view}"]').click()
             settle(page)

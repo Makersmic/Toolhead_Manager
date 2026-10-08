@@ -1,5 +1,22 @@
 # What changed
 
+## 1.4.0 - positions in one place, old test macros removed
+
+- **One place for positions: `myrhino/positions.cfg`.** Park (X551 Y381), tool swap spot (X100 Y100), safe height
+  (Z150), the Set Z zero window's lowest bed (Z380) and the prime line (X5 Y10, 120 mm) are set there, and every macro
+  reads them - cancel, pause (Mainsail's own park too: copied to `_CLIENT_VARIABLE` at start-up), swap, filament
+  change, Set Z zero, prime line. Change a number, `FIRMWARE_RESTART`. `RHINO_POSITIONS` lists them and checks them
+  against the travel limits; the same check runs at every start. The installer puts the file in place once and never
+  overwrites it. The numbers are the same as before - nothing moves differently.
+- The paper test's spot is worked out from `[safe_z_home]` + `[probe]` offset in printer.cfg (same 307.5, 208).
+- `tool_swap_park_x/y/z` in `variables.cfg` are no longer read (the installer says so if yours still has them - you
+  can delete those lines).
+- **Removed old test macros:** `home`, `ACTIVATE_SERVO`, `DEACTIVATE_SERVO`, `TEST_SERVO`, `HELLO_WORLD`, `Test_Card`,
+  `BACKUP_CONFIG`, `BACKUP_VARIABLES` and the shell commands only they used. The automatic backup after jobs over 2
+  hours now runs `BACKUP_CFG`. `SET_SERVO_ANGLE` stays: it moves SwitchFly's path servo.
+
+Check on the machine: **A7** (positions), and B5/C1 as usual.
+
 ## 1.3.9 - portal accessibility, installer backups
 
 Nothing changes on the machine; the Klipper macros are the same as 1.3.8.

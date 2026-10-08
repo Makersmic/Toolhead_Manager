@@ -60,7 +60,7 @@ ok(r.status_code == 400, "macro name clashing with a control's macro refused")
 r = c.post("/api/preview/macro", json={"draft": {"name": "Needle"}, "item": {"name": "zz_test", "body": "G1 X1 ; move\nSAVE_CONFIG\nTYPO_CMD"}}, headers=H)
 w = " ".join(J(r)["warnings"])
 ok(r.status_code == 200 and "comment" in w and "SAVE_CONFIG" in w and "TYPO_CMD" in w, "warnings: cut-off comment, risky command, unknown command")
-for bad in ("G28", "M3", "SET_PIN", "home", "PAUSE"):
+for bad in ("G28", "M3", "SET_PIN", "LEDOFF", "PAUSE"):
     rr = c.post("/api/preview/macro", json={"draft": {"name": "Needle"}, "item": {"name": bad, "body": "G1 X1"}}, headers=H)
     ok(rr.status_code == 400, f"macro name {bad} refused")
 

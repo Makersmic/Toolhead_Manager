@@ -19,13 +19,13 @@ Static lint of every .cfg file               unknown commands, invalid options, 
 |---|---|---|---|
 | Lint | `dev/lint_rhino.py` | Every macro calls a command that exists; options Klipper rejects at start-up (e.g. `description:` in a `delayed_gcode`, soft-PWM `shutdown_value` other than 0/1); pins used twice | That Klipper accepts the whole config on your board |
 | Macro tests | `dev/test_macros.py` with `dev/klippersim.py` (178 checks) | Macros render the way Klipper renders them (whole template first), run in order, show the right pop-up and buttons, save the right variables, refuse what they should | Timing, heaters, real pins |
-| Motion tests | `dev/test_motion.py` (82 checks, about a minute) | Where the bed and head end up: the simulator follows the position like Klipper (G90/G91, G92, offsets, `safe_z_home`, `SAVE`/`RESTORE_GCODE_STATE`, pause/resume) and refuses moves past `position_min`/`max` or on unhomed axes, with the limits read from `printer.cfg`. Flows: homing, paper test, print, cancel, swap, Set Z zero, Z restore, CNC, knife, laser pause/resume, filament change. Then a sweep of every macro and every button from 7 machine states x 5 tools (about 15,600 runs) against five safety rules (below) | Collisions: it knows the travel limits, not tool lengths or stock height, so "too close" is judged by rules, not geometry |
+| Motion tests | `dev/test_motion.py` (92 checks, about a minute) | Where the bed and head end up: the simulator follows the position like Klipper (G90/G91, G92, offsets, `safe_z_home`, `SAVE`/`RESTORE_GCODE_STATE`, pause/resume) and refuses moves past `position_min`/`max` or on unhomed axes, with the limits read from `printer.cfg`. Flows: homing, paper test, print, cancel, swap, Set Z zero, Z restore, CNC, knife, laser pause/resume, filament change. Then a sweep of every macro and every button from 7 machine states x 5 tools (about 15,600 runs) against five safety rules (below) | Collisions: it knows the travel limits, not tool lengths or stock height, so "too close" is judged by rules, not geometry |
 | Portal tests | `test_portal.py` (52), `test_extras.py` (46), `test_v12.py` (71), `test_maint.py` (60) | The portal API, security (token, same-origin), tool registry and generated `custom_tools.cfg`, controls and macros, Task Books, maintenance schedule maths, meters | The browser screens themselves |
-| Installer test | `dev/test_install.py` (35 checks) | `install.sh`, `uninstall.sh` and the `rhino.sh` menu on a fake Pi (login "tester", an existing config with SAVE_CONFIG, saved variables and a GitHub-backup `.git`; stand-in `sudo`/`systemctl`/`apt-get`; the portal really started from the installed service file): refusals (sudo, job printing, unzipped in the config folder, no printer.cfg, port 5000 taken) change nothing; preview changes nothing; install backs up first, keeps your saved state, `.git` and SAVE_CONFIG (once), rewrites `/home/pi`, starts the portal; update keeps added tools; undo restores exactly; menu options 3 and 4 | Real `apt`, real systemd, the Pi's own Python |
+| Installer test | `dev/test_install.py` (38 checks) | `install.sh`, `uninstall.sh` and the `rhino.sh` menu on a fake Pi (login "tester", an existing config with SAVE_CONFIG, saved variables and a GitHub-backup `.git`; stand-in `sudo`/`systemctl`/`apt-get`; the portal really started from the installed service file): refusals (sudo, job printing, unzipped in the config folder, no printer.cfg, port 5000 taken) change nothing; preview changes nothing; install backs up first, keeps your saved state, `.git` and SAVE_CONFIG (once), rewrites `/home/pi`, starts the portal; update keeps added tools; undo restores exactly; menu options 3 and 4 | Real `apt`, real systemd, the Pi's own Python |
 | Browser smoke test | `dev/test_browser.py` (46 checks) | Headless Chromium on the demo portal with a year of maintenance history: every sidebar screen, each tool page, the Add-a-tool wizard, the editor, Details and Log work (saved, then found in the Work log), Mainsail's light theme, a job running, Klipper down, and a phone screen with no sideways scrolling. Fails on any script error or failed request | How the screens look - that's still the screenshots (`dev/demo_server.py`, `dev/maint_year_demo.py`) |
 | On-machine | The plan below | Everything above, for real | - |
 
-Run every automated layer with `sh dev/run_all.sh` (570 checks, about three minutes; needs `pip install jinja2 flask`,
+Run every automated layer with `sh dev/run_all.sh` (583 checks, about three minutes; needs `pip install jinja2 flask`,
 for the browser test `pip install playwright && python3 -m playwright install chromium` and, for its accessibility
 scan, `npm install --prefix dev axe-core@4.10.2` - without them those parts say SKIP). It runs on every push to GitHub (`.github/workflows/tests.yml`). `python3 dev/test_motion.py --quick`
 skips the sweep.
@@ -98,20 +98,20 @@ For every version, before the zip is sent:
 - [ ] `CHANGES.md`, `VERSION` and the manual updated
 - [ ] The on-machine tests for whatever changed are listed in `CHANGES.md`
 
-## On-machine acceptance plan (1.3.9)
+## On-machine acceptance plan (1.4.0)
 
 Work through it in order: later sections rely on earlier ones. Have a hand on the emergency stop for every test that
 moves the machine. **Stop if** means stop, don't press on - note what happened and report it.
 
 ### A. Install and start
 
-- [ ] **A1 Install.** Menu option 3, pick `rhino-config-1.3.9.zip`, read the preview, install.
+- [ ] **A1 Install.** Menu option 3, pick `rhino-config-1.4.0.zip`, read the preview, install.
   *Pass:* ends with the portal answering on port 5000. *Stop if:* the preview shows STOPPED.
 - [ ] **A2 Restart.** With a print head mounted: `FIRMWARE_RESTART`.
   *Pass:* Klipper ready, no config errors.
 - [ ] **A3 Tool question.** *Pass:* "Klipper restarted - which toolhead is mounted?" appears; Yes records the tool.
 - [ ] **A4** `CHECK_TOOLHEADS` lists every tool without errors.
-- [ ] **A5 Portal.** Opens at `http://<pi>:5000`, matches Mainsail's dark/light theme, shows version 1.3.9.
+- [ ] **A5 Portal.** Opens at `http://<pi>:5000`, matches Mainsail's dark/light theme, shows version 1.4.0.
 
 ### B. Motion and homing
 
@@ -124,6 +124,9 @@ moves the machine. **Stop if** means stop, don't press on - note what happened a
 
 - [ ] **A6 Homing guard** (new in 1.3.8). With LightSaber mounted, press Mainsail's Home All. *Pass:* refused with a
   message, nothing moves; Home X and Home Y work. With BlockOne: Home All homes as before. *Stop if:* the bed rises.
+- [ ] **A7 Positions** (new in 1.4.0). Type `RHINO_POSITIONS`. *Pass:* lists park X551 Y381, swap X100 Y100, safe
+  Z150, Set Z zero Z380, prime X5 Y10 120 mm, and "All positions are inside the travel limits". Then change
+  `park_x` in `myrhino/positions.cfg` to 540, `FIRMWARE_RESTART`, run B5 again: the head parks at X540. Put it back.
 
 ### C. Tool swap safety
 

@@ -17,9 +17,9 @@ Priority = (Impact + Risk) x (6 - Effort), each 1-5.
 | # | Item | Type | Impact | Risk | Effort | Priority |
 |---|---|---|---|---|---|---|
 | 1 | Every G0/G1 move goes through a macro | Code / performance | 4 | 4 | 3 | **24** |
-| 2 | Machine positions and limits written out in several places | Code | 3 | 3 | 2 | **24** |
+| 2 | ~~Machine positions and limits written out in several places~~ **Done in 1.4.0** | Code | 3 | 3 | 2 | **24** |
 | 3 | Klipper never checks the config until `FIRMWARE_RESTART` on the Pi | Test | 4 | 4 | 3 | **24** |
-| 4 | Old and overlapping macros in the Mainsail macro list | Code | 2 | 2 | 1 | **20** |
+| 4 | ~~Old and overlapping macros in the Mainsail macro list~~ **Done in 1.4.0** | Code | 2 | 2 | 1 | **20** |
 | 5 | CI on actions and a runner image that are being retired; unpinned test tools | Infrastructure | 1 | 3 | 1 | **20** |
 | 6 | Version number kept by hand in two files (plus docs) | Infrastructure | 2 | 2 | 1 | **20** |
 | 7 | The "which tool is mounted" lookup copied into 20 macros | Code | 3 | 3 | 3 | **18** |
@@ -41,7 +41,12 @@ docs - check on the machine), so `_SWITCHFLY_SET_PATH` can set the direction onc
 for HotJoe don't contain E moves. Then both overrides can go. **Why:** print quality on long jobs, and one less
 thing between the slicer and the motors. Needs the machine (SwitchFly both paths, a long detailed print).
 
-### 2. Machine positions and limits written out in several places (24)
+### 2. Machine positions and limits written out in several places (24) - done in 1.4.0
+
+All of them are now in `myrhino/positions.cfg` (installed once, never overwritten), checked against the travel
+limits at every start; the paper-test spot is worked out from `[safe_z_home]` and `[probe]`. What follows is the
+original finding.
+
 
 The park spot X551 Y381 (`client_macros.cfg`, `toolchanger.cfg`), the 150 mm safe height, Set Z zero's Z380, the
 swap spot X100 Y100, the paper-test spot X307.5 Y208 (worked out by hand from `safe_z_home` + probe offset) and the
@@ -58,7 +63,13 @@ loader in batch mode (Klipper's `scripts/test_klippy.py` approach: `klippy.py pr
 -d <mcu dictionary>`), which parses every section and runs a short G-code file through the real gcode/macro code.
 **Why:** catches config errors on GitHub instead of a red box in Mainsail, and keeps the simulator honest.
 
-### 4. Old and overlapping macros (20)
+### 4. Old and overlapping macros (20) - done in 1.4.0
+
+Removed: `home`, `ACTIVATE_SERVO`, `DEACTIVATE_SERVO`, `TEST_SERVO`, `HELLO_WORLD`, `Test_Card`, `BACKUP_CONFIG`,
+`BACKUP_VARIABLES` and their shell commands. Kept: `SET_SERVO_ANGLE` (SwitchFly's path servo), `BACKUP_CFG` (now also
+the automatic backup after long jobs), `SHOW_BACKUP_LOCATION`, `TURN_ON_MOTORS`, `M0`. What follows is the original
+finding.
+
 
 Still in the macro list: `home` (now redundant: the G28 guard covers homing), `TURN_ON_MOTORS`, `ACTIVATE_SERVO` /
 `DEACTIVATE_SERVO` / `SET_SERVO_ANGLE` / `TEST_SERVO`, `M0`, `HELLO_WORLD`, `Test_Card` (in `printer.cfg`), and three

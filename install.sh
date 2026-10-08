@@ -107,19 +107,26 @@ fi
 
 # ------------------------------------------------------------------ copy
 say "Copying the new files into your config folder"
+had_positions=0; [ -f "$CFG/myrhino/positions.cfg" ] && had_positions=1
 # Never copied: your saved state, git files, the test folder, zips and the installers themselves.
 EXCL=(--exclude .git/ --exclude .gitignore --exclude variables.cfg --exclude variables.save --exclude dev/ --exclude '*.zip'
       --exclude install.sh --exclude uninstall.sh --exclude rhino.sh --exclude VERSION
-      --exclude myrhino/custom_tools.cfg --exclude myrhino/maintenance_status.cfg)
+      --exclude myrhino/custom_tools.cfg --exclude myrhino/maintenance_status.cfg --exclude myrhino/positions.cfg)
 do_ rsync -a "${EXCL[@]}" "$SRC/" "$CFG/" || fail "Copy failed." "Your backup is in $BACKUP."
-# Generated files: only put the starter copy in place if you do not have one yet.
-for f in myrhino/custom_tools.cfg myrhino/maintenance_status.cfg; do
+# Generated files and your positions: only put the starter copy in place if you do not have one yet.
+for f in myrhino/custom_tools.cfg myrhino/maintenance_status.cfg myrhino/positions.cfg; do
   [ -f "$CFG/$f" ] || do_ cp "$SRC/$f" "$CFG/$f"
 done
 if [ $DRY = 0 ]; then
   [ -f "$CFG/scripts/rhino_portal.py" ] || fail "The copy did not arrive (scripts/rhino_portal.py missing)."
 fi
 [ $DRY = 0 ] && ok "files copied"
+if [ $had_positions = 1 ]; then ok "your positions (myrhino/positions.cfg) kept as they are"
+else note "myrhino/positions.cfg is new: the park, swap and prime-line positions are set there now"; fi
+if grep -q "^variable_tool_swap_park_" "$CFG/variables.cfg" 2>/dev/null; then
+  note "variables.cfg still has tool_swap_park_x/y/z - nothing reads them now (the swap spot is swap_x/swap_y"
+  note "in myrhino/positions.cfg). You can delete those three lines."
+fi
 
 # ------------------------------------------------------------------ SAVE_CONFIG block
 say "Keeping the settings Klipper saved at the bottom of printer.cfg (SAVE_CONFIG)"
