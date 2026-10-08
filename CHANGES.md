@@ -1,5 +1,23 @@
 # What changed
 
+## 1.3.7 - review fixes and clearer pop-ups
+
+From a code review of 1.3.6:
+- **Work offsets no longer carry over between jobs.** A CNC or drag-knife job set an X/Y work zero (G54) that stayed
+  after the job ended or was cancelled, so the next print or laser job would have been shifted by it (and the cancel
+  park move could go out of range). `END_PRINT` and cancel now clear X/Y/Z offsets for every tool, `SET_PRINT` clears
+  X/Y before a print, and `LASER_JOB_SETUP` clears X/Y (laser files use machine X/Y).
+- **Park record cleared at once:** moving the bed below the park height in the Set Z zero window forgets the park
+  height straight away, instead of up to 5 s later - so a restart in that moment can't offer a stale height.
+
+Pop-up wording (Mainsail prompts), made consistent:
+- Sentence-case titles, no emoji or all-caps buttons; buttons say what they do ("Start the cut", "Set X/Y zero here",
+  "Cancel setup"); every checklist starts "Check before you start:"; no divider or blank lines.
+- Clearer errors and steps, e.g. "Toolhead not detected - the toolhead's thermistor (contacts 3-4) reads open. Push
+  the umbilical connector fully home, then check again."; the swap window numbers its steps and the confirm button
+  names the tool.
+- No commands changed - only the words. The manual uses the new button names.
+
 ## 1.3.6 - Set Z zero by eye
 
 - **New `SET_Z_ZERO` window** for the LightSaber, HotJoe, DragKnife and tools you add (also a Mainsail button):

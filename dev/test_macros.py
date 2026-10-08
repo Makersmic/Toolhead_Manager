@@ -223,7 +223,7 @@ s.run_script("LIST_TOOLHEADS"); ok(s.shell_calls[-1][1].startswith("list"), "LIS
 s = cs(6); s.save_vars.update(set_material_toolhead="FoamWire", set_material_material="FOAM_EPS")
 s.run_script("TOOL_JOB_SETUP FILE=cut.gcode")
 ok(any("Ventilation" in t for t in s.prompt["text"]), "checklist shown")
-s.press("All Confirmed"); ok("Continue" not in s.buttons(), "cannot continue before both zeros are set")
+s.press("All checked"); ok("Continue" not in s.buttons(), "cannot continue before both zeros are set")
 s.objects["toolhead"]["position"].update(x=210.0, y=120.0, z=35.5)
 s.press("X/Y zero"); s.press("Z zero"); ok("Set Z zero" in s.prompt["title"], "Z zero opens the SET_Z_ZERO window"); s.press("SET")
 ok(s.offsets["X"] == 210.0 and s.offsets["Y"] == 120.0 and s.offsets["Z"] == 35.5 and not getattr(s, "moved", False), "zero uses position, no MOVE=1")
@@ -236,7 +236,7 @@ s = cs(6); ok(raises(lambda: s.run_script("TOOL_JOB_SETUP"), "choose a material"
 s = cs(3); ok(raises(lambda: s.run_script("TOOL_JOB_SETUP"), "LASER_JOB_SETUP"), "setup points built-in tools to their own workflow")
 s = cs(6); s.save_vars.update(set_material_toolhead="FoamWire", set_material_material="FOAM_EPS"); s.objects["toolhead"]["homed_axes"] = "xy"
 ok(raises(lambda: s.run_script("TOOL_JOB_SETUP"), "Home"), "setup demands homing")
-s = cs(6); s.save_vars.update(set_material_toolhead="FoamWire", set_material_material="FOAM_EPS"); s.run_script("TOOL_JOB_SETUP"); s.press("All Confirmed")
+s = cs(6); s.save_vars.update(set_material_toolhead="FoamWire", set_material_material="FOAM_EPS"); s.run_script("TOOL_JOB_SETUP"); s.press("All checked")
 s.press("Cancel"); ok(s.pins["FoamWire_PWR"] == 0 and s.offsets == {"X": 0.0, "Y": 0.0, "Z": 0.0}, "cancel clears offsets and power")
 
 # ---------------------------------------------------------------- safe park height / no Z homing with non-print tools
@@ -328,7 +328,7 @@ ok(raises(lambda: s.run_script("SET_Z_ZERO"), "not left parked") and not s.promp
 s = zsim(4, z=0.0, homed="")
 ok(raises(lambda: s.run_script("SET_Z_ZERO"), "not left parked"), "no park height ever saved: no restore offered")
 s = zsim(4, z=0.0, homed=""); s.save_vars.update(rhino_z_safe=1, rhino_park_z=150.0); raises(lambda: s.run_script("_CNC_ZERO_XY"))
-s.press("Yes"); ok(s.prompt and "XY" in s.prompt["title"], "restore from the CNC wizard carries on with the same step")
+s.press("Yes"); ok(s.prompt and "X/Y" in s.prompt["title"], "restore from the CNC wizard carries on with the same step")
 s = zsim(4, z=150.0); s.save_vars["rhino_z_safe"] = 0; s.run_delayed_body("_RHINO_PARK_WATCH")
 ok(s.save_vars["rhino_z_safe"] == 1 and abs(s.save_vars["rhino_park_z"] - 150.0) < 1e-9, "watcher records the exact park height")
 s.objects["toolhead"]["position"]["z"] = 210.0; s.run_delayed_body("_RHINO_PARK_WATCH"); ok(abs(s.save_vars["rhino_park_z"] - 210.0) < 1e-9, "...and follows the bed while parked")
@@ -338,6 +338,14 @@ s = zsim(4, z=150.0); s.run_script("G54"); ok(not any("MOVE=1" in c for c in cmd
 s = zsim(3); s.run_script("SET_LASER TOOLHEAD=LightSaber MATERIAL=PLYWOOD"); ok(not any(c.startswith("SET_GCODE_OFFSET Z") for c in cmds(s)), "choosing a laser material leaves the Z zero alone")
 s = zsim(5); s.run_script("SET_DRAG_KNIFE TOOLHEAD=DragKnife MATERIAL=VINYL"); ok(not any(c.startswith("SET_GCODE_OFFSET Z") for c in cmds(s)), "...and a knife material")
 s = zsim(4); s.run_script("SET_SPINDLE TOOLHEAD=HotJoe MATERIAL=SOFT_WOOD"); ok(not any(c.startswith("SET_GCODE_OFFSET Z") for c in cmds(s)), "...and a spindle material")
+
+s = zsim(4); s.run_script("SET_Z_ZERO"); s.save_vars["rhino_z_safe"] = 1; s.press("Bed up 10 mm"); ok(s.save_vars["rhino_z_safe"] == 0, "leaving the park height clears the parked record at once")
+s = zsim(4); s.objects["print_stats"]["state"] = "printing"; s.run_script("CANCEL_PRINT")
+ok(idx(s, "SET_GCODE_OFFSET X=0 Y=0 Z=0") < idx(s, "G28 X Y"), "cancel clears CNC/knife work offsets before homing and the park move")
+s = zsim(4); s.save_vars.update(set_material_toolhead="HotJoe", set_material_material="SOFT_WOOD"); s.run_script("END_PRINT")
+ok("SET_GCODE_OFFSET X=0 Y=0 Z=0" in cmds(s), "END_PRINT clears X/Y work offsets for every tool (CNC too)")
+s = zsim(1); s.run_script("SET_PRINT TOOLHEAD=BlockOne MATERIAL=PLA NOZZLE_SIZE=0.4 EXTRUDER=0"); ok("SET_GCODE_OFFSET X=0 Y=0" in cmds(s), "a print never inherits a CNC X/Y work zero")
+s = zsim(3); s.run_script("LASER_JOB_SETUP FILE=a.gcode"); ok("SET_GCODE_OFFSET X=0 Y=0" in cmds(s), "laser setup drops any X/Y work zero (files use machine X/Y)")
 
 # ---------------------------------------------------------------- first start: nothing recorded yet
 s = Sim(FIXED).load(); s.save_vars.pop("current_tool", None)
