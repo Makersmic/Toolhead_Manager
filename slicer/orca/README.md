@@ -22,7 +22,7 @@ Bed temperature is the same for every plate type, so the plate picked in Orca do
     M104 S0 ; Reset extruder temperature
     START_JOB TOOLHEAD=BlockOne MATERIAL=[filament_type] NOZZLE_SIZE=[nozzle_diameter] EXTRUDER=0
     ;
-    CALCULATE_PA BOWDEN_LENGTH=8.4 MATERIAL=[filament_type] LAYER_HEIGHT=[layer_height] NOZZLE_SIZE=[nozzle_diameter] PRINT_SPEED=[outer_wall_speed] FILAMENT_DIAMETER=[filament_diameter] LINE_WIDTH=[line_width]
+    CALCULATE_PA BOWDEN_LENGTH=5.9 MATERIAL=[filament_type] LAYER_HEIGHT=[layer_height] NOZZLE_SIZE=[nozzle_diameter] PRINT_SPEED=[outer_wall_speed] FILAMENT_DIAMETER=[filament_diameter] LINE_WIDTH=[line_width]
 
 The first-layer nozzle and bed temperatures come from the Rhino config (variables.cfg, set by PREHEAT);
 Orca only sends a bed temperature from layer 2. The Orca filament temperatures match variables.cfg (PLA 210/65,

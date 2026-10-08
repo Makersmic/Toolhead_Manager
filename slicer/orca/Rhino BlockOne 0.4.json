@@ -127,7 +127,7 @@
         "0"
     ],
     "machine_pause_gcode": "PAUSE",
-    "machine_start_gcode": "M140 S0 ; Reset bed temperature\nM104 S0 ; Reset extruder temperature\nSTART_JOB TOOLHEAD=BlockOne MATERIAL=[filament_type] NOZZLE_SIZE=[nozzle_diameter] EXTRUDER=0\n;\nCALCULATE_PA BOWDEN_LENGTH=8.4 MATERIAL=[filament_type] LAYER_HEIGHT=[layer_height] NOZZLE_SIZE=[nozzle_diameter] PRINT_SPEED=[outer_wall_speed] FILAMENT_DIAMETER=[filament_diameter] LINE_WIDTH=[line_width]\n",
+    "machine_start_gcode": "M140 S0 ; Reset bed temperature\nM104 S0 ; Reset extruder temperature\nSTART_JOB TOOLHEAD=BlockOne MATERIAL=[filament_type] NOZZLE_SIZE=[nozzle_diameter] EXTRUDER=0\n;\nCALCULATE_PA BOWDEN_LENGTH=5.9 MATERIAL=[filament_type] LAYER_HEIGHT=[layer_height] NOZZLE_SIZE=[nozzle_diameter] PRINT_SPEED=[outer_wall_speed] FILAMENT_DIAMETER=[filament_diameter] LINE_WIDTH=[line_width]\n",
     "machine_tool_change_time": "0",
     "machine_unload_filament_time": "0",
     "manual_filament_change": "0",
