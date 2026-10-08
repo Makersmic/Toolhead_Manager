@@ -290,7 +290,7 @@ def stepper_card(axis, driver, cur, sock, st, di, en, cs, note):
 
 # ============================================================================= Part 2: the tools
 def tools_intro():
-    rep = [("12 V 40 W blue diode laser", "12 V 80 W 450 nm blue diode laser"),
+    rep = [("12 V 80 W blue diode laser", "12 V 80 W 450 nm blue diode laser"),
            ("Ostrich drag-knife holder", "Drag knife for Roland No. 9 and No. 10 blade holders")]
     s = open(os.path.join(SRC, "03_the-tools.html")).read()
     s = s[:s.index('<h3 id="print-heads')]       # the per-tool text moves onto each tool's pages
