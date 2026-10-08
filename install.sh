@@ -12,8 +12,10 @@ SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CFG="${RHINO_CONFIG_DIR:-$HOME/printer_data/config}"
 STAMP="$(date +%Y-%m-%d-%H%M)"
 BACKUP="$HOME/rhino-backup-$STAMP"
+# A second install in the same minute must not copy into the first backup (cp -a would nest it inside)
+n=1; while [ -e "$BACKUP" ]; do n=$((n+1)); BACKUP="$HOME/rhino-backup-$STAMP-$n"; done
 LAST="$HOME/.rhino-last-backup"
-SERVICE=/etc/systemd/system/rhino-portal.service
+SERVICE="${RHINO_SERVICE_FILE:-/etc/systemd/system/rhino-portal.service}"   # only dev/test_install.py sets this
 MOONRAKER="${RHINO_MOONRAKER:-http://127.0.0.1:7125}"
 MARK='#*# <---------------------- SAVE_CONFIG ---------------------->'
 DRY=0

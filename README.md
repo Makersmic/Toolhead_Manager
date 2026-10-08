@@ -106,6 +106,8 @@ Undo with menu option **4**. The full walkthrough is the *Install and first star
 - [**Maintenance showcase**](docs/maintenance/) - the maintenance screens after a year of use
 - [**Testing**](docs/testing.md) - how it's tested, and the on-machine checks for each release
 - [**Developer notes**](docs/developer.md) - running it without the printer, where things are in the code
+- [**Accessibility**](docs/accessibility.md) - the WCAG 2.1 AA audit of the portal
+- [**Tech debt**](docs/tech-debt.md) - what to tidy next, in priority order
 - [**Changes**](CHANGES.md) - what changed in each version
 - The machine itself (CAD, wiring, build notes): [Rhino-3d-Printer](https://github.com/Makersmic/Rhino-3d-Printer)
 

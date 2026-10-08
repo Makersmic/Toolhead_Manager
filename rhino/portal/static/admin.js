@@ -149,7 +149,7 @@ function renderStatus() {
   const E = A.statusEdit;
   const bt = h("table", { class: "tbl" }, h("tr", {}, ["Status", "Name shown", "Colour", "When"].map((x) => h("th", { text: x }))));
   for (const [id, v] of Object.entries(E.builtin)) bt.append(h("tr", {}, h("td", { class: "mono small", text: id }),
-    h("td", {}, textInput(v, "label", { maxlength: 30 })), h("td", {}, colourSelect(v, "color", L.colors)), h("td", { class: "small muted", text: L.builtin_status_help[id] })));
+    h("td", {}, textInput(v, "label", { maxlength: 30, "aria-label": `Name shown for ${id}` })), h("td", {}, colourSelect(v, "color", L.colors)), h("td", { class: "small muted", text: L.builtin_status_help[id] })));
   box.append(h("div", { class: "card" }, h("h2", { text: "Built-in statuses" }),
     h("p", { class: "muted small", text: "Worked out from each task's schedule, the snooze and the pause switch. Rename them or change their colour; they cannot be removed." }),
     h("div", { class: "table-wrap" }, bt)));

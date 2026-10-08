@@ -7,6 +7,7 @@ For changing the Tool Manager itself. Users don't need any of this - see the use
 ```
 pip install flask jinja2
 pip install playwright && python3 -m playwright install chromium    # only for the browser test
+npm install --prefix dev axe-core@4.10.2                             # its accessibility scan
 sh dev/run_all.sh                  # lint + every test suite (see docs/testing.md)
 python3 dev/test_motion.py --quick # motion flows without the minute-long sweep
 python3 dev/demo_server.py         # the portal against a copy of this config and a fake Moonraker

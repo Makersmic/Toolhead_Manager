@@ -12,4 +12,5 @@ jobs:
           python-version: "3.11"
       - run: pip install flask jinja2 playwright
       - run: python3 -m playwright install --with-deps chromium
+      - run: npm install --prefix dev axe-core@4.10.2
       - run: sh dev/run_all.sh

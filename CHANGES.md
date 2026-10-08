@@ -1,5 +1,20 @@
 # What changed
 
+## 1.3.9 - portal accessibility, installer backups
+
+Nothing changes on the machine; the Klipper macros are the same as 1.3.8.
+- **Portal accessibility** (WCAG 2.1 AA, audit in `docs/accessibility.md`): every form field is announced by its
+  label; dialogs take keyboard focus, keep it, and give it back when closed; a Skip to content link; scrolling tables
+  work with the keyboard; charts are named, each bar announces its value; the current screen is marked in the
+  sidebar; readable contrast for badges, warnings, Delete buttons and links in both themes; Task Library fits a
+  320 px screen; less motion when the phone or PC asks for it. axe-core: 97 problems before, 0 after.
+- **Installer:** two installs in the same minute used to share one backup folder (the second copy went inside the
+  first, and an undo then restored the wrong thing). Each install now gets its own (`-2`, `-3` on the same minute);
+  the same for undo's keep-aside folder.
+- **Tests:** installer test on a fake Pi (`dev/test_install.py`), accessibility and keyboard checks in the browser
+  test. 570 checks.
+- **Docs:** `docs/accessibility.md`, `docs/tech-debt.md`.
+
 ## 1.3.8 - fixes from the motion tests
 
 New tests (`dev/test_motion.py`, `dev/test_browser.py`, see `docs/testing.md`) follow where the bed and head go and run

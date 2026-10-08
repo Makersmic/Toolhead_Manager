@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='portal.css') }}">
 </head>
 <body>
+  <a class="skip-link" href="#main">Skip to content</a>
   <header class="top-bar">
     <button class="icon-btn" id="menuBtn" aria-label="Menu" aria-controls="sidebar" aria-expanded="false">&#9776;</button>
     <div class="title"><span class="dot"></span>RHINO <span class="muted">// Tool Manager</span></div>
@@ -52,7 +53,7 @@
     <p class="version">v{{ version }}</p>
   </nav>
 
-  <main class="main" id="main">
+  <main class="main" id="main" tabindex="-1">
     <div class="banner hidden" id="restartBanner" role="status" aria-live="polite">
       <div class="banner-main">
         <strong id="bannerTitle">Tool changes are saved but not live yet.</strong>
@@ -95,22 +96,22 @@
       <div class="card">
         <h2>Tool connector (21-pin umbilical)</h2>
         <p class="muted small">Every contact of the tool connector, the board pin behind it, what drives it in the Klipper config and which tools use it.</p>
-        <div class="table-wrap"><table class="tbl" id="contactTable"></table></div>
+        <div class="table-wrap" tabindex="0" role="region" aria-label="Table (scrolls sideways)"><table class="tbl" id="contactTable"></table></div>
       </div>
       <div class="card">
         <h2>Spare pins for new tool outputs</h2>
         <p class="muted small">Board pins wired to the umbilical that a new tool may claim. A pin is free only if nothing in the Klipper config uses it.</p>
-        <div class="table-wrap"><table class="tbl" id="pinTable"></table></div>
+        <div class="table-wrap" tabindex="0" role="region" aria-label="Table (scrolls sideways)"><table class="tbl" id="pinTable"></table></div>
       </div>
       <div class="card">
         <h2>Output channels tools can share</h2>
         <p class="muted small">Existing outputs a new powered tool may drive instead of using a new pin.</p>
-        <div class="table-wrap"><table class="tbl" id="channelTable"></table></div>
+        <div class="table-wrap" tabindex="0" role="region" aria-label="Table (scrolls sideways)"><table class="tbl" id="channelTable"></table></div>
       </div>
       <div class="card">
         <div class="card-head"><h2>System hardware</h2><button class="btn ghost small" type="button" data-hwnew>+ Add system hardware</button></div>
         <p class="muted small">Hardware on other board pins, not plugged into the umbilical: enclosure fans and lights, pumps, sensors.</p>
-        <div class="table-wrap"><table class="tbl" id="hwPinTable"></table></div>
+        <div class="table-wrap" tabindex="0" role="region" aria-label="Table (scrolls sideways)"><table class="tbl" id="hwPinTable"></table></div>
       </div>
     </section>
 
@@ -143,7 +144,7 @@
     <section class="view hidden" id="view-mhistory">
       <div class="view-head"><h1>Work log</h1></div>
       <div class="filter-row"><label class="lbl" for="mHistFilter">Show</label><select id="mHistFilter"></select></div>
-      <div class="card"><div class="table-wrap"><table class="tbl" id="mHistory"></table></div></div>
+      <div class="card"><div class="table-wrap" tabindex="0" role="region" aria-label="Table (scrolls sideways)"><table class="tbl" id="mHistory"></table></div></div>
     </section>
     <section class="view hidden" id="view-mmeters">
       <div class="view-head"><h1>Usage meters</h1></div>

@@ -7,7 +7,8 @@ Uses the demo portal (dev/demo_server.py) on a config with a year of maintenance
 (dev/maint_year_demo.py) and the fake Moonraker, so nothing touches a printer. Covers: every sidebar
 screen, each tool's page, the Add-a-tool wizard, a tool's editor, maintenance Details and Log work
 (saved for real, then found in the Work log), following Mainsail's light theme, a job running, Klipper not
-ready, and a phone-sized screen (menu button, no sideways scrolling).
+ready, a phone-sized screen (menu button, no sideways scrolling), an axe-core WCAG 2.1 AA scan of every
+screen and dialog, and keyboard use (Enter, dialog focus in/trapped/returned, skip link).
 
 Needs Playwright for Python and its Chromium:
     pip install playwright && python3 -m playwright install chromium
@@ -33,6 +34,8 @@ except ImportError:
     sys.exit(0)
 
 fails = []
+AXE_JS = os.path.join(HERE, "node_modules", "axe-core", "axe.min.js")   # npm install --prefix dev axe-core@4.10.2
+AXE = open(AXE_JS).read() if os.path.exists(AXE_JS) else None
 
 
 def ok(cond, msg):
@@ -196,6 +199,52 @@ try:
         fake_set(klippy="ready")
         problems[:] = [x for x in problems if "HTTP 503" not in x]    # the portal reports Klipper down; expected here
         check_problems("printing and Klipper-down states")
+
+        # ---------------------------------------------------------------- accessibility (WCAG 2.1 AA)
+        page.reload()
+        settle(page, 1000)
+        if AXE:
+            def axe(label):
+                settle(page, 300)
+                page.evaluate(AXE)
+                v = page.evaluate("""async () => (await axe.run(document, {runOnly: {type: 'tag', values: ['wcag2a','wcag2aa','wcag21a','wcag21aa']}}))
+                    .violations.map(v => v.id + ': ' + v.nodes.map(n => n.target.join(' ')).slice(0, 2).join(', '))""")
+                if v:
+                    a11y.append(f"{label}: {v[:3]}")
+            a11y = []
+            for view in VIEWS:
+                page.locator(f'.nav-btn[data-view="{view}"]').click()
+                axe(VIEWS[view])
+            page.evaluate("window.RH.openTool('BlockOne')"); axe("BlockOne page")
+            page.evaluate("window.RH.openEditor('Pen')"); axe("editor"); page.keyboard.press("Escape")
+            page.locator("#navAdd").click(); axe("Add-a-tool wizard"); page.keyboard.press("Escape")
+            page.locator('.nav-btn[data-view="mdue"]').click(); settle(page)
+            page.locator("#view-mdue button", has_text="Details").first.click(); axe("task details"); page.keyboard.press("Escape")
+            page.locator("#view-mdue button", has_text="Log work").first.click(); axe("log work"); page.keyboard.press("Escape")
+            ok(not a11y, "axe-core: no WCAG 2.1 AA violations on any screen or dialog" + (f" - {a11y}" if a11y else ""))
+        else:
+            print("SKIP axe scan: npm install --prefix dev axe-core@4.10.2")
+        # keyboard: Enter opens a screen, dialogs take focus, keep it, and give it back
+        page.locator('.nav-btn[data-view="mdue"]').focus()
+        page.keyboard.press("Enter")
+        settle(page)
+        ok(visible_view(page) == ["view-mdue"] and page.locator('.nav-btn[aria-current="page"]').get_attribute("data-view") == "mdue",
+           "keyboard: Enter opens a screen, and the sidebar marks it as the current page")
+        opener = page.locator("#view-mdue button", has_text="Log work").first
+        opener.focus()
+        page.keyboard.press("Enter")
+        settle(page, 300)
+        inside = page.evaluate("!!document.activeElement.closest('#doneModal')")
+        stays = True
+        for _ in range(30):
+            page.keyboard.press("Tab")
+            stays = stays and page.evaluate("!!document.activeElement.closest('#doneModal')")
+        page.keyboard.press("Escape")
+        settle(page, 300)
+        back = page.evaluate("document.activeElement.textContent.trim()") == "Log work" and not page.locator("#doneModal").is_visible()
+        ok(inside and stays and back, f"keyboard: a dialog takes focus ({inside}), Tab stays inside it ({stays}), Escape closes it and focus goes back ({back})")
+        ok(page.locator(".skip-link").count() == 1, "a Skip to content link is the first thing on the page")
+        check_problems("accessibility checks")
 
         page.close()
 

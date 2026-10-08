@@ -21,12 +21,13 @@ Static lint of every .cfg file               unknown commands, invalid options, 
 | Macro tests | `dev/test_macros.py` with `dev/klippersim.py` (178 checks) | Macros render the way Klipper renders them (whole template first), run in order, show the right pop-up and buttons, save the right variables, refuse what they should | Timing, heaters, real pins |
 | Motion tests | `dev/test_motion.py` (82 checks, about a minute) | Where the bed and head end up: the simulator follows the position like Klipper (G90/G91, G92, offsets, `safe_z_home`, `SAVE`/`RESTORE_GCODE_STATE`, pause/resume) and refuses moves past `position_min`/`max` or on unhomed axes, with the limits read from `printer.cfg`. Flows: homing, paper test, print, cancel, swap, Set Z zero, Z restore, CNC, knife, laser pause/resume, filament change. Then a sweep of every macro and every button from 7 machine states x 5 tools (about 15,600 runs) against five safety rules (below) | Collisions: it knows the travel limits, not tool lengths or stock height, so "too close" is judged by rules, not geometry |
 | Portal tests | `test_portal.py` (52), `test_extras.py` (46), `test_v12.py` (71), `test_maint.py` (60) | The portal API, security (token, same-origin), tool registry and generated `custom_tools.cfg`, controls and macros, Task Books, maintenance schedule maths, meters | The browser screens themselves |
-| Browser smoke test | `dev/test_browser.py` (41 checks) | Headless Chromium on the demo portal with a year of maintenance history: every sidebar screen, each tool page, the Add-a-tool wizard, the editor, Details and Log work (saved, then found in the Work log), Mainsail's light theme, a job running, Klipper down, and a phone screen with no sideways scrolling. Fails on any script error or failed request | How the screens look - that's still the screenshots (`dev/demo_server.py`, `dev/maint_year_demo.py`) |
+| Installer test | `dev/test_install.py` (35 checks) | `install.sh`, `uninstall.sh` and the `rhino.sh` menu on a fake Pi (login "tester", an existing config with SAVE_CONFIG, saved variables and a GitHub-backup `.git`; stand-in `sudo`/`systemctl`/`apt-get`; the portal really started from the installed service file): refusals (sudo, job printing, unzipped in the config folder, no printer.cfg, port 5000 taken) change nothing; preview changes nothing; install backs up first, keeps your saved state, `.git` and SAVE_CONFIG (once), rewrites `/home/pi`, starts the portal; update keeps added tools; undo restores exactly; menu options 3 and 4 | Real `apt`, real systemd, the Pi's own Python |
+| Browser smoke test | `dev/test_browser.py` (46 checks) | Headless Chromium on the demo portal with a year of maintenance history: every sidebar screen, each tool page, the Add-a-tool wizard, the editor, Details and Log work (saved, then found in the Work log), Mainsail's light theme, a job running, Klipper down, and a phone screen with no sideways scrolling. Fails on any script error or failed request | How the screens look - that's still the screenshots (`dev/demo_server.py`, `dev/maint_year_demo.py`) |
 | On-machine | The plan below | Everything above, for real | - |
 
-Run every automated layer with `sh dev/run_all.sh` (530 checks, about two minutes; needs `pip install jinja2 flask`,
-and for the browser test `pip install playwright && python3 -m playwright install chromium` - without it that test
-says SKIP). It runs on every push to GitHub (`.github/workflows/tests.yml`). `python3 dev/test_motion.py --quick`
+Run every automated layer with `sh dev/run_all.sh` (570 checks, about three minutes; needs `pip install jinja2 flask`,
+for the browser test `pip install playwright && python3 -m playwright install chromium` and, for its accessibility
+scan, `npm install --prefix dev axe-core@4.10.2` - without them those parts say SKIP). It runs on every push to GitHub (`.github/workflows/tests.yml`). `python3 dev/test_motion.py --quick`
 skips the sweep.
 
 ### The motion sweep's safety rules
@@ -57,18 +58,19 @@ Highest first. A change to anything in the top rows gets on-machine testing befo
 
 ## Gaps, and what would close them
 
-1. **The installer has no automated test.** It's checked by hand with a fake Pi user. Next step:
-   `dev/test_install.sh` running `install.sh` and `uninstall.sh` against a temporary home folder with stub
-   `sudo`/`systemctl`.
-2. **The Orca profiles are checked by hand** (sliced with the OrcaSlicer command line). Next step: a script that
+1. **The Orca profiles are checked by hand** (sliced with the OrcaSlicer command line). Next step: a script that
    slices a test cube and checks the start G-code, first-layer speed and bed size.
-3. **The motion tests know limits, not shapes.** They can't tell that a tool is 40 mm long or the stock is 20 mm
+2. **The motion tests know limits, not shapes.** They can't tell that a tool is 40 mm long or the stock is 20 mm
    tall; "too close" comes from the rules above and the measured 150 mm park height. Only the machine proves clearance.
-4. **Klipper itself never sees the config before you restart.** The first `FIRMWARE_RESTART` (test A2) is the real
-   check; keep it the first step after every install.
+3. **Klipper itself never sees the config before you restart.** The first `FIRMWARE_RESTART` (test A2) is the real
+   check; keep it the first step after every install. Next step: run Klipper's own config loader in CI
+   ([tech-debt.md](tech-debt.md) #3).
+4. **No screen-reader pass.** The accessibility checks are automated (axe-core) plus scripted keyboard use; a pass with
+   VoiceOver on a phone would catch what they can't.
 
-Closed in October 2026: the simulator now follows the machine position (motion tests and sweep), and the portal's
-screens are opened in a real browser on every push (browser smoke test).
+Closed in October 2026: the simulator now follows the machine position (motion tests and sweep), the portal's
+screens are opened in a real browser on every push (browser smoke test, with an accessibility scan), and the
+installer runs on a fake Pi (installer test).
 
 ## Findings from the motion tests (fixed in 1.3.8)
 
@@ -96,20 +98,20 @@ For every version, before the zip is sent:
 - [ ] `CHANGES.md`, `VERSION` and the manual updated
 - [ ] The on-machine tests for whatever changed are listed in `CHANGES.md`
 
-## On-machine acceptance plan (1.3.8)
+## On-machine acceptance plan (1.3.9)
 
 Work through it in order: later sections rely on earlier ones. Have a hand on the emergency stop for every test that
 moves the machine. **Stop if** means stop, don't press on - note what happened and report it.
 
 ### A. Install and start
 
-- [ ] **A1 Install.** Menu option 3, pick `rhino-config-1.3.8.zip`, read the preview, install.
+- [ ] **A1 Install.** Menu option 3, pick `rhino-config-1.3.9.zip`, read the preview, install.
   *Pass:* ends with the portal answering on port 5000. *Stop if:* the preview shows STOPPED.
 - [ ] **A2 Restart.** With a print head mounted: `FIRMWARE_RESTART`.
   *Pass:* Klipper ready, no config errors.
 - [ ] **A3 Tool question.** *Pass:* "Klipper restarted - which toolhead is mounted?" appears; Yes records the tool.
 - [ ] **A4** `CHECK_TOOLHEADS` lists every tool without errors.
-- [ ] **A5 Portal.** Opens at `http://<pi>:5000`, matches Mainsail's dark/light theme, shows version 1.3.8.
+- [ ] **A5 Portal.** Opens at `http://<pi>:5000`, matches Mainsail's dark/light theme, shows version 1.3.9.
 
 ### B. Motion and homing
 

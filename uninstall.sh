@@ -9,7 +9,7 @@
 # install is lost (it is kept aside in ~/rhino-undone-<time> just in case).
 set -u
 CFG="${RHINO_CONFIG_DIR:-$HOME/printer_data/config}"
-SERVICE=/etc/systemd/system/rhino-portal.service
+SERVICE="${RHINO_SERVICE_FILE:-/etc/systemd/system/rhino-portal.service}"   # only dev/test_install.py sets this
 DRY=0; B=""
 for a in "$@"; do [ "$a" = "--dry-run" ] && DRY=1 || B="$a"; done
 [ -z "$B" ] && [ -f "$HOME/.rhino-last-backup" ] && B="$(cat "$HOME/.rhino-last-backup")"
@@ -21,7 +21,9 @@ do_() { if [ $DRY = 1 ]; then printf '   would run: %s\n' "$*"; else "$@"; fi; }
 echo "Restoring $B  ->  $CFG"
 [ $DRY = 0 ] && { sudo -v || fail "sudo did not accept the password."; }
 
-do_ cp -a "$CFG" "$HOME/rhino-undone-$(date +%Y-%m-%d-%H%M)"
+UNDONE="$HOME/rhino-undone-$(date +%Y-%m-%d-%H%M)"
+n=1; while [ -e "$UNDONE" ]; do n=$((n+1)); UNDONE="$HOME/rhino-undone-$(date +%Y-%m-%d-%H%M)-$n"; done
+do_ cp -a "$CFG" "$UNDONE"
 do_ sudo systemctl disable --now rhino-portal
 if [ -f "$B/_rhino_install/old-rhino-portal.service" ]; then
   echo "Putting back your previous portal service"

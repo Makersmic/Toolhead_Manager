@@ -56,6 +56,7 @@ function showTip(e, value, label, color) {
 const hideTip = () => tip.classList.add("hidden");
 function hover(el, value, label, color) {
   el.setAttribute("tabindex", "0");
+  el.setAttribute("role", "img");
   el.setAttribute("aria-label", `${label}: ${value}`);
   el.addEventListener("pointermove", (e) => showTip(e, value, label, color));
   el.addEventListener("pointerleave", hideTip);
@@ -78,6 +79,8 @@ function chartCard(id, title, sub, chart, legend, tableRows, tableHead) {
   } else {
     if (legend && legend.length) card.append(h("div", { class: "dash-legend" }, legend.map(([c, l, shape]) =>
       h("span", { class: "dash-leg" }, (() => { const k = h("span", { class: "dash-sw" + (shape === "line" ? " line" : "") }); k.style.setProperty("--c", c); return k; })(), l))));
+    const sv = chart && (chart.tagName && chart.tagName.toLowerCase() === "svg" ? chart : chart.querySelector && chart.querySelector("svg"));
+    if (sv && !sv.getAttribute("aria-label")) sv.setAttribute("aria-label", title + (tableRows ? " - press Table for the numbers" : ""));
     card.append(chart);
   }
   return card;
@@ -95,7 +98,7 @@ function hbars(rows, opts = {}) {
   const Hh = top + rows.length * rowH + 22;
   const max = niceMax(Math.max(1e-9, ...rows.map((r) => r.parts.reduce((a, p) => a + p.v, 0))));
   const x = (v) => (v / max) * (W - left - right);
-  const s = svg("svg", { viewBox: `0 0 ${W} ${Hh}`, class: "dash-svg", role: "img", "aria-label": opts.aria || "" });
+  const s = svg("svg", { viewBox: `0 0 ${W} ${Hh}`, class: "dash-svg", role: "group", "aria-label": opts.aria || "" });
   // recessive grid: 0, half, max
   [0, 0.5, 1].forEach((f) => {
     const gx = left + f * (W - left - right);
@@ -129,7 +132,7 @@ function hbars(rows, opts = {}) {
 /* donut for part-to-whole (<= 8 segments), centre figure + caption */
 function donut(segs, centre, caption) {
   const S0 = 200, R = 80, r = 54, cx = S0 / 2, cy = S0 / 2;
-  const s = svg("svg", { viewBox: `0 0 ${S0} ${S0}`, class: "dash-donut", role: "img" });
+  const s = svg("svg", { viewBox: `0 0 ${S0} ${S0}`, class: "dash-donut", role: "group" });
   const total = segs.reduce((a, g) => a + g.v, 0);
   if (!total) {
     s.append(svg("circle", { cx, cy, r: (R + r) / 2, fill: "none", class: "dash-track", "stroke-width": R - r }));
@@ -162,7 +165,7 @@ function columns(weeks, opts = {}) {
   const max = Math.ceil(rawMax / step) * step;
   const y = (v) => top + (1 - v / max) * (Hh - top - bottom);
   const band = (W - left - right) / weeks.length, bw = Math.min(24, band * 0.62);
-  const s = svg("svg", { viewBox: `0 0 ${W} ${Hh}`, class: "dash-svg", role: "img" });
+  const s = svg("svg", { viewBox: `0 0 ${W} ${Hh}`, class: "dash-svg", role: "group" });
   for (let v = 0; v <= max; v += step) {
     s.append(svg("line", { x1: left, x2: W - right, y1: y(v), y2: y(v), class: v === 0 ? "dash-axis" : "dash-grid" }));
     const t = svg("text", { x: left - 6, y: y(v) + 4, class: "dash-tick", "text-anchor": "end" }); t.textContent = fmtN(v); s.append(t);

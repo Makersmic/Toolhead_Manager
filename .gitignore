@@ -6,3 +6,5 @@ manual/content.pdf
 manual/proof/
 manual/overlay.*
 manual/content.*
+dev/node_modules/
+dev/package*.json

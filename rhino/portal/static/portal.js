@@ -11,7 +11,7 @@ function h(tag, props = {}, ...kids) {
   const el = document.createElement(tag);
   for (const [k, v] of Object.entries(props)) {
     if (v === undefined || v === null || v === false) continue;
-    if (k === "class") el.className = v;
+    if (k === "class") { el.className = v; if (v === "table-wrap") { el.tabIndex = 0; el.setAttribute("role", "region"); el.setAttribute("aria-label", "Table (scrolls sideways)"); } }
     else if (k === "text") el.textContent = v;
     else if (k.startsWith("on")) el.addEventListener(k.slice(2), v);
     else if (k === "value" || k === "checked" || k === "disabled" || k === "selected") el[k] = v;
@@ -233,11 +233,18 @@ async function deleteHardware() {
   catch (e) { showError("itemError", e.message); }
 }
 
+function focusables(root) {
+  return [...root.querySelectorAll('button, [href], input, select, textarea, summary, [tabindex]:not([tabindex="-1"])')]
+    .filter((e) => !e.disabled && e.offsetParent !== null);
+}
 let currentView = "dash";
 function showView(name) {
   currentView = name;
   document.querySelectorAll(".view").forEach((v) => v.classList.toggle("hidden", v.id !== "view-" + name));
-  document.querySelectorAll(".nav-btn[data-view]").forEach((b) => b.classList.toggle("active", b.dataset.view === name));
+  document.querySelectorAll(".nav-btn[data-view]").forEach((b) => {
+    b.classList.toggle("active", b.dataset.view === name);
+    if (b.dataset.view === name) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current");
+  });
   const btn = document.querySelector(`.nav-btn[data-view="${name}"]`), g = btn && btn.closest(".nav-group");
   if (g && g.classList.contains("collapsed")) setGroup(g, true, false);
   setSidebar(false);
@@ -260,7 +267,17 @@ function initNav() {
 }
 
 /* shared form builders */
-function field(label, input, hint) { return h("div", { class: "field" }, h("label", { text: label }), input, hint ? h("div", { class: "hint", text: hint }) : null); }
+let fieldSeq = 0;
+function field(label, input, hint) {     // the label (and hint) are tied to the control, so screen readers announce them
+  const lab = h("label", { text: label }), tip = hint ? h("div", { class: "hint", text: hint }) : null;
+  const ctl = input && input.matches && (input.matches("input,select,textarea") ? input : input.querySelector("input,select,textarea"));
+  if (ctl) {
+    if (!ctl.id) ctl.id = "fld" + (++fieldSeq);
+    lab.htmlFor = ctl.id;
+    if (tip) { tip.id = ctl.id + "-hint"; ctl.setAttribute("aria-describedby", tip.id); }
+  }
+  return h("div", { class: "field" }, lab, input, tip);
+}
 function textInput(obj, key, props = {}) {
   return h("input", { type: "text", value: obj[key] ?? "", autocomplete: "off", ...props, oninput: (e) => { obj[key] = e.target.value; props.onchange && props.onchange(); } });
 }
@@ -908,7 +925,7 @@ function drawEditor() {
     h("img", { src: `/media/${E.name}/${fn}`, alt: "photo" }),
     h("button", { class: "btn danger small", type: "button", text: "x", "aria-label": "Delete photo", onclick: () => photoDelete(fn) }))));
   b.append(h("div", { class: "field" }, h("label", { text: "Photos" }), ph, h("input", { type: "file", accept: "image/png,image/jpeg,image/gif,image/webp", multiple: true,
-    onchange: (e) => photoUpload([...e.target.files]) })));
+    "aria-label": "Add photos", onchange: (e) => photoUpload([...e.target.files]) })));
 }
 
 async function photoUpload(files) {
@@ -996,11 +1013,30 @@ function init() {
   initNav();
   setInterval(tickBanner, 1000);
   document.querySelectorAll("[data-close]").forEach((b) => { b.onclick = () => b.closest(".modal").classList.add("hidden"); });
-  document.addEventListener("keydown", (e) => {          // Esc closes the top-most dialog only
-    if (e.key !== "Escape") return;
+  document.addEventListener("keydown", (e) => {          // Esc closes the top-most dialog only; Tab stays inside it
     const open = [...document.querySelectorAll(".modal:not(.hidden)")];
-    if (open.length) open[open.length - 1].classList.add("hidden");
+    if (!open.length) return;
+    const top = open[open.length - 1];
+    if (e.key === "Escape") { top.classList.add("hidden"); return; }
+    if (e.key !== "Tab") return;
+    const f = focusables(top);
+    if (!f.length) return;
+    const first = f[0], last = f[f.length - 1];
+    if (!top.contains(document.activeElement)) { e.preventDefault(); first.focus(); }
+    else if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
   });
+  // every dialog: on open, remember who opened it and move focus in; on close, give focus back
+  document.querySelectorAll(".modal").forEach((m) => new MutationObserver(() => {
+    const shown = !m.classList.contains("hidden");
+    if (shown && !m._opener) {
+      m._opener = document.activeElement;
+      setTimeout(() => { const f = focusables(m.querySelector(".modal-body") || m)[0] || focusables(m)[0]; if (f) f.focus(); }, 0);
+    } else if (!shown && m._opener) {
+      const o = m._opener; m._opener = null;
+      if (o && document.contains(o) && o.offsetParent !== null) o.focus();
+    }
+  }).observe(m, { attributes: true, attributeFilter: ["class"] }));
   applyTheme(); setInterval(applyTheme, 120000);
   refresh().catch((e) => toast(e.message, true));
   setInterval(() => { if (!document.querySelector(".modal:not(.hidden)")) refresh().catch(() => {}); }, 10000);
