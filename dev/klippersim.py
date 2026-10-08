@@ -296,7 +296,7 @@ class Sim:
                 if a.upper() in p:
                     self.base[a] = pos[a] - float(p[a.upper()] or 0)
             self._sync()
-        elif cmd == "G28":
+        elif cmd in ("G28", "G28.1"):
             self._g28(p, line)
         elif cmd == "SET_KINEMATIC_POSITION":
             for a in "xyz":

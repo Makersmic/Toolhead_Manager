@@ -19,12 +19,12 @@ Static lint of every .cfg file               unknown commands, invalid options, 
 |---|---|---|---|
 | Lint | `dev/lint_rhino.py` | Every macro calls a command that exists; options Klipper rejects at start-up (e.g. `description:` in a `delayed_gcode`, soft-PWM `shutdown_value` other than 0/1); pins used twice | That Klipper accepts the whole config on your board |
 | Macro tests | `dev/test_macros.py` with `dev/klippersim.py` (178 checks) | Macros render the way Klipper renders them (whole template first), run in order, show the right pop-up and buttons, save the right variables, refuse what they should | Timing, heaters, real pins |
-| Motion tests | `dev/test_motion.py` (45 checks, about a minute) | Where the bed and head end up: the simulator follows the position like Klipper (G90/G91, G92, offsets, `safe_z_home`, `SAVE`/`RESTORE_GCODE_STATE`, pause/resume) and refuses moves past `position_min`/`max` or on unhomed axes, with the limits read from `printer.cfg`. Flows: homing, paper test, print, cancel, swap, Set Z zero, Z restore, CNC, knife, laser pause/resume, filament change. Then a sweep of every macro and every button from 7 machine states x 5 tools (about 15,600 runs) against five safety rules (below) | Collisions: it knows the travel limits, not tool lengths or stock height, so "too close" is judged by rules, not geometry |
+| Motion tests | `dev/test_motion.py` (82 checks, about a minute) | Where the bed and head end up: the simulator follows the position like Klipper (G90/G91, G92, offsets, `safe_z_home`, `SAVE`/`RESTORE_GCODE_STATE`, pause/resume) and refuses moves past `position_min`/`max` or on unhomed axes, with the limits read from `printer.cfg`. Flows: homing, paper test, print, cancel, swap, Set Z zero, Z restore, CNC, knife, laser pause/resume, filament change. Then a sweep of every macro and every button from 7 machine states x 5 tools (about 15,600 runs) against five safety rules (below) | Collisions: it knows the travel limits, not tool lengths or stock height, so "too close" is judged by rules, not geometry |
 | Portal tests | `test_portal.py` (52), `test_extras.py` (46), `test_v12.py` (71), `test_maint.py` (60) | The portal API, security (token, same-origin), tool registry and generated `custom_tools.cfg`, controls and macros, Task Books, maintenance schedule maths, meters | The browser screens themselves |
 | Browser smoke test | `dev/test_browser.py` (41 checks) | Headless Chromium on the demo portal with a year of maintenance history: every sidebar screen, each tool page, the Add-a-tool wizard, the editor, Details and Log work (saved, then found in the Work log), Mainsail's light theme, a job running, Klipper down, and a phone screen with no sideways scrolling. Fails on any script error or failed request | How the screens look - that's still the screenshots (`dev/demo_server.py`, `dev/maint_year_demo.py`) |
 | On-machine | The plan below | Everything above, for real | - |
 
-Run every automated layer with `sh dev/run_all.sh` (493 checks, about two minutes; needs `pip install jinja2 flask`,
+Run every automated layer with `sh dev/run_all.sh` (530 checks, about two minutes; needs `pip install jinja2 flask`,
 and for the browser test `pip install playwright && python3 -m playwright install chromium` - without it that test
 says SKIP). It runs on every push to GitHub (`.github/workflows/tests.yml`). `python3 dev/test_motion.py --quick`
 skips the sweep.
@@ -40,7 +40,7 @@ skips the sweep.
 | R5 | X/Y are never homed with Z unhomed while a park height is saved (Klipper's `safe_z_home` lowers the bed 10 mm blind, so the saved height goes wrong) |
 
 Findings waiting on a decision are listed in `KNOWN` in `dev/test_motion.py`: they're reported but don't fail the run.
-Anything new fails it. When a finding is fixed, the test says so and it comes off the list.
+Anything new fails it. When a finding is fixed, the test says so and it comes off the list. Since 1.3.8 the list is empty.
 
 ## What to cover, by risk
 
@@ -70,20 +70,20 @@ Highest first. A change to anything in the top rows gets on-machine testing befo
 Closed in October 2026: the simulator now follows the machine position (motion tests and sweep), and the portal's
 screens are opened in a real browser on every push (browser smoke test).
 
-## Open findings from the motion tests
+## Findings from the motion tests (fixed in 1.3.8)
 
-Found by `dev/test_motion.py` in October 2026. None of these are changed yet: each needs a yes before it goes into
-the config.
+Found by `dev/test_motion.py` in October 2026; each one now has its own checks in that file, and the sweep's known
+list is empty.
 
-| ID | Priority | What happens | Suggested fix |
-|---|---|---|---|
-| M1 | High | **First layer printed without the paper-test height.** `START_JOB` holds the file (`PAUSE_BASE`), sets the nozzle height while it waits, then releases it with `RESUME_BASE`. Klipper's resume puts back the G-code offsets from the moment the file was held, so the file prints with Z offset 0: too high if your paper-test number is negative, into the bed if it's positive | `_RHINO_JOB_GO` re-applies the offsets right after `RESUME_BASE` (3 lines; tried on a copy: the first layer lands at the right height and all tests pass) |
-| M2 | High | **Z can be homed with a non-print tool.** The old `HOME` macro, `PURGE` (when not homed) and Mainsail's own Home buttons all run `G28`, which drives the bed up to find a probe that isn't there | A `G28` guard: Z homing only with a print head confirmed; `G28 X Y` always allowed. Also covers Mainsail's buttons. Check on the machine that it works with `[safe_z_home]` |
-| M3 | Medium | **`PURGE` with any tool mounted** heats the nozzle and moves the bed to Z5. `PREHEAT` and `FILAMENT_CHANGE` also heat the nozzle with a laser, spindle or knife mounted | Refuse unless a print head is mounted, like `NOZZLE_HEIGHT_CALIBRATE` does |
-| M4 | Medium | **Saved park height goes 10 mm wrong.** After a restart with the bed parked, `SWAP_TOOL` (and `CANCEL_PRINT`) home X/Y with Z unhomed. Klipper's `safe_z_home` then lowers the bed 10 mm without knowing where it is, so a later "Bed position - Yes" thinks the bed is 10 mm higher than it is (Bed down's Z380 limit would really be Z390) | Ask the same "Bed position" question and set Z from the park height before homing X/Y, as `SET_Z_ZERO` already does |
-| M5 | Low | CNC cancel lifts 15 mm and filament change lifts 10 mm with no limit check: above Z385/Z390 Klipper refuses the lift and the rest of the macro doesn't run. Filament change also doesn't check homing first (it heats, then fails) | Limit the lift to Z400; check homing before heating |
-| M6 | Low | The prime line ends at first-layer height, and releasing the file then travels diagonally from there back to where the head was after homing, rising as it goes | Lift 2 mm at the end of `PRIME_LINE` |
-| M7 | Low | `ABORT_TOOL_SWAP` (or filament-change Cancel) typed with nothing running gives a Klipper "Unknown g-code state" error | Harmless; leave it |
+| ID | Was | Fix |
+|---|---|---|
+| M1 | The nozzle height saved by the paper test was applied while `START_JOB` held the file, and Klipper's resume put back the offsets from the moment it was held, so the first layer printed without it | `_RHINO_JOB_GO` re-applies the job's offsets right after the release |
+| M2 | Z could be homed with a non-print tool: the old `HOME` macro, `PURGE`, Mainsail's Home buttons | `[gcode_macro G28]` (renames Klipper's to `G28.1`): Z only with a print head confirmed; `G28 X Y` always |
+| M3 | `PURGE`, `PREHEAT` and `FILAMENT_CHANGE` heated the nozzle (and `PURGE` moved the bed to Z5) with any tool mounted | `_RHINO_NEED_PRINT_HEAD` at the top of each: refused unless a print head is mounted; filament change also needs X/Y/Z homed |
+| M4 | Homing X/Y with Z unhomed lowers the bed 10 mm (Klipper's `safe_z_home`), leaving the saved park height 10 mm off | The `G28` guard adds the 10 mm to the saved height, and refuses if that would pass the end of travel |
+| M5 | CNC warm-up/cancel, knife cancel and filament change lifted without a limit check | `_RHINO_LIFT`: same lift, stopped at the end of Z travel |
+| M6 | The prime line ended at first-layer height, so the next travel dragged from there | `PRIME_LINE` ends 2 mm up |
+| M7 | `ABORT_TOOL_SWAP` / filament-change Cancel with nothing running gave a Klipper error | They say there's nothing to cancel |
 
 ## Release checklist
 
@@ -96,20 +96,20 @@ For every version, before the zip is sent:
 - [ ] `CHANGES.md`, `VERSION` and the manual updated
 - [ ] The on-machine tests for whatever changed are listed in `CHANGES.md`
 
-## On-machine acceptance plan (1.3.7)
+## On-machine acceptance plan (1.3.8)
 
 Work through it in order: later sections rely on earlier ones. Have a hand on the emergency stop for every test that
 moves the machine. **Stop if** means stop, don't press on - note what happened and report it.
 
 ### A. Install and start
 
-- [ ] **A1 Install.** Menu option 3, pick `rhino-config-1.3.7.zip`, read the preview, install.
+- [ ] **A1 Install.** Menu option 3, pick `rhino-config-1.3.8.zip`, read the preview, install.
   *Pass:* ends with the portal answering on port 5000. *Stop if:* the preview shows STOPPED.
 - [ ] **A2 Restart.** With a print head mounted: `FIRMWARE_RESTART`.
   *Pass:* Klipper ready, no config errors.
 - [ ] **A3 Tool question.** *Pass:* "Klipper restarted - which toolhead is mounted?" appears; Yes records the tool.
 - [ ] **A4** `CHECK_TOOLHEADS` lists every tool without errors.
-- [ ] **A5 Portal.** Opens at `http://<pi>:5000`, matches Mainsail's dark/light theme, shows version 1.3.7.
+- [ ] **A5 Portal.** Opens at `http://<pi>:5000`, matches Mainsail's dark/light theme, shows version 1.3.8.
 
 ### B. Motion and homing
 
@@ -120,6 +120,9 @@ moves the machine. **Stop if** means stop, don't press on - note what happened a
 - [ ] **B5 Cancel park.** Start any print, cancel it. *Pass:* bed lowers to Z150 or more, X/Y home, head goes to
   X551 Y381 without touching the frame. *Stop if:* it hits - report the position.
 
+- [ ] **A6 Homing guard** (new in 1.3.8). With LightSaber mounted, press Mainsail's Home All. *Pass:* refused with a
+  message, nothing moves; Home X and Home Y work. With BlockOne: Home All homes as before. *Stop if:* the bed rises.
+
 ### C. Tool swap safety
 
 - [ ] **C1 Swap BlockOne to LightSaber** (`SWAP_TOOL`). *Pass:* waits until the hotend and bed are below 40 °C,
@@ -129,11 +132,14 @@ moves the machine. **Stop if** means stop, don't press on - note what happened a
 - [ ] **C3 Wrong tool.** With LightSaber mounted, start a BlockOne file. *Pass:* refused with "hardware mismatch",
   nothing moves.
 
+- [ ] **C4 Park height after a restart** (new in 1.3.8). Bed parked, `FIRMWARE_RESTART`, answer the tool question,
+  swap to another tool. *Pass:* the console says homing X/Y lowered the bed 10 mm and the park height was updated;
+  `SET_Z_ZERO` - Yes then shows that height.
+
 ### D. Printing (BlockOne)
 
 - [ ] **D1 Nozzle height** (`NOZZLE_HEIGHT_CALIBRATE`). *Pass:* paper drags at the saved height; prime line sticks.
-- [ ] **D2 Test cube with the 1.3.7 Orca profiles.** Until finding M1 is fixed, watch the first layer closely and
-  be ready to stop: it is printed without the paper-test height. *Pass:* confirm window, PLA question closes as soon as it's
+- [ ] **D2 Test cube with the Orca profiles.** The first layer is laid at the paper-test height (fixed in 1.3.8). *Pass:* confirm window, PLA question closes as soon as it's
   answered, 210 °C / 65 °C, prime line drawn, first layer slow (15 mm/s), `END_PRINT` lowers the bed to the park
   height.
 - [ ] **D3 Prime line length.** Measure it. *Pass:* about 120 mm. *Stop if:* about half - same cause as B1.

@@ -17,8 +17,8 @@ that must always hold:
   R3  the bed never rises toward a non-print tool, except where that is the point
       (Set Z zero's Bed up buttons, returning to the cut on resume, the knife's own test cut)
   R4  the nozzle heater is never switched on with a non-print tool mounted
-  R5  X/Y are never homed with Z unhomed while a park height is saved and Z is left unhomed
-      (safe_z_home's blind 10 mm Z hop makes the saved height wrong)
+  R5  the saved park height stays true: when X/Y are homed with Z unhomed, Klipper's safe_z_home
+      lowers the bed 10 mm blind, so the saved height must go up by the same amount
 Jobs only run homed, so the not-homed states are tried idle, with the macros a person can run
 (no leading underscore) and their buttons.
 Known findings that are waiting on a decision are listed in KNOWN with a note; they are reported
@@ -153,15 +153,42 @@ low = [m for m in pl if m["to"]["z"] < m["frm"]["z"] + 1e-9 and abs(m["to"]["z"]
 length = sum(abs(m["to"]["y"] - m["frm"]["y"]) + abs(m["to"]["x"] - m["frm"]["x"]) for m in low)
 ok(pl and all(0 <= m["to"]["x"] <= 550 for m in pl), "prime line stays on the 550 mm bed")
 ok(abs(length - 120) < 1e-6, f"prime line is 120 mm long ({length})")
-ok(abs(pl[-1]["to"]["z"] - (0.2 - 1.3)) < 1e-6, f"...drawn at 0.2 mm with the paper-test offset (machine Z {pl[-1]['to']['z']})")
+ok(low and all(abs(m["to"]["z"] - (0.2 - 1.3)) < 1e-6 for m in low), "...drawn at 0.2 mm with the paper-test offset (machine Z -1.1)")
+ok(abs(pl[-1]["to"]["z"] - (2 - 1.3)) < 1e-6, f"...then lifts 2 mm clear of the line (M6) (machine Z {pl[-1]['to']['z']})")
+ok(abs(s.objects["gcode_move"]["homing_origin"]["z"] + 1.3) < 1e-9, "the paper-test offset is still applied after the file is released (M1)")
 s.run_script("G1 X100 Y100 Z0.2 F3000")
-known(pos(s) == (100.0, 100.0, -1.1), f"file move G1 X100 Y100 Z0.2 lands at machine {pos(s)}, expected Z-1.1",
-      "the paper-test Z offset is applied while the file is held (PAUSE_BASE), and Klipper's RESUME restores "
-      "the offset saved at the pause, so the first layer prints without it")
+ok(pos(s) == (100.0, 100.0, -1.1), f"file move G1 X100 Y100 Z0.2 lands at machine {pos(s)}: the first layer uses the paper test")
 n = len(s.moves)
 s.run_script("END_PRINT")
 ok(pos(s)[2] >= SAFE_Z and min(zs(s, n)) >= -1.1, f"END_PRINT: bed only goes down, ends parked at Z{pos(s)[2]}")
 ok(gpos(s) == pos(s), "...and no offset is left for the next job (G-code position = machine position)")
+
+print("== G28 guard (M2) ==")
+for slot in (3, 4, 5):
+    s = sim(slot, homed="")
+    err = run(s, "G28") or ""
+    ok("only homed with a print head" in err and not s.moves, f"G28 with {TOOLS[slot][0]} mounted is refused before anything moves")
+    err = run(s, "G28 Z") or ""
+    ok("only homed with a print head" in err, f"...so is G28 Z")
+    ok(run(s, "G28 X Y") is None and s._homed() == "xy" and not any(m["kind"] == "home_z" for m in s.moves), "...G28 X Y homes only X and Y")
+s = sim(0, homed="")
+ok("confirmed print head" in (run(s, "G28") or "") and not s.moves, "after a restart, before the tool question is answered: G28 refused")
+ok(run(s, "G28 X") is None and s._homed() == "x", "...G28 X still works")
+s = sim(3, homed="")
+ok("only homed with a print head" in (run(s, "HOME") or ""), "the old HOME macro goes through the guard too")
+s = sim(1, homed="")
+ok(run(s, "G28") is None and s._homed() == "xyz", "with BlockOne: G28 homes everything as before")
+
+print("== saved park height stays true (M4) ==")
+s = sim(3, x=300, y=200, z=152.5, homed="", rhino_z_safe=1, rhino_park_z=152.5)
+s.run_script("SWAP_TOOL TOOL=1")
+hop = [m for m in s.moves if m["kind"] == "blind_z_hop"]
+ok(len(hop) == 1 and abs(s.save_vars["rhino_park_z"] - 162.5) < 1e-9, "swap after a restart: X/Y homing lowers the bed 10 mm, and the saved park height becomes 162.5")
+s = sim(3, x=300, y=200, z=395.0, homed="", rhino_z_safe=1, rhino_park_z=395.0)
+ok("bottom of its travel" in (run(s, "G28 X Y") or "") and not s.moves, "parked within 10 mm of the bottom: X/Y homing refused (it would lower the bed past the end)")
+s = sim(4, x=300, y=200, z=0.0, homed="", rhino_z_safe=1, rhino_park_z=152.5)
+run(s, "SET_Z_ZERO"); s.press("Yes")
+ok(abs(s.save_vars["rhino_park_z"] - 152.5) < 1e-9, "Bed position - Yes: Z set first, so the park height is unchanged")
 
 print("== cancel ==")
 s = sim(1, x=200, y=150, z=0.3, job="printing")
@@ -248,6 +275,37 @@ ok(abs(pos(s)[2] - 52.0) < 1e-6, f"...and ends 10 mm above it ({pos(s)[2]})")
 ok(all(m["frm"]["z"] >= 42.0 - 1e-6 for m in cut if (m["to"]["x"], m["to"]["y"]) != (m["frm"]["x"], m["frm"]["y"]) and m["to"]["z"] >= 42.0),
    "travel moves are made above the surface")
 
+print("== lifts stop at the end of Z travel (M5) ==")
+s = sim(4, z=392.0, set_material_feed_rate=800)
+ok(run(s, "_CNC_ABORT") is None and pos(s)[2] == LIM_MAX["z"], f"CNC cancel at Z392: lifts to Z400, not Z407 ({pos(s)[2]})")
+s = sim(5, z=390.0)
+ok(run(s, "_DK_ABORT") is None and pos(s)[2] == LIM_MAX["z"], "knife cancel at Z390: lifts to Z400")
+s = sim(4, z=395.0)
+s.save_vars.update(set_material_toolhead="HotJoe", set_material_material="SOFT_WOOD")
+ok(run(s, "_CNC_WARMUP") is None and pos(s)[2] == LIM_MAX["z"], "CNC warm-up lift at Z395: stops at Z400")
+s = sim(1, z=395.0, set_material_extruder_temp=210.0)
+ok(run(s, "FILAMENT_CHANGE") is None and run(s, "_FC_HEAT TOOLHEAD=BlockOne MATERIAL=PLA TEMP=210") is None and pos(s)[2] == LIM_MAX["z"], "filament change at Z395: lifts to Z400 and parks")
+s = sim(1, homed="xy", set_material_extruder_temp=210.0)
+ok("home the printer first" in (run(s, "FILAMENT_CHANGE") or "") and not s.heats, "filament change with Z not homed: refused before heating")
+
+print("== print-head-only commands (M3) ==")
+for cmd in ("PURGE", "PREHEAT", "FILAMENT_CHANGE"):
+    for slot in (3, 4, 5):
+        s = sim(slot, homed="")
+        err = run(s, cmd) or ""
+        ok("is for print heads" in err and not s.heats and not s.moves, f"{cmd} with {TOOLS[slot][0]}: refused, no heat, no movement")
+s = sim(1, set_material_extruder_temp=210.0)
+s.objects["extruder"]["temperature"] = 25.0
+ok(run(s, "PURGE") is None and s.heats, "PURGE with BlockOne: heats and purges as before")
+
+print("== nothing to cancel (M7) ==")
+s = sim(1)
+ok(run(s, "ABORT_TOOL_SWAP") is None and any("No tool swap is running" in str(x) for x in s.log), "ABORT_TOOL_SWAP with no swap: says so, no Klipper error")
+ok(run(s, "_FC_ABORT") is None and any("No filament change is running" in str(x) for x in s.log), "filament-change Cancel with none running: says so")
+s = sim(1, z=20.0)
+s.run_script("SWAP_TOOL TOOL=3")
+ok(run(s, "ABORT_TOOL_SWAP") is None and s.macro_vars["SWAP_TOOL"]["pending_tool"] == -1, "ABORT_TOOL_SWAP during a swap still cancels it")
+
 print("== laser pause and resume ==")
 s = sim(3, x=120.0, y=80.0, z=150.0, job="printing")
 s.run_script("SET_GCODE_OFFSET Z=99")
@@ -276,20 +334,7 @@ ok(all(m["to"]["z"] >= 12.0 for m in moves(s)), "filament change only lowers the
 
 # =============================================================== Part 2: sweep
 KNOWN = {
-    # rule, macro chain : note shown in the report
-    ("R2", "HOME"): "HOME (the old 'home' macro) runs G28 with any tool mounted",
-    ("R2", "PURGE"): "PURGE homes with G28 when not homed, with any tool mounted",
-    ("R3", "PURGE"): "PURGE moves the bed to Z5 with any tool mounted",
-    ("R4", "PURGE"): "PURGE heats the nozzle with any tool mounted",
-    ("R4", "_FC_HEAT"): "FILAMENT_CHANGE heats the nozzle with any tool mounted",
-    ("R4", "_PREHEAT_STAGE2"): "PREHEAT heats the nozzle with any tool mounted",
-    ("R4", "PREHEAT > _PREHEAT_STAGE2"): "PREHEAT heats the nozzle with any tool mounted",
-    ("R5", "CANCEL_PRINT"): "CANCEL_PRINT after a restart homes X/Y with Z unhomed: the bed drops 10 mm and the saved park height is then 10 mm off",
-    ("R5", "SWAP_TOOL"): "a swap after a restart homes X/Y with Z unhomed: the bed drops 10 mm and the saved park height is then 10 mm off",
-    ("R1", "_CNC_ABORT > G1"): "CNC cancel lifts 15 mm without a limit check (fails above Z385)",
-    ("R1", "_FC_HEAT > G1"): "filament change lifts 10 mm without a limit check (fails above Z390), and needs X/Y/Z homed",
-    ("R1", "ABORT_TOOL_SWAP"): "ABORT_TOOL_SWAP typed with no swap running: Klipper errors (harmless)",
-    ("R1", "_FC_ABORT"): "filament-change Cancel with no saved state: Klipper errors (harmless)",
+    # (rule, macro chain): note shown in the report - findings waiting on a decision. Empty since 1.3.8.
 }
 # Places where moving the bed up toward a non-print tool is the point
 BED_UP_OK = {"_Z_ZERO_MOVE", "TOOL_RESUME", "_DK_TEST_CUT", "_LASER_TEST_FIRE", "_CNC_WARMUP"}
@@ -320,6 +365,7 @@ if not QUICK:
         s = sim(slot, job=job, **st)
         s.motion_strict = False
         s.started_homed = s._homed() == "xyz"
+        s.start_park = s.save_vars.get("rhino_park_z") if s.save_vars.get("rhino_z_safe") == 1 else None
         for script, is_button in ((mac, False), (button, True)):
             if script is None:
                 continue
@@ -345,8 +391,10 @@ if not QUICK:
             if (slot not in PRINT_HEADS and m["kind"] in ("move", "restore", "offset_move") and m["frm"]
                     and m["to"]["z"] < m["frm"]["z"] - 1e-6 and not BED_UP_OK & set(m["stack"])):
                 found[("R3", chain)].add(f"{tool}, {where}: Z{m['frm']['z']:g} -> Z{m['to']['z']:g}")
-            if m["kind"] == "blind_z_hop" and s.save_vars.get("rhino_z_safe") == 1 and "z" not in s._homed():
-                found[("R5", " > ".join(m["stack"][:1]))].add(f"{tool}, {where}")
+        if s.start_park is not None and s.save_vars.get("rhino_z_safe") == 1 and "z" not in s._homed():
+            hops = sum(m.get("dz", 0) for m in s.moves if m["kind"] == "blind_z_hop")
+            if abs(s.save_vars.get("rhino_park_z", 0) - (s.start_park + hops)) > 1e-6:
+                found[("R5", where.split(", ")[-1].split(" / ")[0])].add(f"{tool}, {where}: bed lowered {hops:g} mm, saved height {s.save_vars.get('rhino_park_z')}")
         if slot not in PRINT_HEADS:
             for stack in s.heats:
                 found[("R4", " > ".join(stack[-3:]))].add(f"{tool}, {where}")
@@ -367,7 +415,7 @@ if not QUICK:
     print(f"   {runs} runs")
     rules = {"R1": "a move Klipper would refuse", "R2": "Z homed with a non-print tool",
              "R3": "bed raised toward a non-print tool", "R4": "nozzle heated with a non-print tool",
-             "R5": "X/Y homed with Z unhomed while a park height is saved"}
+             "R5": "saved park height no longer matches the bed"}
     known_seen = set()
     for key in sorted(found):
         rule, chain = key

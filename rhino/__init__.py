@@ -22,4 +22,4 @@ Layout (read top to bottom; each module only imports the ones above it):
     portal/         Flask app: routes.py + maint_routes.py (HTTP), security.py, media.py (photos),
                     static/ (portal.js, maint.js, portal.css) + templates/ (screens)
 """
-__version__ = "1.3.7"
+__version__ = "1.3.8"

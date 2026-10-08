@@ -1,17 +1,29 @@
 # What changed
 
-## Not released yet - tests only (no config change)
+## 1.3.8 - fixes from the motion tests
 
-- **Motion tests** (`dev/test_motion.py`): the simulator now follows where the bed and head go, the way Klipper
-  does, and refuses moves past the limits in `printer.cfg`. Everyday flows are checked by position, and a sweep runs
-  every macro and button from 7 machine states with each toolhead against five safety rules.
-- **Browser smoke test** (`dev/test_browser.py`): every portal screen and dialog opened in headless Chromium, desktop
-  and phone; fails on any script error. Both run on every push.
-- **Findings M1-M7** (in `docs/testing.md`), waiting on a decision. The important one: **M1 - 1.3.7 prints the first
-  layer without the paper-test height** (Klipper's resume puts back the offsets from when the file was held). Watch
-  the first layer in test D2.
-- Manual: the wiring items at the end of *Still to check on the machine* were repeated after every list; now once,
-  under *Wiring to confirm*.
+New tests (`dev/test_motion.py`, `dev/test_browser.py`, see `docs/testing.md`) follow where the bed and head go and run
+every macro and button against safety rules. What they found, now fixed:
+- **M1 - first layer at the paper-test height again.** The nozzle height saved by the paper test is applied while
+  `START_JOB` holds the file, and Klipper's resume put back the offsets from the moment it was held - so the file
+  printed with no nozzle height. `_RHINO_JOB_GO` now re-applies the offsets after the release. The paper test itself
+  is unchanged: run once per head, stored for that head.
+- **M2 - Z is only homed with a print head.** New `[gcode_macro G28]` (Klipper's own becomes `G28.1`): `G28`,
+  `G28 Z`, Mainsail's Home All/Home Z and the old `HOME` macro are refused with a laser, spindle, knife or added tool
+  mounted, and before the "which toolhead is mounted?" question is answered after a restart. `G28 X Y` always works.
+- **M3 - print-head-only commands.** `PURGE`, `PREHEAT` and `FILAMENT_CHANGE` stop unless a print head is mounted
+  (they heated the nozzle output, and `PURGE` raised the bed to Z5, with any tool). Filament change also needs the
+  printer homed before it heats.
+- **M4 - saved park height stays true.** Homing X/Y with Z not homed makes Klipper's `[safe_z_home]` lower the bed
+  10 mm first. The `G28` guard now adds that to the saved park height (and refuses if it would pass the end of
+  travel), so "Bed position - Yes" restores the right height.
+- **M5 - lifts stop at the end of Z travel.** CNC warm-up and cancel, knife cancel and filament change use the new
+  `_RHINO_LIFT`: same lift, never past Z400.
+- **M6 -** `PRIME_LINE` ends 2 mm above the bed instead of at first-layer height.
+- **M7 -** `ABORT_TOOL_SWAP` and filament-change Cancel say "nothing to cancel" instead of a Klipper error.
+- Manual: the wiring items at the end of *Still to check on the machine* were repeated after every list; now once.
+
+Check on the machine: **A6** (homing guard), **C4** (park height after a restart), **D2** (first layer).
 
 ## 1.3.7 - review fixes and clearer pop-ups
 
