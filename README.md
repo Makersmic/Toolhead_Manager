@@ -223,5 +223,5 @@ mid-print). Keep it on your LAN, or use `--host 127.0.0.1` and an SSH tunnel. Ot
 
 ## Things to check on the machine (see CHANGES.md)
 
-`G54` uses `MOVE=1`, `G38.2` is not stock Klipper, `COOLDOWN.cfg` needs `[idle_timeout] timeout: 1800` for
+The first `SET_Z_ZERO` after a restart (the Bed position question), `COOLDOWN.cfg` needs `[idle_timeout] timeout: 1800` for
 the full ABS/ASA ramp, and most of the pins on your original portal whitelist are already used.

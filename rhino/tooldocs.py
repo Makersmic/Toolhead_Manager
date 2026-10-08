@@ -43,7 +43,7 @@ BUILTIN_DOCS = {
         "pins": {3: "Thermistor", 4: "Thermistor", 13: "Probe", 14: "Probe", 15: "Probe", 16: "Laser PWM (5 V)",
                  20: "+ 12 V power activate", 21: "- 12 V power activate"},
         "image": "lightsaber", "image_notes": ["Blow-air provided by the universal blow-air system."],
-        "macros": ["LASER_JOB_SETUP", "LASERHOME", "LASER_FOCUS_ALIGN", "SET_LASER_POWER", "ACTIVATE_LASER",
+        "macros": ["LASER_JOB_SETUP", "SET_Z_ZERO", "LASERHOME", "LASER_FOCUS_ALIGN", "SET_LASER_POWER", "ACTIVATE_LASER",
                    "DEACTIVATE_LASER"],
     },
     "HotJoe": {
@@ -56,7 +56,7 @@ BUILTIN_DOCS = {
                  14: "Probe", 15: "Probe", 18: "PWM"},
         "image": "hotjoe", "image_notes": ["Shown without safety covers.",
                                                "Blow-air provided by the universal blow-air system."],
-        "macros": ["CNC_JOB_SETUP", "SET_WORK_ZERO", "PROBE_Z_WORK_ZERO", "G54", "Spindle_ACTIVATE",
+        "macros": ["CNC_JOB_SETUP", "SET_Z_ZERO", "SET_WORK_ZERO", "G54", "Spindle_ACTIVATE",
                    "Spindle_DEACTIVATE", "CALIBRATE_ESC"],
     },
     "DragKnife": {
@@ -66,7 +66,7 @@ BUILTIN_DOCS = {
         "outputs": "None (passive tool)",
         "pins": {3: "Thermistor", 4: "Thermistor", 13: "Probe", 14: "Probe", 15: "Probe"},
         "image": "dragknife", "image_notes": ["Rendered from the build files."],
-        "macros": ["DRAGKNIFE_JOB_SETUP"],
+        "macros": ["DRAGKNIFE_JOB_SETUP", "SET_Z_ZERO"],
     },
 }
 

@@ -172,16 +172,6 @@ s = cs(6); s.run_script("M3 S1000"); s.objects["print_stats"]["state"] = "printi
 ok(s.pins["FoamWire_PWR"] == 0 and idx(s, "_RHINO_CANCEL") >= 0 and idx(s, "SET_PAUSE_AT_LAYER") >= 0
    and idx(s, "CANCEL_PRINT_BASE") > idx(s, "_RHINO_CANCEL"), "CANCEL_PRINT: Mainsail clean-up + Rhino cancel, before CANCEL_PRINT_BASE")
 
-# touch-plate probe reads Z AFTER G38.2 (it used to read it before the probe moved)
-def probe_sim(contact_z):
-    s = fresh(4); s.objects["toolhead"]["position"]["z"] = 20.0
-    def g38(p, rest): s.objects["toolhead"]["position"]["z"] = contact_z
-    s.extra_cmds = {"G38.2": g38}; return s
-s = probe_sim(12.0); s.run_script("PROBE_Z_WORK_ZERO THICKNESS=10")
-ok(abs(s.save_vars["cnc_g54_z"] - 2.0) < 1e-9, f"PROBE_Z_WORK_ZERO saves contact - plate (2.0), got {s.save_vars.get('cnc_g54_z')}")
-s = probe_sim(13.5); s.run_script("_CNC_PROBE_Z_RUN")
-ok(abs(s.save_vars["cnc_g54_z"] - 3.5) < 1e-9, f"CNC wizard probe saves contact - 10 mm plate (3.5), got {s.save_vars.get('cnc_g54_z')}")
-
 # shared channel: Needle drives SPINDLE_SPEED, idle must be 0.3 (ESC neutral), not 0
 s = cs(7); ok(s.pins["SPINDLE_SPEED"] == 0.3, "SPINDLE_SPEED starts at neutral")
 s.run_script("M3 S600"); ok(s.pins["SPINDLE_SPEED"] > 0.3, "Needle on shared ESC channel drives it")
@@ -235,7 +225,7 @@ s.run_script("TOOL_JOB_SETUP FILE=cut.gcode")
 ok(any("Ventilation" in t for t in s.prompt["text"]), "checklist shown")
 s.press("All Confirmed"); ok("Continue" not in s.buttons(), "cannot continue before both zeros are set")
 s.objects["toolhead"]["position"].update(x=210.0, y=120.0, z=35.5)
-s.press("X/Y zero"); s.press("Z zero")
+s.press("X/Y zero"); s.press("Z zero"); ok("Set Z zero" in s.prompt["title"], "Z zero opens the SET_Z_ZERO window"); s.press("SET")
 ok(s.offsets["X"] == 210.0 and s.offsets["Y"] == 120.0 and s.offsets["Z"] == 35.5 and not getattr(s, "moved", False), "zero uses position, no MOVE=1")
 ok("Continue" in s.buttons(), "Continue appears once both are set")
 s.press("Continue"); s.pins["FoamWire_PWR"] = 0
@@ -282,7 +272,7 @@ s.objects["toolhead"]["homed_axes"] = ""; s.save_vars["rhino_z_safe"] = 1; s.run
 ok(s.save_vars["rhino_z_safe"] == 1, "watcher leaves the record alone while Z is not homed")
 s = fresh(1); s.save_vars["rhino_z_safe"] = 1; s.macro_vars["_START_JOB_FILE"]["file"] = "a.gcode"; s.run_script("_START_JOB_FILE")
 ok(s.save_vars["rhino_z_safe"] == 0, "starting a job clears the parked record")
-for slot, script in ((4, "_CNC_ZERO_XY"), (5, "_DK_ZERO_Z"), (3, "LASERHOME"), (4, "PROBE_Z_WORK_ZERO")):
+for slot, script in ((4, "_CNC_ZERO_XY"), (5, "_DK_ZERO_Z"), (3, "LASERHOME"), (4, "SET_Z_ZERO")):
     s = fresh(slot); s.objects["toolhead"]["homed_axes"] = "xy"
     ok(raises(lambda: s.run_script(script), "Z is not homed") and not homes(s), f"{script}: never homes Z with a non-print tool")
     s = fresh(slot); s.objects["toolhead"]["homed_axes"] = "z"
@@ -295,6 +285,59 @@ s.objects["extruder"]["temperature"] = 210.0
 try: s.run_script("PURGE")
 except KlipperError: pass
 ok(any("PURGE" == c.split()[0] for c in cmds(s)) and not homes(s), "print head: homed check now works (no needless G28 every time)")
+
+
+# ---------------------------------------------------------------- SET_Z_ZERO: Z0 by eye for laser / CNC / knife / added tools
+def zsim(slot, z=150.0, homed="xyz"):
+    s = fresh(slot); s.objects["toolhead"]["position"]["z"] = z; s.objects["gcode_move"]["gcode_position"]["z"] = z
+    s.objects["toolhead"]["homed_axes"] = homed
+    def skp(p, rest):
+        s.objects["toolhead"]["position"]["z"] = float(p["Z"]); s.objects["toolhead"]["homed_axes"] = "xyz"
+    s.extra_cmds = {"SET_KINEMATIC_POSITION": skp}; return s
+s = zsim(4); s.run_script("SET_Z_ZERO")
+ok(s.prompt and "Set Z zero" in s.prompt["title"] and not homes(s), "SET_Z_ZERO (HotJoe, Z homed): opens the window, no homing")
+ok(all(any(b.startswith(f"Bed {d} {n}") for b in s.buttons()) for d in ("up", "down") for n in ("10", "1", "0.1")), "...with Bed up/down 10, 1 and 0.1")
+s.press("Bed up 10"); ok("G1 Z-10.000 F600" in cmds(s) and "G91" in cmds(s), "Bed up 10 = relative move 10 mm toward the tool")
+s.objects["toolhead"]["position"]["z"] = 37.25; s.press("SET")
+ok(abs(s.save_vars["cnc_g54_z"] - 37.25) < 1e-9 and "SET_GCODE_OFFSET Z=37.250" in cmds(s), "SET: the bed height becomes Z0 (saved and applied, no move)")
+ok(not any(c.startswith("SET_KINEMATIC_POSITION") for c in cmds(s)), "SET never redefines machine Z")
+s = zsim(4, z=380.0); s.run_script("SET_Z_ZERO"); s.press("Bed down 10"); ok("G1 Z0.000 F600" in cmds(s), "never lowers the bed past Z380")
+s = zsim(4, z=375.0); s.run_script("SET_Z_ZERO"); s.press("Bed down 10"); ok("G1 Z5.000 F600" in cmds(s), "...stops exactly at Z380")
+s = zsim(4, z=-9.95); s.run_script("SET_Z_ZERO"); s.press("Bed up 1 mm"); ok("G1 Z-0.050 F300" in cmds(s), "never raises the bed past position_min")
+s = zsim(4, z=390.0); s.run_script("SET_Z_ZERO"); s.press("Bed down 0.1"); ok("G1 Z0.000 F300" in cmds(s), "below the Z380 limit, Bed down does not move the bed UP")
+s = zsim(1); ok(raises(lambda: s.run_script("SET_Z_ZERO"), "NOZZLE_HEIGHT_CALIBRATE"), "print head: refused, points to the paper test")
+s = zsim(4); s.objects["print_stats"]["state"] = "printing"; ok(raises(lambda: s.run_script("SET_Z_ZERO"), "job"), "refused during a job")
+s = zsim(3); s.run_script("SET_Z_ZERO"); ok(any("Focus dot ON" in b for b in s.buttons()), "LightSaber: focus-dot buttons in the window")
+s.press("Focus dot ON"); ok(s.pins["SERVO_LASER"] == 0.01, "...focus dot at 1%")
+s.press("SET"); ok(s.pins["SERVO_LASER"] == 0 and s.pins["LASER_INITIALIZE"] == 0, "SET switches the dot and the laser rail off")
+s = zsim(4); s.run_script("SET_Z_ZERO"); ok(not any("Focus dot" in b for b in s.buttons()), "no laser buttons for other tools")
+s = zsim(5); s.run_script("_DK_ZERO_Z"); s.objects["toolhead"]["position"]["z"] = 42.0; s.press("SET")
+ok(idx(s, "_DK_TEST_CUT") > idx(s, "SET_GCODE_OFFSET Z=42.000"), "drag knife: SET then runs the test cut (NEXT)")
+s = zsim(4); s.save_vars.update(set_material_toolhead="HotJoe", set_material_material="SOFT_WOOD"); s.run_script("_CNC_ZERO_Z_CHOOSE")
+ok(s.prompt and "Set Z zero" in s.prompt["title"], "CNC: the Z step is the SET_Z_ZERO window (no touch plate / G38.2)")
+s = zsim(3); s.run_script("_LASER_FOCUS"); ok(s.prompt and "Set Z zero" in s.prompt["title"], "laser: focus step is the SET_Z_ZERO window")
+# Z not homed after a restart
+s = zsim(4, z=0.0, homed=""); s.save_vars.update(rhino_z_safe=1, rhino_park_z=152.5)
+ok(raises(lambda: s.run_script("SET_Z_ZERO"), "Bed position") and s.prompt and "Bed position" in s.prompt["title"] and not homes(s), "Z unhomed, bed was parked: asks first, does not move")
+s.press("Yes"); ok("SET_KINEMATIC_POSITION Z=152.5 SET_HOMED=Z" in cmds(s) and homes(s) == ["G28 X Y"], "Yes: Z taken from the park height, X/Y homed")
+ok(s.prompt and "Set Z zero" in s.prompt["title"], "...and the Set Z zero window opens")
+s = zsim(4, z=0.0, homed=""); s.save_vars.update(rhino_z_safe=1, rhino_park_z=152.5); raises(lambda: s.run_script("SET_Z_ZERO"))
+s.press("No"); ok(not any(c.startswith("SET_KINEMATIC_POSITION") for c in cmds(s)) and not homes(s), "No: nothing is set or moved")
+s = zsim(4, z=0.0, homed=""); s.save_vars.update(rhino_z_safe=0, rhino_park_z=152.5)
+ok(raises(lambda: s.run_script("SET_Z_ZERO"), "not left parked") and not s.prompt, "bed not left parked (a job was running): no restore offered")
+s = zsim(4, z=0.0, homed="")
+ok(raises(lambda: s.run_script("SET_Z_ZERO"), "not left parked"), "no park height ever saved: no restore offered")
+s = zsim(4, z=0.0, homed=""); s.save_vars.update(rhino_z_safe=1, rhino_park_z=150.0); raises(lambda: s.run_script("_CNC_ZERO_XY"))
+s.press("Yes"); ok(s.prompt and "XY" in s.prompt["title"], "restore from the CNC wizard carries on with the same step")
+s = zsim(4, z=150.0); s.save_vars["rhino_z_safe"] = 0; s.run_delayed_body("_RHINO_PARK_WATCH")
+ok(s.save_vars["rhino_z_safe"] == 1 and abs(s.save_vars["rhino_park_z"] - 150.0) < 1e-9, "watcher records the exact park height")
+s.objects["toolhead"]["position"]["z"] = 210.0; s.run_delayed_body("_RHINO_PARK_WATCH"); ok(abs(s.save_vars["rhino_park_z"] - 210.0) < 1e-9, "...and follows the bed while parked")
+s = zsim(4, z=200.0); s.run_script("_RHINO_PARK"); ok(s.save_vars.get("rhino_park_z") is not None and s.save_vars["rhino_z_safe"] == 1, "_RHINO_PARK saves the park height")
+s = zsim(4, z=150.0); s.run_script("G54"); ok(not any("MOVE=1" in c for c in cmds(s)), "G54 applies the work offset without moving the tool")
+
+s = zsim(3); s.run_script("SET_LASER TOOLHEAD=LightSaber MATERIAL=PLYWOOD"); ok(not any(c.startswith("SET_GCODE_OFFSET Z") for c in cmds(s)), "choosing a laser material leaves the Z zero alone")
+s = zsim(5); s.run_script("SET_DRAG_KNIFE TOOLHEAD=DragKnife MATERIAL=VINYL"); ok(not any(c.startswith("SET_GCODE_OFFSET Z") for c in cmds(s)), "...and a knife material")
+s = zsim(4); s.run_script("SET_SPINDLE TOOLHEAD=HotJoe MATERIAL=SOFT_WOOD"); ok(not any(c.startswith("SET_GCODE_OFFSET Z") for c in cmds(s)), "...and a spindle material")
 
 # ---------------------------------------------------------------- first start: nothing recorded yet
 s = Sim(FIXED).load(); s.save_vars.pop("current_tool", None)

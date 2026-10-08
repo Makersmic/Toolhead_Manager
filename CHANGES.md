@@ -1,5 +1,29 @@
 # What changed
 
+## 1.3.6 - Set Z zero by eye
+
+- **New `SET_Z_ZERO` window** for the LightSaber, HotJoe, DragKnife and tools you add (also a Mainsail button):
+  Bed up / Bed down 10, 1 and 0.1 mm, then **SET** - that bed height becomes G-code Z0. Nothing moves when you press
+  SET, and machine Z is never redefined, so Klipper's travel limits stay right. The window never lowers the bed past
+  Z 380 or raises it past position_min. With the LightSaber you set it at the focus point (focus-dot buttons are in
+  the window) and the job runs at Z0 with no extra offset.
+- All the job setups use it: `LASER_JOB_SETUP` (replaces the stored focus offset), `CNC_JOB_SETUP` (replaces the touch
+  plate and manual zero), `DRAGKNIFE_JOB_SETUP` and `TOOL_JOB_SETUP` (still adds the material's Z offset on top).
+- **Z after a restart:** the exact park height is now saved whenever the bed is parked. If Z isn't homed but the bed
+  was left parked, the setups ask "Is the bed still down where it was parked?" - **Yes** takes the saved height as Z
+  (`SET_KINEMATIC_POSITION`) and homes X/Y, then carries on where you were; **No** leaves Z unhomed. If the bed was
+  not left parked (a job was running), nothing is offered and Z must be homed with a print head, as before.
+  Needs `[force_move] enable_force_move: True`, added in `toolchanger.cfg`.
+- **Removed:** the 10 mm touch-plate option and `PROBE_Z_WORK_ZERO` - they used `G38.2`, which Klipper doesn't have.
+- **Fixed:** `G54` no longer uses `MOVE=1` (it moved the tool by the change in offset when a zero was set);
+  `SET_WORK_ZERO` and the CNC X/Y zero read the machine position, so an older offset can't leak into the new one;
+  `LASERHOME` no longer moves the bed up to Z20 toward the laser.
+- **Fixed:** choosing a laser, spindle, knife or added-tool material (`SET_TOOLHEAD`, or a `START_JOB` line in a job
+  file) no longer resets the Z offset, and a drag-knife job's start no longer sets it to 0 - either would have
+  wiped the Z zero you just set. The material `z_offset` values for the LightSaber, HotJoe and DragKnife are no longer
+  used.
+- Starter task "Check the Z belt drive" says 2:1. OrcaSlicer BlockOne profile: bowden length 5.9.
+
 ## 1.3.5 - Orca profiles match the machine
 
 - Rhino PLA: 210 °C nozzle and 65 °C bed, the same as `PLA_0_4` in variables.cfg (was 220 / 55, so the bed dropped
