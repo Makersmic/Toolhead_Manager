@@ -18,6 +18,7 @@ All macros are explicitly aligned to a single, persistent disk cache file (varia
 • Type: LASER
 • Configuration: High-frequency laser diode cutter. Integrates standard GRBL convention parameters (M3/M4/M5, scaled against laser_s_max) through the single shared M3/M4/M5 dispatcher in tools/tool_power.cfg.
 • Safety Lockout: Implements hard hardware-gated overrides inside SET_LASER_POWER. If any job streams an M3 signal while a 3D printer hotend or spindle is attached, Klipper forces an immediate safety shutdown to protect the umbilical pins and user workspace. Isolates LEDFLASH from high-frequency lines to eliminate processor stutter. Features an interactive 1% duty-cycle visibility target utility (LASER_FOCUS_ALIGN).
+• Power rail (1.4.1): the LightSaber fires only with LASER_INITIALIZE on; M3 only sets the level. LASER_JOB_SETUP's last step, _LASER_START, loads the FILE and then runs ACTIVATE_LASER (if the file fails to load, the rail stays off; with no FILE nothing starts; with another tool mounted it refuses before the file starts). END_PRINT, CANCEL_PRINT, EMERGENCY_STOP and SWAP_TOOL switch the rail off; PAUSE drops only the level and TOOL_RESUME restores it.
 4. HotJoe (Slot 4)
 • Type: CNC
 • Configuration: Brushless outrunner CNC spindle motor driven by a 400Hz open-loop RC Electronic Speed Controller (ESC). Low-endpoint throttle arms at 0.3, scaling to high-endpoint maximum thresholds at 1.0.
