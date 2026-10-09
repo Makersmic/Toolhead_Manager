@@ -8,6 +8,7 @@ Read-only: this never writes a Klipper file.
 """
 import json
 import os
+import re
 
 from .. import __version__
 from ..klipper_cfg import ConfigTree
@@ -23,6 +24,7 @@ DEFAULTS = {
     "enabled": False,          # the Slice tab only appears when this is true
     "kiri_port": 8090,         # Kiri:Moto runs on the same machine as the portal, on this port
     "work_area": {},           # per tool: {"LightSaber": {"x": 550, "y": 375}}
+    "mainsail_url": "",        # where the setup questions appear; "" = http://<this host>/
 }
 
 # Tool types this prototype makes profiles for, and the Kiri:Moto mode each one uses.
@@ -46,6 +48,9 @@ def load_settings(paths):
         port = data.get("kiri_port", out["kiri_port"])
         if isinstance(port, int) and 1 <= port <= 65535:
             out["kiri_port"] = port
+        url = data.get("mainsail_url")
+        if isinstance(url, str) and re.fullmatch(r"https?://[A-Za-z0-9.\-:\[\]/]{1,200}", url):
+            out["mainsail_url"] = url
         if isinstance(data.get("work_area"), dict):
             out["work_area"] = data["work_area"]
     return out

@@ -7,6 +7,7 @@ import threading
 import urllib.error
 import urllib.parse
 import urllib.request
+import uuid
 
 from .errors import Fail
 
@@ -124,6 +125,44 @@ class Moonraker:
                 pass
         out["restart_blocked"] = out["print_state"] in BUSY_STATES
         return out
+
+    # ------------------------------------------------------------------ jobs (Slice tab prototype)
+    def _send(self, req, timeout, what):
+        """Run a request; Klipper/Moonraker refusals come back as Fail with Klipper's own message."""
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as r:
+                return json.loads(r.read().decode() or "{}")
+        except urllib.error.HTTPError as e:
+            msg = ""
+            try:
+                msg = (json.loads(e.read().decode() or "{}").get("error") or {}).get("message") or ""
+            except (ValueError, AttributeError, OSError):
+                pass
+            raise Fail(f"{what}: {msg}" if msg else f"{what}: Moonraker returned HTTP {e.code}")
+        except (urllib.error.URLError, OSError, ValueError):
+            raise Fail(f"{what}: cannot reach Moonraker - is it running?")
+
+    def upload_gcode(self, filename, data):
+        """Put a G-code file in Mainsail's G-Code Files list (Moonraker 'gcodes' root). Overwrites a file of
+        the same name. -> the stored path, e.g. 'LightSaber-sign.gcode'."""
+        boundary = "----rhino" + uuid.uuid4().hex
+        body = b"".join([
+            f"--{boundary}\r\nContent-Disposition: form-data; name=\"root\"\r\n\r\ngcodes\r\n".encode(),
+            f"--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"{filename}\"\r\n"
+            "Content-Type: application/octet-stream\r\n\r\n".encode(), data, b"\r\n",
+            f"--{boundary}--\r\n".encode()])
+        req = urllib.request.Request(self.url + "/server/files/upload", data=body, method="POST",
+                                     headers={"Content-Type": f"multipart/form-data; boundary={boundary}"})
+        r = self._send(req, 60, "Upload failed")
+        item = (r.get("result") or r).get("item") or {}
+        return item.get("path") or filename
+
+    def run_gcode(self, script):
+        """Run a G-code command the way the Mainsail console does. Klipper's error, if any, comes back as Fail."""
+        req = urllib.request.Request(self.url + "/printer/gcode/script?" + urllib.parse.urlencode({"script": script}),
+                                     data=b"", method="POST")
+        self._send(req, 30, "Klipper refused it")
+        return {"ok": True}
 
     def restart(self):
         """FIRMWARE_RESTART so brand-new output pins are configured. Never while a job is running."""

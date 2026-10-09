@@ -404,3 +404,12 @@ details.fold-inline > summary { cursor: pointer; color: var(--link, var(--accent
   border-radius: 6px; color: var(--warn-text); font-size: .85rem; }
 .slice-frame-wrap { border: 1px solid var(--border); border-radius: 6px; overflow: hidden; background: var(--card); }
 .slice-frame { display: block; width: 100%; height: calc(100vh - 210px); min-height: 520px; border: 0; }
+.slice-send { margin-bottom: 12px; }
+.slice-send h2 { margin: 0 0 4px; font-size: 1.05rem; }
+.slice-checks { list-style: none; margin: 10px 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.slice-checks li { display: flex; gap: 10px; align-items: baseline; }
+.slice-checks .tag { flex: none; font-size: .72rem; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; padding: 1px 8px; border-radius: 99px; border: 1px solid; }
+.slice-checks .tag.ok { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 55%, transparent); }
+.slice-checks .tag.bad { color: var(--bad-text); border-color: color-mix(in srgb, var(--danger) 60%, transparent); }
+.slice-steps { margin: 8px 0 0; padding-left: 20px; color: var(--muted); font-size: .9rem; }
+.slice-send .card-actions { flex-wrap: wrap; align-items: center; }

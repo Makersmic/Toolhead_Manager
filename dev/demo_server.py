@@ -14,6 +14,7 @@ import argparse
 import http.server
 import json
 import os
+import re
 import shutil
 import sys
 import tempfile
@@ -79,6 +80,16 @@ class Fake(http.server.BaseHTTPRequestHandler):
                 cur = STATE.get(k)
                 STATE[k] = type(cur)(v[0]) if isinstance(cur, (int, float)) and not isinstance(cur, bool) else v[0]
             return self._send(200, STATE)
+        if u.path == "/server/files/upload":     # Slice tab: remember the file (name and size)
+            n = int(self.headers.get("Content-Length") or 0)
+            body = self.rfile.read(n)
+            m = re.search(rb'name="file"; filename="([^"]+)"', body)
+            name = m.group(1).decode() if m else "upload.gcode"
+            STATE.setdefault("files", {})[name] = len(body)
+            return self._send(201, {"result": {"item": {"path": name, "root": "gcodes"}, "action": "create_file"}})
+        if u.path == "/printer/gcode/script":    # Slice tab: record the command (the demo has no Klipper to run it)
+            STATE.setdefault("scripts", []).append(urllib.parse.parse_qs(u.query).get("script", [""])[0])
+            return self._send(200, {"result": "ok"})
         if u.path == "/__job":     # append a finished job to the history
             q = {k: v[0] for k, v in urllib.parse.parse_qs(u.query).items()}
             now = time.time()

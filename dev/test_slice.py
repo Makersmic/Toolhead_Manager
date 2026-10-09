@@ -152,7 +152,7 @@ print("== portal ==")
 import http.server  # noqa: E402
 import threading  # noqa: E402
 
-STATE = {"tool": 3, "klippy": "ready"}
+STATE = {"tool": 3, "klippy": "ready", "print_state": "standby", "uploads": [], "scripts": [], "refuse": ""}
 
 
 class H(http.server.BaseHTTPRequestHandler):
@@ -170,8 +170,27 @@ class H(http.server.BaseHTTPRequestHandler):
         if self.path.startswith("/server/info"):
             self._send(200, {"result": {"klippy_state": STATE["klippy"]}})
         elif self.path.startswith("/printer/objects/query"):
-            self._send(200, {"result": {"status": {"print_stats": {"state": "standby"},
+            self._send(200, {"result": {"status": {"print_stats": {"state": STATE["print_state"]},
                                                    "gcode_macro SWAP_TOOL": {"current_tool": STATE["tool"]}}}})
+        else:
+            self._send(404, {})
+
+    def do_POST(self):
+        import re as _re
+        import urllib.parse as _up
+        body = self.rfile.read(int(self.headers.get("Content-Length") or 0))
+        if self.path == "/server/files/upload":
+            name = _re.search(rb'name="file"; filename="([^"]+)"', body).group(1).decode()
+            data = body.split(b"Content-Type: application/octet-stream\r\n\r\n", 1)[1].rsplit(b"\r\n--", 1)[0]
+            root = _re.search(rb'name="root"\r\n\r\n(\w+)', body).group(1).decode()
+            STATE["uploads"].append((name, data, root))
+            self._send(201, {"result": {"item": {"path": name, "root": root}, "action": "create_file"}})
+        elif self.path.startswith("/printer/gcode/script"):
+            script = _up.parse_qs(_up.urlparse(self.path).query)["script"][0]
+            if STATE["refuse"]:
+                return self._send(400, {"error": {"code": 400, "message": STATE["refuse"]}})
+            STATE["scripts"].append(script)
+            self._send(200, {"result": "ok"})
         else:
             self._send(404, {})
 
@@ -220,6 +239,84 @@ write_settings(CFG, {"enabled": True, "kiri_port": 9123})
 ok(c.get("/api/slice/context").get_json()["kiri_port"] == 9123, "the Kiri:Moto port can be changed in slicer.json")
 write_settings(CFG, None)
 ok(c.get("/api/slice/context").get_json() == {"ok": True, "enabled": False}, "deleting slicer.json turns it off again")
+
+# =============================================================================== part 4
+print("== send to the Rhino, then start the laser setup ==")
+from rhino.slice import jobs  # noqa: E402
+from rhino.portal import security  # noqa: E402
+HDR = {security.HEADER: security.TOKEN}
+JOB = open(os.path.join(HERE, "fixtures", "kiri_lightsaber_cube.gcode")).read()
+
+ok(jobs.read_stamp(JOB) == "LightSaber", "the stamp is read from the file")
+ok(jobs.read_stamp("G1 X1\n" * 60 + "; RHINO_TOOL=LightSaber") == "", "...only from the first 50 lines")
+ok(jobs.read_stamp("; RHINO_TOOL=Light Saber; rm") == "", "a stamp with odd characters is not trusted")
+ok(jobs.safe_name("LightSaber", 'my "sign" ../x.gcode') == "LightSaber-my-sign-x.gcode", "file names are cleaned to letters, digits, - and _")
+ok(jobs.safe_name("LightSaber", "") == "LightSaber-job.gcode", "...and never empty")
+
+write_settings(CFG, {"enabled": True})
+STATE.update(tool=3, klippy="ready", print_state="standby", uploads=[], scripts=[], refuse="")
+
+
+def send(text=JOB, name="laser-002.gcode", hdr=HDR):
+    return c.post("/api/slice/send", json={"name": name, "gcode": text}, headers=hdr)
+
+
+def start(f, hdr=HDR):
+    return c.post("/api/slice/start", json={"file": f}, headers=hdr)
+
+
+r = send(hdr={})
+ok(r.status_code == 400 and not STATE["uploads"], "no portal token: refused, nothing uploaded")
+for setup, expect, what in (
+        (dict(tool=1), "but BlockOne is mounted", "wrong tool mounted"),
+        (dict(tool=0), "No toolhead is recorded", "no tool recorded as mounted"),
+        (dict(print_state="printing"), "A job is printing", "a job running"),
+        (dict(print_state="paused"), "A job is paused", "a job paused"),
+        (dict(klippy="shutdown"), "Klipper is not ready", "Klipper not ready")):
+    STATE.update(tool=3, klippy="ready", print_state="standby"); STATE.update(setup)
+    r = send(); d = r.get_json()
+    ok(r.status_code == 409 and any(expect in x for x in d["conflicts"]) and not STATE["uploads"],
+       f"send refused (409) with {what}, and nothing uploaded")
+STATE.update(tool=3, klippy="ready", print_state="standby")
+r = send(text="G21\nG1 X10 Y10\nM3 S1000\n"); d = r.get_json()
+ok(r.status_code == 409 and "not sliced with a Rhino profile" in d["conflicts"][0] and not STATE["uploads"],
+   "a file with no Rhino stamp is refused")
+r = send(text=JOB.replace("RHINO_TOOL=LightSaber", "RHINO_TOOL=HotJoe")); d = r.get_json()
+ok(r.status_code == 409 and any("no Slice profile" in x for x in d["conflicts"]), "a file stamped for a tool with no profile is refused")
+from rhino import pending  # noqa: E402
+pending.mark(P, "added Needle")
+r = send(); d = r.get_json()
+ok(r.status_code == 409 and any("Restart Klipper first" in x for x in d["conflicts"]), "tool changes waiting for a Klipper restart: refused")
+pending.clear(P)
+
+d = c.get("/api/slice/check?tool=LightSaber").get_json()
+ok(d["conflicts"] == [] and d["mounted"] == "LightSaber", "check: all clear with LightSaber mounted")
+r = send(name='laser 002.gcode'); d = r.get_json()
+ok(r.status_code == 200 and d["file"] == "LightSaber-laser-002.gcode" and d["setup"] == "LASER_JOB_SETUP", "all clear: sent as LightSaber-laser-002.gcode")
+ok(len(STATE["uploads"]) == 1 and STATE["uploads"][0][0] == "LightSaber-laser-002.gcode" and STATE["uploads"][0][2] == "gcodes"
+   and STATE["uploads"][0][1].decode() == JOB, "...uploaded to Moonraker's gcodes folder byte for byte")
+
+r = start("LightSaber-other.gcode")
+ok(r.status_code == 400 and not STATE["scripts"], "start: a file this portal did not send is refused")
+r = start('LightSaber-laser-002.gcode\nG28')
+ok(r.status_code == 400 and not STATE["scripts"], "start: nothing can be tacked on to the command")
+STATE["tool"] = 1
+r = start("LightSaber-laser-002.gcode"); d = r.get_json()
+ok(r.status_code == 409 and "BlockOne is mounted" in d["conflicts"][0] and not STATE["scripts"],
+   "start: tool swapped after sending - refused, nothing run")
+STATE["tool"] = 3
+r = start("LightSaber-laser-002.gcode", hdr={})
+ok(r.status_code == 400 and not STATE["scripts"], "start: no portal token - refused")
+r = start("LightSaber-laser-002.gcode"); d = r.get_json()
+ok(r.status_code == 200 and STATE["scripts"] == ["LASER_JOB_SETUP FILE=LightSaber-laser-002.gcode"],
+   "start: runs exactly LASER_JOB_SETUP FILE=LightSaber-laser-002.gcode")
+STATE["refuse"] = "LASER_JOB_SETUP sets a work zero, which a running or paused job's RESUME would undo."
+r = start("LightSaber-laser-002.gcode"); d = r.get_json()
+ok(r.status_code == 400 and "RESUME would undo" in d["error"], "Klipper's own refusal is shown word for word")
+STATE["refuse"] = ""
+write_settings(CFG, None)
+r = send(); ok(r.status_code == 400 and len(STATE["uploads"]) == 1, "slicing turned off: send refused")
+ok(start("LightSaber-laser-002.gcode").status_code == 400, "...and start refused")
 
 srv.shutdown()
 shutil.rmtree(os.path.dirname(os.path.dirname(CFG)), ignore_errors=True)

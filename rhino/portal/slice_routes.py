@@ -8,23 +8,27 @@ it and sends it the mounted tool's machine profile (built from variables.cfg by 
 the Rhino mod inside Kiri:Moto selects it.
 """
 import re
+import threading
 from urllib.parse import urlsplit
 
 from flask import Blueprint, current_app, jsonify, request
 
+from .. import pending
 from ..errors import Fail
-from ..slice import profiles
+from ..slice import jobs, profiles
+from . import security
 
 bp = Blueprint("slice", __name__)
+_send_lock = threading.Lock()      # one send / start at a time
 
 
 def _settings():
     return profiles.load_settings(current_app.config["PATHS"])
 
 
-def _mounted():
+def _mounted(st=None):
     """-> (slot, tool name or "", printer reachable?) from Moonraker's SWAP_TOOL.current_tool."""
-    st = current_app.config["MOONRAKER"].status()
+    st = st or current_app.config["MOONRAKER"].status()
     slot = int(st.get("mounted_slot") or 0)
     name = ""
     if slot:
@@ -54,10 +58,86 @@ def context():
         why = f"{name or 'Slot ' + str(slot)} is mounted. This prototype only has a Kiri:Moto profile for laser tools (LightSaber)."
     else:
         why = ""
-    return jsonify({"ok": True, "enabled": True, "kiri_port": s["kiri_port"],
+    return jsonify({"ok": True, "enabled": True, "kiri_port": s["kiri_port"], "mainsail_url": s["mainsail_url"],
                     "mounted": {"slot": slot, "name": name, "online": online},
                     "profile": prof, "why": why, "available": sorted(built["profiles"]),
                     "problems": built["problems"]})
+
+
+def _enabled_or_404():
+    if not _settings()["enabled"]:
+        raise Fail("Slicing is not turned on (myrhino/slicer.json).")
+
+
+def _profiles():
+    try:
+        return profiles.build(current_app.config["PATHS"], _settings())["profiles"]
+    except Fail:
+        return {}
+
+
+def _conflicts(stamp):
+    """Live check: Moonraker's status, the mounted tool, the portal's own pending restart."""
+    st = current_app.config["MOONRAKER"].status()
+    _, name, _ = _mounted(st)
+    found = jobs.conflicts(stamp, st, name, _profiles(), pending.get(current_app.config["PATHS"]) is not None)
+    return found, {"mounted": name, "print_state": st.get("print_state"), "klippy": st.get("klippy")}
+
+
+def _sent():
+    """Files this portal sent, {file name: tool} - only these can be started from the Slice tab."""
+    return current_app.config.setdefault("SLICE_SENT", {})
+
+
+@bp.get("/api/slice/check")
+def check():
+    _enabled_or_404()
+    stamp = request.args.get("tool", "")
+    found, info = _conflicts(stamp)
+    return jsonify({"ok": True, "tool": stamp, "conflicts": found, **info})
+
+
+@bp.post("/api/slice/send")
+def send():
+    """Body {name, gcode}. Refused (409, with the reasons) unless every check passes."""
+    security.check_write()
+    _enabled_or_404()
+    body = security.json_body()
+    text = body.get("gcode")
+    if not isinstance(text, str) or not text.strip():
+        raise Fail("No G-code was received.")
+    stamp = jobs.read_stamp(text)
+    with _send_lock:
+        found, info = _conflicts(stamp)
+        if found:
+            return jsonify({"ok": False, "error": "Not sent - " + found[0], "conflicts": found, "tool": stamp, **info}), 409
+        fname = jobs.safe_name(stamp, body.get("name"))
+        current_app.config["MOONRAKER"].upload_gcode(fname, text.encode("utf-8"))
+        _sent()[fname] = stamp
+    p = _profiles().get(stamp) or {}
+    return jsonify({"ok": True, "file": fname, "tool": stamp, "setup": jobs.SETUP_MACRO.get(p.get("mode", "")),
+                    "bytes": len(text.encode("utf-8")), **info})
+
+
+@bp.post("/api/slice/start")
+def start():
+    """Body {file}. Starts the tool's guided setup with FILE=<file>; the setup's own questions appear in Mainsail."""
+    security.check_write()
+    _enabled_or_404()
+    fname = str(security.json_body().get("file") or "")
+    stamp = _sent().get(fname)
+    if not stamp or not jobs.VALID_FILE.match(fname):
+        raise Fail("That file was not sent from this Slice tab - send it again.")
+    p = _profiles().get(stamp) or {}
+    macro = jobs.SETUP_MACRO.get(p.get("mode", ""))
+    if not macro:
+        raise Fail(f"The portal does not know how to start a {stamp} job yet.")
+    with _send_lock:
+        found, info = _conflicts(stamp)
+        if found:
+            return jsonify({"ok": False, "error": "Not started - " + found[0], "conflicts": found, "tool": stamp, **info}), 409
+        current_app.config["MOONRAKER"].run_gcode(f"{macro} FILE={fname}")
+    return jsonify({"ok": True, "started": f"{macro} FILE={fname}", "tool": stamp, **info})
 
 
 @bp.after_app_request
