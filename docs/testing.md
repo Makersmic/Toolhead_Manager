@@ -98,20 +98,20 @@ For every version, before the zip is sent:
 - [ ] `CHANGES.md`, `VERSION` and the manual updated
 - [ ] The on-machine tests for whatever changed are listed in `CHANGES.md`
 
-## On-machine acceptance plan (1.4.0)
+## On-machine acceptance plan (1.4.1)
 
 Work through it in order: later sections rely on earlier ones. Have a hand on the emergency stop for every test that
 moves the machine. **Stop if** means stop, don't press on - note what happened and report it.
 
 ### A. Install and start
 
-- [ ] **A1 Install.** Menu option 3, pick `rhino-config-1.4.0.zip`, read the preview, install.
+- [ ] **A1 Install.** Menu option 3, pick `rhino-config-1.4.1.zip`, read the preview, install.
   *Pass:* ends with the portal answering on port 5000. *Stop if:* the preview shows STOPPED.
 - [ ] **A2 Restart.** With a print head mounted: `FIRMWARE_RESTART`.
   *Pass:* Klipper ready, no config errors.
 - [ ] **A3 Tool question.** *Pass:* "Klipper restarted - which toolhead is mounted?" appears; Yes records the tool.
 - [ ] **A4** `CHECK_TOOLHEADS` lists every tool without errors.
-- [ ] **A5 Portal.** Opens at `http://<pi>:5000`, matches Mainsail's dark/light theme, shows version 1.4.0.
+- [ ] **A5 Portal.** Opens at `http://<pi>:5000`, matches Mainsail's dark/light theme, shows version 1.4.1.
 
 ### B. Motion and homing
 
@@ -169,6 +169,8 @@ With LightSaber or HotJoe mounted:
 ### F. Laser, CNC and drag-knife jobs
 
 - [ ] **F1 Laser** at low power on scrap: `LASER_JOB_SETUP`, focus with Set Z zero, test mark, short file.
+  *Pass (fixed in 1.4.1):* the file cuts; when it ends (with `END_PRINT`) the laser is off. *Stop if:* the head moves
+  through the file without marking - report it.
 - [ ] **F2 CNC air cut:** set Z zero 10 mm above the stock and run the file - it cuts air. Then a shallow real cut.
 - [ ] **F3 Drag knife** test line on vinyl: blade cuts, backing intact.
 - [ ] **F4 Pause and resume** each tool type. *Pass:* lifts 10 mm, tool off; Resume job brings it back on; the

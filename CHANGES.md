@@ -1,5 +1,22 @@
 # What changed
 
+## 1.4.1 - the laser's power is switched on for the job
+
+- **Fix: laser jobs did not fire.** The LightSaber only fires with its power rails on (`LASER_INITIALIZE`), and an
+  `M3` in the file only sets the level. In 1.4.0 the rails were only switched on for the test fire and the focus dot,
+  and switched off again after them, so a job started with "Start the cut" ran with the rails off. "Start the cut"
+  (`_LASER_START`) now runs `ACTIVATE_LASER` right after the file is loaded - the same way the CNC setup has the
+  spindle running before its file starts. If the file fails to load, Klipper stops before that line and the rails
+  stay off; with no `FILE=` nothing starts and they stay off. Typed by hand with another tool mounted, it is refused
+  before the file starts.
+- Unchanged and checked: a pause drops the level and keeps the rails, `TOOL_RESUME` puts the level back;
+  `END_PRINT`, `CANCEL_PRINT` and `EMERGENCY_STOP` switch the rails off.
+- A laser file from other software that ends without `END_PRINT` (or `DEACTIVATE_LASER`) leaves the rails on at level
+  0 until the next cancel, swap or emergency stop - end laser files with `END_PRINT`.
+
+Check on the machine: **F1** (laser at low power on scrap - now it should cut), then **F4** for the laser and
+**H1**.
+
 ## 1.4.0 - positions in one place, old test macros removed
 
 - **One place for positions: `myrhino/positions.cfg`.** Park (X551 Y381), tool swap spot (X100 Y100), safe height

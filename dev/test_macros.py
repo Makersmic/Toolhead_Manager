@@ -347,6 +347,39 @@ ok("SET_GCODE_OFFSET X=0 Y=0 Z=0" in cmds(s), "END_PRINT clears X/Y work offsets
 s = zsim(1); s.run_script("SET_PRINT TOOLHEAD=BlockOne MATERIAL=PLA NOZZLE_SIZE=0.4 EXTRUDER=0"); ok("SET_GCODE_OFFSET X=0 Y=0" in cmds(s), "a print never inherits a CNC X/Y work zero")
 s = zsim(3); s.run_script("LASER_JOB_SETUP FILE=a.gcode"); ok("SET_GCODE_OFFSET X=0 Y=0" in cmds(s), "laser setup drops any X/Y work zero (files use machine X/Y)")
 
+# ---------------------------------------------------------------- 1.4.1: the laser's rails are powered for the job
+def laser_flow(s, file="cut.gcode"):
+    s.run_script(f"LASER_JOB_SETUP FILE={file}" if file else "LASER_JOB_SETUP")
+    for b in ("All checked - set focus", "SET - Z zero here", "Yes - continue"):
+        s.press(b)
+rails = lambda s: s.pins.get("LASER_INITIALIZE", 0.0)
+s = zsim(3); laser_flow(s)
+ok(rails(s) == 0.0 and s.pins.get("SERVO_LASER", 0.0) == 0.0, "1.4.1: through focus and test fire the rails end off (as before)")
+s.press("Start the cut")
+c = cmds(s)
+ok(rails(s) == 1.0 and s.pins.get("SERVO_LASER", 0.0) == 0.0, "1.4.1: Start the cut powers the rails, level still 0")
+order = [e[1] for e in s.log if e[0] == "cmd" and e[1] in ('SDCARD_PRINT_FILE FILENAME="cut.gcode"', "ACTIVATE_LASER", "DEACTIVATE_LASER")]
+ok(order[-2:] == ['SDCARD_PRINT_FILE FILENAME="cut.gcode"', "ACTIVATE_LASER"], "...after the file is loaded, so a load failure leaves them off")
+s.objects["print_stats"]["state"] = "printing"; s.run_script("M3 S800")
+ok(rails(s) == 1.0 and abs(s.pins["SERVO_LASER"] - 0.8) < 1e-9, "1.4.1: the file's M3 S800 now fires at 80% (in 1.4.0 the rails were off)")
+s.run_script("PAUSE"); ok(rails(s) == 1.0 and s.pins["SERVO_LASER"] == 0.0, "pause drops the level, keeps the rails for the resume")
+s.run_script("TOOL_RESUME"); ok(abs(s.pins["SERVO_LASER"] - 0.8) < 1e-9, "TOOL_RESUME puts the level back")
+s.run_script("CANCEL_PRINT"); ok(rails(s) == 0.0 and s.pins["SERVO_LASER"] == 0.0, "cancel: rails and level off")
+s = zsim(3); laser_flow(s); s.press("Start the cut"); s.save_vars.update(set_material_toolhead="LightSaber")
+s.objects["print_stats"]["state"] = "printing"; s.run_script("M3 S800\nEND_PRINT")
+ok(rails(s) == 0.0 and s.pins["SERVO_LASER"] == 0.0, "END_PRINT: rails and level off")
+s = zsim(3); laser_flow(s); s.press("Start the cut"); s.run_script("EMERGENCY_STOP")
+ok(rails(s) == 0.0, "EMERGENCY_STOP: rails off")
+s = zsim(3); laser_flow(s, file=None); s.press("Start the cut")
+ok(rails(s) == 0.0 and "SDCARD_PRINT_FILE" not in " ".join(cmds(s)), "no FILE given: nothing starts and the rails stay off")
+s = zsim(3); laser_flow(s)
+def bad_file(p, rest): raise KlipperError("Unable to open file")
+s.extra_cmds["SDCARD_PRINT_FILE"] = bad_file
+ok(raises(lambda: s.press("Start the cut"), "unable to open") and rails(s) == 0.0, "file fails to load: Klipper stops there, rails stay off")
+s = zsim(1); s.run_script("SET_GCODE_VARIABLE MACRO=_START_JOB_FILE VARIABLE=file VALUE=\"'cut.gcode'\"")
+ok(raises(lambda: s.run_script("_LASER_START"), "not LightSaber") and rails(s) == 0.0
+   and "SDCARD_PRINT_FILE" not in " ".join(cmds(s)), "_LASER_START typed with BlockOne mounted: refused before the file starts")
+
 # ---------------------------------------------------------------- first start: nothing recorded yet
 s = Sim(FIXED).load(); s.save_vars.pop("current_tool", None)
 s.fire_delayed("_RESTORE_TOOL_PROMPT")
