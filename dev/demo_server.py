@@ -29,6 +29,9 @@ STATE = {"klippy": "ready", "print_state": "standby", "progress": 0.0, "filename
          "ui_mode": "dark", "ui_primary": "#2196f3"}
 
 
+SIM = None   # --sim: a simulated Klipper (dev/simmoon.py) runs console commands and fills the console log
+
+
 class Fake(http.server.BaseHTTPRequestHandler):
     def log_message(self, *a):
         pass
@@ -47,6 +50,11 @@ class Fake(http.server.BaseHTTPRequestHandler):
             return self._send(200, {"result": {"klippy_state": STATE["klippy"]}})
         if STATE["klippy"] != "ready" and u.path.startswith("/printer"):
             return self._send(503, {})
+        if u.path == "/server/gcode_store":
+            return self._send(200, {"result": {"gcode_store": SIM.store(int(q.get("count", ["200"])[0])) if SIM else []}})
+        if u.path == "/printer/objects/query" and SIM:
+            st = SIM.status()
+            STATE["print_state"], STATE["current_tool"], STATE["filename"] = st["print_state"], st["current_tool"], st["filename"]
         if u.path == "/printer/objects/query":
             st = {"print_stats": {"state": STATE["print_state"], "filename": STATE["filename"],
                                   "print_duration": STATE["print_duration"], "total_duration": STATE["total_duration"]},
@@ -79,6 +87,10 @@ class Fake(http.server.BaseHTTPRequestHandler):
             for k, v in urllib.parse.parse_qs(u.query).items():
                 cur = STATE.get(k)
                 STATE[k] = type(cur)(v[0]) if isinstance(cur, (int, float)) and not isinstance(cur, bool) else v[0]
+                if SIM and k == "current_tool":
+                    SIM.set_tool(int(v[0]))
+                if SIM and k == "print_state":
+                    SIM.set_state(v[0])
             return self._send(200, STATE)
         if u.path == "/server/files/upload":     # Slice tab: remember the file (name and size)
             n = int(self.headers.get("Content-Length") or 0)
@@ -87,8 +99,12 @@ class Fake(http.server.BaseHTTPRequestHandler):
             name = m.group(1).decode() if m else "upload.gcode"
             STATE.setdefault("files", {})[name] = len(body)
             return self._send(201, {"result": {"item": {"path": name, "root": "gcodes"}, "action": "create_file"}})
-        if u.path == "/printer/gcode/script":    # Slice tab: record the command (the demo has no Klipper to run it)
-            STATE.setdefault("scripts", []).append(urllib.parse.parse_qs(u.query).get("script", [""])[0])
+        if u.path == "/printer/gcode/script":    # Slice tab: record the command; with --sim, run it too
+            script = urllib.parse.parse_qs(u.query).get("script", [""])[0]
+            STATE.setdefault("scripts", []).append(script)
+            err = SIM.script(script) if SIM else None
+            if err:
+                return self._send(400, {"error": {"code": 400, "message": err}})
             return self._send(200, {"result": "ok"})
         if u.path == "/__job":     # append a finished job to the history
             q = {k: v[0] for k, v in urllib.parse.parse_qs(u.query).items()}
@@ -122,10 +138,16 @@ def main():
     ap.add_argument("--host", default="127.0.0.1", help="listen address (0.0.0.0 to try it from another machine)")
     ap.add_argument("--monitor-interval", type=float, default=2.0)
     ap.add_argument("--config", help="use this already-made config folder instead of a fresh copy")
+    ap.add_argument("--sim", action="store_true", help="run console commands in the simulated Klipper (needs jinja2)")
     a = ap.parse_args()
     cfg = a.config or make_config()
     sys.path.insert(0, cfg)
     from rhino.portal import create_app
+    if a.sim:
+        global SIM
+        sys.path.insert(0, HERE)
+        from simmoon import SimBackend
+        SIM = SimBackend(cfg, tool=STATE["current_tool"])
     fake = start_fake()
     app = create_app(cfg, f"http://127.0.0.1:{fake.server_port}", start_monitor=True)
     app.config["MONITOR"].interval = a.monitor_interval

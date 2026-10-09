@@ -15,7 +15,7 @@ from flask import Blueprint, current_app, jsonify, request
 
 from .. import pending
 from ..errors import Fail
-from ..slice import jobs, profiles
+from ..slice import jobs, profiles, prompts
 from . import security
 
 bp = Blueprint("slice", __name__)
@@ -138,6 +138,62 @@ def start():
             return jsonify({"ok": False, "error": "Not started - " + found[0], "conflicts": found, "tool": stamp, **info}), 409
         current_app.config["MOONRAKER"].run_gcode(f"{macro} FILE={fname}")
     return jsonify({"ok": True, "started": f"{macro} FILE={fname}", "tool": stamp, **info})
+
+
+def _prompt():
+    return prompts.current(current_app.config["MOONRAKER"].gcode_store())
+
+
+def _public(p):
+    """What the page needs to draw the question: no commands (the page only ever sends a button number)."""
+    if not p:
+        return None
+    btn = lambda b: {"label": b["label"], "color": b["color"]}
+    return {"id": p["id"], "title": p["title"],
+            "items": [{"text": it["text"]} if "text" in it else {"group": [btn(b) for b in it["group"]]} for it in p["items"]],
+            "footer": [btn(b) for b in p["footer"]]}
+
+
+@bp.get("/api/prompt")
+def prompt():
+    _enabled_or_404()
+    run = current_app.config.get("PROMPT_RUN", {})
+    return jsonify({"ok": True, "prompt": _public(_prompt()), "running": bool(run.get("running")),
+                    "last": run.get("label", ""), "error": run.get("error", "")})
+
+
+@bp.post("/api/prompt/press")
+def prompt_press():
+    """Body {id, n}: press button n (0-based, footer buttons last) of the question with this id."""
+    security.check_write()
+    _enabled_or_404()
+    body = security.json_body()
+    with _send_lock:
+        p = _prompt()
+        if not p or p["id"] != body.get("id"):
+            return jsonify({"ok": False, "error": "That question is no longer showing - it was answered or replaced.",
+                            "prompt": _public(p)}), 409
+        b = prompts.button(p, body.get("n"))
+        if not b:
+            raise Fail("That button is not in the question.")
+        _run_in_background(b)
+    return jsonify({"ok": True, "pressed": b["label"]})
+
+
+def _run_in_background(b):
+    """Moonraker only answers once the command has finished, and some take minutes (a heat-up waits for the
+    bed). So the button's command runs in the background; a Klipper refusal is kept for the page to show."""
+    mr, state = current_app.config["MOONRAKER"], current_app.config.setdefault("PROMPT_RUN", {})
+    state.update(label=b["label"], running=True, error="")
+
+    def go():
+        try:
+            mr.run_gcode(b["command"], timeout=3600)
+        except Fail as e:
+            state["error"] = f"{b['label']}: {e}"
+        finally:
+            state["running"] = False
+    threading.Thread(target=go, daemon=True).start()
 
 
 @bp.after_app_request

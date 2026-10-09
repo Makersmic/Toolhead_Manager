@@ -157,11 +157,20 @@ class Moonraker:
         item = (r.get("result") or r).get("item") or {}
         return item.get("path") or filename
 
-    def run_gcode(self, script):
-        """Run a G-code command the way the Mainsail console does. Klipper's error, if any, comes back as Fail."""
+    def gcode_store(self, count=200):
+        """Klipper's recent console lines, oldest first: [{"message", "time", "type"}]. [] if unavailable."""
+        try:
+            r = self._call("GET", "/server/gcode_store", {"count": count})
+        except Fail:
+            return []
+        return list((r.get("result") or {}).get("gcode_store") or [])
+
+    def run_gcode(self, script, timeout=30):
+        """Run a G-code command the way the Mainsail console does; returns when Klipper has finished it.
+        Klipper's error, if any, comes back as Fail."""
         req = urllib.request.Request(self.url + "/printer/gcode/script?" + urllib.parse.urlencode({"script": script}),
                                      data=b"", method="POST")
-        self._send(req, 30, "Klipper refused it")
+        self._send(req, timeout, "Klipper refused it")
         return {"ok": True}
 
     def restart(self):

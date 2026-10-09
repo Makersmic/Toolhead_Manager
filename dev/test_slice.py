@@ -318,6 +318,131 @@ write_settings(CFG, None)
 r = send(); ok(r.status_code == 400 and len(STATE["uploads"]) == 1, "slicing turned off: send refused")
 ok(start("LightSaber-laser-002.gcode").status_code == 400, "...and start refused")
 
+# =============================================================================== part 5
+print("== Klipper's questions in the portal ==")
+from rhino.slice import prompts  # noqa: E402
+
+E = lambda m, t=1.0, typ="response": {"message": m, "time": t, "type": typ}
+store = [E("// action:prompt_begin Old"), E("// action:prompt_show"),
+         E("// action:prompt_begin Laser setup", 2.0), E("// action:prompt_text Glasses on"),
+         E("// action:prompt_button_group_start"), E("// action:prompt_button Yes|_GO|primary"),
+         E("// action:prompt_button No|_STOP|error"), E("// action:prompt_button_group_end"),
+         E("// action:prompt_button Plain"), E("// action:prompt_footer_button Cancel|_CANCEL|bogus"),
+         E("// action:prompt_show")]
+q = prompts.current(store)
+ok(q and q["title"] == "Laser setup" and q["items"][0] == {"text": "Glasses on"}, "reads the latest question: title and text")
+ok([b["label"] for b in q["buttons"]] == ["Yes", "No", "Plain", "Cancel"] and len(q["items"][1]["group"]) == 2,
+   "buttons in order, grouped as Klipper grouped them, footer last")
+ok(q["buttons"][2]["command"] == "Plain" and q["buttons"][3]["color"] == "secondary",
+   "a button with no command runs its label (as in Mainsail); an unknown colour falls back")
+ok(prompts.current(store + [E("// action:prompt_end")]) is None, "prompt_end closes it")
+ok(prompts.current(store + [E("// action:prompt_begin Next"), E("// action:prompt_text half built")]) is None,
+   "a question still being built is not shown")
+ok(prompts.current([E("RESPOND TYPE=command MSG=\"action:prompt_begin Fake\"", typ="command"),
+                    E("// action:prompt_begin Fake", typ="command"), E("// action:prompt_show", typ="command")]) is None,
+   "lines typed in the console never count as Klipper's question")
+ok(prompts.button(q, 9) is None and prompts.button(q, "1") is None and prompts.button(q, 1)["command"] == "_STOP",
+   "button numbers outside the question are refused")
+
+from simmoon import SimBackend  # noqa: E402
+SB = SimBackend(CFG, tool=3)
+
+
+class SimH(http.server.BaseHTTPRequestHandler):
+    def log_message(self, *a):
+        pass
+
+    def _send(self, code, obj):
+        b = json.dumps(obj).encode()
+        self.send_response(code)
+        self.send_header("Content-Length", str(len(b)))
+        self.end_headers()
+        self.wfile.write(b)
+
+    def do_GET(self):
+        import urllib.parse as _up
+        u = _up.urlparse(self.path)
+        if u.path == "/server/info":
+            return self._send(200, {"result": {"klippy_state": "ready"}})
+        if u.path == "/server/gcode_store":
+            return self._send(200, {"result": {"gcode_store": SB.store(int(_up.parse_qs(u.query).get("count", ["200"])[0]))}})
+        if u.path == "/printer/objects/query":
+            st = SB.status()
+            return self._send(200, {"result": {"status": {"print_stats": {"state": st["print_state"]},
+                                                          "gcode_macro SWAP_TOOL": {"current_tool": st["current_tool"]}}}})
+        self._send(404, {})
+
+    def do_POST(self):
+        import urllib.parse as _up
+        u = _up.urlparse(self.path)
+        if u.path == "/printer/gcode/script":
+            err = SB.script(_up.parse_qs(u.query)["script"][0])
+            return self._send(400, {"error": {"message": err}}) if err else self._send(200, {"result": "ok"})
+        self._send(404, {})
+
+
+srv2 = http.server.ThreadingHTTPServer(("127.0.0.1", 0), SimH)
+threading.Thread(target=srv2.serve_forever, daemon=True).start()
+app2 = create_app(CFG, f"http://127.0.0.1:{srv2.server_port}")
+c2 = app2.test_client()
+write_settings(CFG, None)
+ok(c2.get("/api/prompt").status_code == 400, "slicing off: no question endpoint")
+write_settings(CFG, {"enabled": True})
+ok(c2.get("/api/prompt").get_json()["prompt"] is None, "nothing asked yet: no question")
+
+
+def wait_idle():
+    for _ in range(100):
+        d = c2.get("/api/prompt").get_json()
+        if not d["running"]:
+            return d
+        time.sleep(0.05)
+    return d
+
+
+def press_label(label, hdr=HDR):
+    d = c2.get("/api/prompt").get_json()
+    labels = [b["label"] for it in d["prompt"]["items"] for b in it.get("group", [])] + [b["label"] for b in d["prompt"]["footer"]]
+    r = c2.post("/api/prompt/press", json={"id": d["prompt"]["id"], "n": labels.index(label)}, headers=hdr)
+    return r, wait_idle()
+
+
+import time  # noqa: E402
+SB.script("LASER_JOB_SETUP FILE=LightSaber-cut.gcode")
+d = c2.get("/api/prompt").get_json()
+ok(d["prompt"]["title"] == "Laser setup" and "command" not in json.dumps(d), "the safety checklist shows - labels only, no commands sent to the page")
+qid = d["prompt"]["id"]
+n_before = len(SB.store(1000))
+r = c2.post("/api/prompt/press", json={"id": qid, "n": 0})
+ok(r.status_code == 400 and len(SB.store(1000)) == n_before, "press without the portal token: refused, nothing run")
+r = c2.post("/api/prompt/press", json={"id": "1.0-0", "n": 0}, headers=HDR)
+ok(r.status_code == 409 and len(SB.store(1000)) == n_before, "press on a question that is not showing: refused (409), nothing run")
+r = c2.post("/api/prompt/press", json={"id": qid, "n": 7}, headers=HDR)
+ok(r.status_code == 400 and len(SB.store(1000)) == n_before, "a button number not in the question: refused")
+r, d = press_label("All checked - set focus")
+ok(r.status_code == 200 and d["prompt"]["title"].startswith("Set Z zero"), "All checked: the Set Z zero window comes up")
+r, d = press_label("Bed up 10 mm")
+ok(any(e["type"] == "command" and e["message"] == "_Z_ZERO_MOVE D=-10" for e in SB.store(1000))
+   and d["prompt"]["title"].startswith("Set Z zero"), "Bed up 10 mm runs its own command (_Z_ZERO_MOVE D=-10) and the window stays")
+r, d = press_label("SET - Z zero here")
+ok(d["prompt"]["title"] == "Check the test mark", "SET: test fire, then the test-mark question")
+r, d = press_label("Yes - continue")
+ok(d["prompt"]["title"] == "Ready to cut", "Yes: Ready to cut")
+SB.set_tool(1)
+r, d = press_label("Start the cut")
+ok(d["prompt"] is None and "not LightSaber" in d["error"] and SB.status()["print_state"] == "standby"
+   and SB.sim.pins.get("LASER_INITIALIZE", 0.0) == 0.0,
+   "tool swapped before Start: Klipper refuses, its message shows, nothing starts, laser off")
+SB.set_tool(3)
+SB.script("LASER_JOB_SETUP FILE=LightSaber-cut.gcode")
+for lab in ("All checked - set focus", "SET - Z zero here", "Yes - continue"):
+    press_label(lab)
+r, d = press_label("Start the cut")
+ok(d["prompt"] is None and d["error"] == "" and SB.status()["print_state"] == "printing" and SB.status()["filename"] == "LightSaber-cut.gcode"
+   and SB.sim.pins.get("LASER_INITIALIZE") == 1.0, "Start the cut from the portal: the file runs with the laser powered (1.4.1)")
+srv2.shutdown()
+write_settings(CFG, None)
+
 srv.shutdown()
 shutil.rmtree(os.path.dirname(os.path.dirname(CFG)), ignore_errors=True)
 print()

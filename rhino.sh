@@ -24,6 +24,13 @@ portal_state() {
   else echo "${Y}not installed${N}"; fi
 }
 is_package() { [ -f "$HERE/install.sh" ] && [ -d "$HERE/rhino" ]; }
+KIRI="${RHINO_KIRI_HOME:-$HOME/rhino-kiri}"
+kiri_state() {
+  if systemctl is-active --quiet rhino-kiri 2>/dev/null; then
+    echo "${G}running${N}  $(cat "$KIRI/installed-version" 2>/dev/null) (Slice tab)"
+  elif [ -f /etc/systemd/system/rhino-kiri.service ]; then echo "${R}stopped${N}"
+  else echo "${Y}not installed${N}"; fi
+}
 
 header() {
   clear 2>/dev/null || true
@@ -33,6 +40,7 @@ header() {
   row "Installed version : $(inst_version)"
   is_package && row "This folder has   : $(src_version)   ($HERE)"
   row "Portal            : $(portal_state)"
+  row "Kiri:Moto slicer  : $(kiri_state)"
   line '|' '-' '|'
 }
 
@@ -49,6 +57,7 @@ menu() {
   row "${C}4)${N} Undo an install            (pick a backup)"
   row "${C}5)${N} Portal status and recent log"
   row "${C}6)${N} Restart the portal"
+  row "${C}7)${N} Kiri:Moto slicer           (prototype)"
   row ""
   row "${C}Q)${N} Quit"
   line '\' '=' '/'
@@ -106,6 +115,41 @@ do_undo() {
   pause
 }
 
+do_kiri() {
+  echo; echo "${B}Kiri:Moto slicer${N} (prototype) - the slicer in the portal's Slice tab"
+  echo "Status: $(kiri_state)"
+  echo; echo "  1) Install or update from a rhino-kiri zip  (upload it in Mainsail: Machine > Upload)"
+  echo "  2) Remove it (the Slice tab is turned off; nothing else changes)"
+  echo "  3) Status and recent log"
+  local a; read -r -p "Choose (Enter to go back): " a
+  case "$a" in
+    1)
+      local zips=() i=1 z n
+      for z in "$CFG"/rhino-kiri-*.zip; do [ -f "$z" ] && zips+=("$z"); done
+      [ ${#zips[@]} = 0 ] && { echo "${Y}None found.${N} Upload rhino-kiri-<version>.zip in Mainsail first."; pause; return; }
+      for z in "${zips[@]}"; do echo "  $i) $(basename "$z")"; i=$((i+1)); done
+      read -r -p "Which one (number, Enter to go back)? " n
+      [[ "$n" =~ ^[0-9]+$ ]] && [ "$n" -ge 1 ] && [ "$n" -le ${#zips[@]} ] || return
+      z="${zips[$((n-1))]}"
+      local dest="$HOME/$(basename "$z" .zip)"
+      command -v unzip >/dev/null || { echo "Installing unzip..."; sudo apt-get install -y unzip || { pause; return; }; }
+      rm -rf "$dest"; unzip -q -o "$z" -d "$dest" || { echo "${R}Could not unpack $z${N}"; pause; return; }
+      bash "$dest/install-kiri.sh" --dry-run || { pause; return; }
+      echo; yes_no "Install Kiri:Moto now?" && bash "$dest/install-kiri.sh" && rm -rf "$dest"
+      pause ;;
+    2)
+      local inst="$(ls -d "$HOME"/rhino-kiri-*/install-kiri.sh 2>/dev/null | head -n1)"
+      [ -f "$CFG/kiri/install-kiri.sh" ] && inst="$CFG/kiri/install-kiri.sh"
+      [ -n "$inst" ] || { echo "No Kiri:Moto installer found."; pause; return; }
+      yes_no "Remove Kiri:Moto and turn the Slice tab off?" && bash "$inst" --remove
+      pause ;;
+    3)
+      echo; systemctl status rhino-kiri --no-pager 2>/dev/null | head -n 5
+      echo; journalctl -u rhino-kiri -n 15 --no-pager 2>/dev/null || echo "(no log)"
+      pause ;;
+  esac
+}
+
 do_status() {
   echo; systemctl status rhino-portal --no-pager 2>/dev/null | head -n 5
   echo; echo "${B}Last 15 log lines${N}"
@@ -135,6 +179,7 @@ while true; do
     4) do_undo ;;
     5) do_status ;;
     6) do_restart ;;
+    7) do_kiri ;;
     q) echo "Bye."; exit 0 ;;
   esac
 done

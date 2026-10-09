@@ -188,7 +188,7 @@ function drawSend() {
         h("button", { class: "btn ghost", text: "Check again", disabled: J.busy, onclick: recheck }), close));
   } else if (J.state === "started") {
     box.append(h("h2", { text: "Laser setup started" }),
-      h("p", { text: `Answer its questions in Mainsail - the safety checklist is showing there now. ${J.file} starts when you press Start the cut.` }),
+      h("p", { text: `Answer its questions below (Mainsail shows the same ones). ${J.file} starts when you press Start the cut.` }),
       h("div", { class: "card-actions" },
         h("a", { class: "btn", href: mainsailUrl(), target: "_blank", rel: "noopener", text: "Open Mainsail" }), close));
   }
@@ -210,6 +210,63 @@ async function onOpen() {
 }
 
 document.addEventListener("rhino:view", (e) => { if (e.detail === "slice") onOpen(); });
+
+/* ---------------------------------------------------------------- Klipper's questions
+   The portal reads the question Klipper is showing (the same one Mainsail shows) and draws it here. A press
+   sends only the question's id and the button's number; the portal checks it is still that question and runs
+   that button's own command.                                                                                */
+const Q = { prompt: null, running: false, last: "", error: "", busy: false, msg: "", timer: null };
+const COLOR = { primary: "btn", success: "btn", error: "btn danger", warning: "btn warn" };
+
+async function pollPrompt() {
+  if ($("view-slice").classList.contains("hidden") || !K.ctx) return;
+  try {
+    const d = await api("GET", "/api/prompt");
+    const changed = JSON.stringify(d.prompt) !== JSON.stringify(Q.prompt) || d.running !== Q.running || d.error !== Q.error;
+    if ((d.prompt || {}).id !== (Q.prompt || {}).id) Q.msg = "";
+    Object.assign(Q, { prompt: d.prompt, running: d.running, last: d.last, error: d.error });
+    if (changed) drawPrompt();
+  } catch (e) { /* the page keeps the last question; the next poll tries again */ }
+}
+
+async function press(n) {
+  Q.busy = true; Q.msg = ""; drawPrompt();
+  const d = await postJSON("/api/prompt/press", { id: Q.prompt.id, n });
+  Q.busy = false;
+  if (!d.ok) Q.msg = d.error || "Not pressed.";
+  await pollPrompt(); drawPrompt();
+  setTimeout(pollPrompt, 400);
+}
+
+function drawPrompt() {
+  const box = clear($("slicePrompt")), p = Q.prompt;
+  const show = !!p || Q.running || !!Q.error;
+  box.classList.toggle("hidden", !show);
+  if (!show) return;
+  if (!p) {
+    box.append(h("h2", { text: "Klipper" }),
+      Q.running ? h("p", { class: "muted", text: `Working: ${Q.last}...` }) : null,
+      Q.error ? h("p", { class: "slice-prompt-error", text: Q.error }) : null);
+    return;
+  }
+  let n = 0;
+  const btn = (b) => { const i = n++; return h("button", { class: COLOR[b.color] || "btn ghost", text: b.label,
+                                                           disabled: Q.busy || Q.running, onclick: () => press(i) }); };
+  box.append(h("p", { class: "slice-prompt-kicker", text: "Klipper is asking" }), h("h2", { text: p.title }));
+  p.items.forEach((it) => {
+    if (it.text !== undefined) box.append(h("p", { class: "slice-prompt-text", text: it.text }));
+    else box.append(h("div", { class: "slice-prompt-row" }, it.group.map(btn)));
+  });
+  if (p.footer.length) box.append(h("div", { class: "slice-prompt-row slice-prompt-footer" }, p.footer.map(btn)));
+  if (Q.running) box.append(h("p", { class: "muted small", text: `Working: ${Q.last}...` }));
+  if (Q.error) box.append(h("p", { class: "slice-prompt-error", text: Q.error }));
+  if (Q.msg) box.append(h("p", { class: "slice-prompt-error", text: Q.msg }));
+}
+
+document.addEventListener("rhino:view", (e) => {
+  clearInterval(Q.timer);
+  if (e.detail === "slice") { pollPrompt(); Q.timer = setInterval(pollPrompt, 1500); }
+});
 
 /* boot: show the tab only when slicing is turned on */
 loadContext().then((c) => { if (c) $("navSlice").classList.remove("hidden"); }).catch(() => {});

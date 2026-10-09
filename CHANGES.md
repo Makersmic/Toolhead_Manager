@@ -1,5 +1,23 @@
 # What changed
 
+## 1.5.0-kiri.1 - PROTOTYPE: slicing in the portal (LightSaber only)
+
+Built on 1.4.1. Off until Kiri:Moto is installed (menu option 7); until then nothing changes.
+- **Slice tab:** Kiri:Moto inside the portal, opened on the mounted tool. The "Rhino LightSaber" machine profile is
+  built from `variables.cfg` (power scale `laser_s_max`, each material's power and feed) and the 550 x 375 work area.
+  Files start with `; RHINO_TOOL=LightSaber`, power the laser (`ACTIVATE_LASER`) and end with it off and the bed parked.
+- **Send to Rhino** (in Kiri:Moto's laser export window): the portal checks the file's tool against the mounted
+  tool, Klipper being ready, no job running and no restart pending, and refuses to send until all pass.
+- **Start laser setup** runs `LASER_JOB_SETUP FILE=<file>` (checks again first).
+- **Klipper's questions in the portal:** the setup's questions (safety checklist, Set Z zero, test mark, Start the
+  cut) show in the Slice tab and can be answered there; Mainsail shows the same ones. The page only sends which
+  button of which question - the portal runs that button's own command, and only while that question is showing.
+- **Menu option 7 - Kiri:Moto slicer:** installs `rhino-kiri-<version>.zip` (uploaded in Mainsail) as a service on
+  port 8090, with its own Node.js 22 if the Pi has none (downloaded from nodejs.org and checked), and turns the Slice
+  tab on; Remove takes it all away again.
+
+Check on the machine: see the install guide; at least F1 run from the Slice tab.
+
 ## 1.4.1 - the laser's power is switched on for the job
 
 - **Fix: laser jobs did not fire.** The LightSaber only fires with its power rails on (`LASER_INITIALIZE`), and an

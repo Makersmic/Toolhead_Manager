@@ -442,6 +442,8 @@ class Sim:
     def cmd_RESPOND(self, p, rest):
         msg = p.get("MSG", "")
         typ = p.get("TYPE", "echo")
+        if self.__dict__.get("responses") is not None:      # console lines as Klipper prints them (fake Moonraker)
+            self.responses.append({"command": "// ", "error": "!! "}.get(typ, "echo: ") + msg)
         if typ == "command" and msg.startswith("action:"):
             self._action(msg[len("action:"):])
         else:

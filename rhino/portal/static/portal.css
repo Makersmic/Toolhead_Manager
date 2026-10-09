@@ -70,6 +70,7 @@ h3 { font-size: .72rem; letter-spacing: 1px; text-transform: uppercase; color: v
 .btn.ghost:hover:not(:disabled) { background: var(--border); }
 .btn.danger { background: var(--danger); color: #fff; } .btn.danger:hover:not(:disabled) { background: var(--danger-hover); }
 .btn.small { padding: 5px 10px; font-size: .85rem; }
+a.btn { display: inline-block; text-decoration: none; }
 .icon-btn { background: none; border: 0; color: var(--text); font-size: 1.4rem; cursor: pointer; padding: 4px 10px; border-radius: 4px; }
 .icon-btn:hover { background: var(--border); }
 :focus-visible { outline: 2px solid var(--accent-hover); outline-offset: 2px; }
@@ -413,3 +414,11 @@ details.fold-inline > summary { cursor: pointer; color: var(--link, var(--accent
 .slice-checks .tag.bad { color: var(--bad-text); border-color: color-mix(in srgb, var(--danger) 60%, transparent); }
 .slice-steps { margin: 8px 0 0; padding-left: 20px; color: var(--muted); font-size: .9rem; }
 .slice-send .card-actions { flex-wrap: wrap; align-items: center; }
+.slice-prompt { margin-bottom: 12px; border-color: var(--accent); }
+.slice-prompt h2 { margin: 0 0 8px; font-size: 1.1rem; }
+.slice-prompt-kicker { margin: 0 0 2px; font-size: .75rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+.slice-prompt-text { margin: 4px 0; }
+.slice-prompt-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 0; }
+.slice-prompt-footer { justify-content: flex-end; border-top: 1px solid var(--border); padding-top: 10px; margin-top: 14px; }
+.slice-prompt-error { color: var(--bad-text); margin: 8px 0 0; }
+.btn.warn { background: var(--warn); color: #000; } .btn.warn:hover:not(:disabled) { background: color-mix(in srgb, var(--warn) 85%, #000); }
