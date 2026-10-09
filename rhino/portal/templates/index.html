@@ -18,6 +18,7 @@
 
   <nav class="sidebar" id="sidebar" aria-label="Sections">
     <button class="nav-btn nav-top active" data-view="dash">Dashboard</button>
+    <button class="nav-btn nav-top hidden" data-view="slice" id="navSlice">Slice <span class="nav-tag">prototype</span></button>
     <div class="nav-group" data-group="tools">
       <button class="nav-group-head" type="button" aria-expanded="true">Tools</button>
       <div class="nav-items">
@@ -161,6 +162,15 @@
       <p class="muted small view-intro">What the drop-down menus in the maintenance task editor offer.</p>
       <div id="aMaint"></div>
     </section>
+    <section class="view hidden" id="view-slice">
+      <div class="view-head"><h1>Slice</h1><span class="chip" id="sliceChip">Not loaded</span></div>
+      <div class="slice-bar" id="sliceBar" role="status" aria-live="polite">
+        <span class="slice-tool" id="sliceTool">Checking which tool is mounted...</span>
+        <span class="muted small" id="sliceWhy"></span>
+      </div>
+      <ul class="slice-problems hidden" id="sliceProblems"></ul>
+      <div class="slice-frame-wrap" id="sliceWrap"><p class="empty" id="sliceEmpty">Kiri:Moto loads when you open this tab.</p></div>
+    </section>
     <section class="view hidden" id="view-astatus">
       <div class="view-head"><h1>Status codes</h1></div>
       <p class="muted small view-intro">Built-in statuses are worked out from each task's schedule. Your own status codes are set by hand (from a task card or the Log work list) and follow the rules you give them.</p>
@@ -275,5 +285,6 @@
   <script src="{{ url_for('static', filename='admin.js') }}"></script>
   <script src="{{ url_for('static', filename='dash.js') }}"></script>
   <script src="{{ url_for('static', filename='toolpage.js') }}"></script>
+  <script src="{{ url_for('static', filename='slice.js') }}"></script>
 </body>
 </html>

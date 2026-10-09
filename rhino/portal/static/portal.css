@@ -394,3 +394,13 @@ details.fold-inline > summary { cursor: pointer; color: var(--link, var(--accent
 .table-wrap:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 :root[data-theme="light"] { --link: color-mix(in srgb, var(--accent) 80%, #000); }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+
+/* ---- Slice tab (prototype) ---- */
+.nav-tag { font-size: .65rem; text-transform: uppercase; letter-spacing: .04em; padding: 1px 6px; margin-left: 6px; border-radius: 99px;
+  border: 1px solid color-mix(in srgb, var(--warn) 55%, transparent); color: var(--warn-text); vertical-align: middle; }
+.slice-bar { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; margin: -6px 0 12px; }
+.slice-tool { font-weight: 600; color: var(--text-strong); }
+.slice-problems { margin: 0 0 12px; padding: 10px 14px 10px 30px; border: 1px solid color-mix(in srgb, var(--warn) 50%, transparent);
+  border-radius: 6px; color: var(--warn-text); font-size: .85rem; }
+.slice-frame-wrap { border: 1px solid var(--border); border-radius: 6px; overflow: hidden; background: var(--card); }
+.slice-frame { display: block; width: 100%; height: calc(100vh - 210px); min-height: 520px; border: 0; }

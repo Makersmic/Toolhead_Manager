@@ -8,7 +8,7 @@ from ..monitor import Monitor
 from ..moonraker import Moonraker
 from ..paths import resolve
 from ..service import ToolService
-from . import maint_routes, routes, security
+from . import maint_routes, routes, security, slice_routes
 
 
 def create_app(config_dir=None, moonraker_url=None, start_monitor=False):
@@ -28,5 +28,6 @@ def create_app(config_dir=None, moonraker_url=None, start_monitor=False):
         mon.start()
     app.register_blueprint(routes.bp)
     app.register_blueprint(maint_routes.bp)
+    app.register_blueprint(slice_routes.bp)      # prototype Slice tab; inert unless myrhino/slicer.json enables it
     app.after_request(security.add_headers)
     return app

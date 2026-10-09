@@ -108,6 +108,7 @@ def make_config(root=None):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--port", type=int, default=5055)
+    ap.add_argument("--host", default="127.0.0.1", help="listen address (0.0.0.0 to try it from another machine)")
     ap.add_argument("--monitor-interval", type=float, default=2.0)
     ap.add_argument("--config", help="use this already-made config folder instead of a fresh copy")
     a = ap.parse_args()
@@ -117,8 +118,8 @@ def main():
     fake = start_fake()
     app = create_app(cfg, f"http://127.0.0.1:{fake.server_port}", start_monitor=True)
     app.config["MONITOR"].interval = a.monitor_interval
-    print(f"portal http://127.0.0.1:{a.port}  fake moonraker http://127.0.0.1:{fake.server_port}  config {cfg}", flush=True)
-    app.run(host="127.0.0.1", port=a.port, threaded=True)
+    print(f"portal http://{a.host}:{a.port}  fake moonraker http://127.0.0.1:{fake.server_port}  config {cfg}", flush=True)
+    app.run(host=a.host, port=a.port, threaded=True)
 
 
 if __name__ == "__main__":

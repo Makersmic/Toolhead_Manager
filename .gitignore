@@ -8,3 +8,4 @@ manual/overlay.*
 manual/content.*
 dev/node_modules/
 dev/package*.json
+myrhino/slicer.json
