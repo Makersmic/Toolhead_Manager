@@ -18,8 +18,10 @@ mkdir -p "$APP"
 # the app itself; cp -L turns Kiri's links into node_modules into real files
 cp "$SRC/app.js" "$SRC/package.json" "$SRC/license.md" "$APP/"
 for d in conf src web alt; do cp -RL "$SRC/$d" "$APP/$d"; done
+# mods: only the Rhino one. Kiri:Moto's own Bambu mod lets any browser on the network have the Pi open
+# FTP/MQTT connections to an address it names, and its proxy mod only works in debug builds - neither is
+# needed for the Rhino, so neither ships.
 mkdir -p "$APP/mods"
-for m in bambu proxy; do cp -RL "$SRC/mods/$m" "$APP/mods/$m"; done
 cp -R "$HERE/kiri/mods/rhino" "$APP/mods/rhino"        # always the Rhino mod from this repo
 rm -f "$APP"/web/boot/bundle-*.bin          # offline-install bundle: needs HTTPS, not used here (26 MB)
 

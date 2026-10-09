@@ -341,6 +341,12 @@ ok(prompts.current(store + [E("// action:prompt_begin Next"), E("// action:promp
 ok(prompts.current([E("RESPOND TYPE=command MSG=\"action:prompt_begin Fake\"", typ="command"),
                     E("// action:prompt_begin Fake", typ="command"), E("// action:prompt_show", typ="command")]) is None,
    "lines typed in the console never count as Klipper's question")
+noise = [E(f"echo: line {i}", 3.0 + i) for i in range(300)]
+long_store = store + noise
+ok(prompts.current(long_store[-309:])["id"] == prompts.current(long_store)["id"] == q["id"],
+   "a question keeps its id while newer console lines scroll older ones out of the window")
+ok(prompts.current(store[:3] + store[3:] + [E("// action:prompt_begin Laser setup", 9.0), E("// action:prompt_show", 9.0)])["id"] != q["id"],
+   "the same question shown again later gets a new id (an old press cannot land on it)")
 ok(prompts.button(q, 9) is None and prompts.button(q, "1") is None and prompts.button(q, 1)["command"] == "_STOP",
    "button numbers outside the question are refused")
 
@@ -419,6 +425,21 @@ r = c2.post("/api/prompt/press", json={"id": "1.0-0", "n": 0}, headers=HDR)
 ok(r.status_code == 409 and len(SB.store(1000)) == n_before, "press on a question that is not showing: refused (409), nothing run")
 r = c2.post("/api/prompt/press", json={"id": qid, "n": 7}, headers=HDR)
 ok(r.status_code == 400 and len(SB.store(1000)) == n_before, "a button number not in the question: refused")
+orig_run = SB.script
+import threading as _th  # noqa: E402
+gate = _th.Event()
+def slow_script(text):
+    gate.wait(5)
+    return orig_run(text)
+SB.script = slow_script
+r1 = c2.post("/api/prompt/press", json={"id": qid, "n": 0}, headers=HDR)
+r2 = c2.post("/api/prompt/press", json={"id": qid, "n": 0}, headers=HDR)
+ok(r1.status_code == 200 and r2.status_code == 409 and "still doing" in r2.get_json()["error"],
+   "a second press while Klipper is still busy with the first: refused (no double bed move)")
+gate.set(); wait_idle(); SB.script = orig_run
+d = c2.get("/api/prompt").get_json()
+ok(d["prompt"]["title"].startswith("Set Z zero"), "...the first press went through once")
+SB.script("_Z_ZERO_CANCEL"); SB.script("LASER_JOB_SETUP FILE=LightSaber-cut.gcode")
 r, d = press_label("All checked - set focus")
 ok(r.status_code == 200 and d["prompt"]["title"].startswith("Set Z zero"), "All checked: the Set Z zero window comes up")
 r, d = press_label("Bed up 10 mm")

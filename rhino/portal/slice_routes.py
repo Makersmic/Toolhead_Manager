@@ -113,7 +113,11 @@ def send():
             return jsonify({"ok": False, "error": "Not sent - " + found[0], "conflicts": found, "tool": stamp, **info}), 409
         fname = jobs.safe_name(stamp, body.get("name"))
         current_app.config["MOONRAKER"].upload_gcode(fname, text.encode("utf-8"))
-        _sent()[fname] = stamp
+        sent = _sent()
+        sent.pop(fname, None)
+        sent[fname] = stamp
+        while len(sent) > 50:              # only recent sends can be started; forget the oldest
+            sent.pop(next(iter(sent)))
     p = _profiles().get(stamp) or {}
     return jsonify({"ok": True, "file": fname, "tool": stamp, "setup": jobs.SETUP_MACRO.get(p.get("mode", "")),
                     "bytes": len(text.encode("utf-8")), **info})
@@ -157,7 +161,9 @@ def _public(p):
 @bp.get("/api/prompt")
 def prompt():
     _enabled_or_404()
-    run = current_app.config.get("PROMPT_RUN", {})
+    # Snapshot the run state BEFORE reading Klipper's lines: read after, a command finishing in between
+    # would be reported done next to the question it already answered.
+    run = dict(current_app.config.get("PROMPT_RUN", {}))
     return jsonify({"ok": True, "prompt": _public(_prompt()), "running": bool(run.get("running")),
                     "last": run.get("label", ""), "error": run.get("error", "")})
 
@@ -169,6 +175,9 @@ def prompt_press():
     _enabled_or_404()
     body = security.json_body()
     with _send_lock:
+        run = current_app.config.get("PROMPT_RUN", {})
+        if run.get("running"):
+            return jsonify({"ok": False, "error": f"Klipper is still doing '{run.get('label')}'. Wait for it to finish."}), 409
         p = _prompt()
         if not p or p["id"] != body.get("id"):
             return jsonify({"ok": False, "error": "That question is no longer showing - it was answered or replaced.",

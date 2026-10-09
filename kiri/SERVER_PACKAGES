@@ -1,6 +1,5 @@
 @gridspace/app-server
 @gridspace/net-level-client
-@gridspace/basic-ftp
 @gridspace/log-util
 express-useragent
 moment
@@ -9,8 +8,5 @@ compression
 connect
 fs-extra
 minimist
-mqtt
 serve-static
 ws
-aedes
-hexer

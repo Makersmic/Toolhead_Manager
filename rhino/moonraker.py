@@ -157,7 +157,7 @@ class Moonraker:
         item = (r.get("result") or r).get("item") or {}
         return item.get("path") or filename
 
-    def gcode_store(self, count=200):
+    def gcode_store(self, count=500):
         """Klipper's recent console lines, oldest first: [{"message", "time", "type"}]. [] if unavailable."""
         try:
             r = self._call("GET", "/server/gcode_store", {"count": count})

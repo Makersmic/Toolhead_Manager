@@ -1,5 +1,18 @@
 # What changed
 
+## 1.5.0-kiri.2 - PROTOTYPE: fixes from the code review
+
+- **Question window:** a question's id no longer changes when newer console lines scroll older ones out of
+  Moonraker's window (presses could be refused as "no longer showing" during a busy job); the portal reads 500
+  lines, not 200.
+- **No double presses:** a second button press while Klipper is still doing the first is refused (two quick
+  clicks on Bed up 10 mm moved the bed 20 mm).
+- **Read order:** the question and the "still working" flag are read in the right order, so a finished command is
+  never shown next to the question it already answered.
+- **Kiri:Moto zip (rhino-kiri-4.7.0-2):** ships without Kiri:Moto's Bambu and proxy add-ons - the Bambu one let any
+  browser on the network have the Pi open FTP/MQTT connections to an address it named. 21 MB, 85 packages.
+- The portal remembers only the last 50 files it sent (only those can be started).
+
 ## 1.5.0-kiri.1 - PROTOTYPE: slicing in the portal (LightSaber only)
 
 Built on 1.4.1. Off until Kiri:Moto is installed (menu option 7); until then nothing changes.

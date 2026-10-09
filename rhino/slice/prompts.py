@@ -11,6 +11,7 @@ The portal never lets the page send a command: the page says which button (by nu
 own command.
 """
 import re
+import zlib
 
 PREFIX = "// action:"
 COLORS = ("primary", "secondary", "info", "warning", "error", "success")
@@ -32,7 +33,7 @@ def current(entries):
         "buttons": [button, ...]}   (buttons = every button in order, footer last - what press() numbers)
     """
     building, shown = None, None
-    for n, e in enumerate(entries or []):
+    for e in entries or []:
         if not isinstance(e, dict) or e.get("type") == "command":
             continue          # lines typed in the console are not Klipper's output
         for raw in str(e.get("message", "")).splitlines():
@@ -41,7 +42,10 @@ def current(entries):
                 continue
             a = line[len(PREFIX):]
             if a.startswith("prompt_begin"):
-                building = {"id": f"{e.get('time', 0)}-{n}", "title": a[len("prompt_begin"):].strip(),
+                # id = when Klipper printed it + its title: stays the same while newer lines push older ones
+                # out of the window Moonraker returns (a position in that window would not)
+                title = a[len("prompt_begin"):].strip()
+                building = {"id": f"{e.get('time', 0)}-{zlib.crc32(title.encode()):08x}", "title": title,
                             "items": [], "footer": [], "_group": None}
                 shown = None
             elif building is None:
