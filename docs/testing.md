@@ -18,14 +18,14 @@ Static lint of every .cfg file               unknown commands, invalid options, 
 | Layer | Tool | What it proves | What it can't prove |
 |---|---|---|---|
 | Lint | `dev/lint_rhino.py` | Every macro calls a command that exists; options Klipper rejects at start-up (e.g. `description:` in a `delayed_gcode`, soft-PWM `shutdown_value` other than 0/1); pins used twice | That Klipper accepts the whole config on your board |
-| Macro tests | `dev/test_macros.py` with `dev/klippersim.py` (178 checks) | Macros render the way Klipper renders them (whole template first), run in order, show the right pop-up and buttons, save the right variables, refuse what they should | Timing, heaters, real pins |
-| Motion tests | `dev/test_motion.py` (92 checks, about a minute) | Where the bed and head end up: the simulator follows the position like Klipper (G90/G91, G92, offsets, `safe_z_home`, `SAVE`/`RESTORE_GCODE_STATE`, pause/resume) and refuses moves past `position_min`/`max` or on unhomed axes, with the limits read from `printer.cfg`. Flows: homing, paper test, print, cancel, swap, Set Z zero, Z restore, CNC, knife, laser pause/resume, filament change. Then a sweep of every macro and every button from 7 machine states x 5 tools (about 15,600 runs) against five safety rules (below) | Collisions: it knows the travel limits, not tool lengths or stock height, so "too close" is judged by rules, not geometry |
+| Macro tests | `dev/test_macros.py` with `dev/klippersim.py` (190 checks) | Macros render the way Klipper renders them (whole template first), run in order, show the right pop-up and buttons, save the right variables, refuse what they should | Timing, heaters, real pins |
+| Motion tests | `dev/test_motion.py` (110 checks, about a minute) | Where the bed and head end up: the simulator follows the position like Klipper (G90/G91, G92, offsets, `safe_z_home`, `SAVE`/`RESTORE_GCODE_STATE`, pause/resume) and refuses moves past `position_min`/`max` or on unhomed axes, with the limits read from `printer.cfg`. Flows: homing, paper test, print, cancel, swap, Set Z zero, Z restore, CNC, knife, laser pause/resume, filament change. Then a sweep of every macro and every button from 7 machine states x 5 tools (about 15,600 runs) against five safety rules (below) | Collisions: it knows the travel limits, not tool lengths or stock height, so "too close" is judged by rules, not geometry |
 | Portal tests | `test_portal.py` (52), `test_extras.py` (46), `test_v12.py` (71), `test_maint.py` (60) | The portal API, security (token, same-origin), tool registry and generated `custom_tools.cfg`, controls and macros, Task Books, maintenance schedule maths, meters | The browser screens themselves |
 | Installer test | `dev/test_install.py` (38 checks) | `install.sh`, `uninstall.sh` and the `rhino.sh` menu on a fake Pi (login "tester", an existing config with SAVE_CONFIG, saved variables and a GitHub-backup `.git`; stand-in `sudo`/`systemctl`/`apt-get`; the portal really started from the installed service file): refusals (sudo, job printing, unzipped in the config folder, no printer.cfg, port 5000 taken) change nothing; preview changes nothing; install backs up first, keeps your saved state, `.git` and SAVE_CONFIG (once), rewrites `/home/pi`, starts the portal; update keeps added tools; undo restores exactly; menu options 3 and 4 | Real `apt`, real systemd, the Pi's own Python |
 | Browser smoke test | `dev/test_browser.py` (46 checks) | Headless Chromium on the demo portal with a year of maintenance history: every sidebar screen, each tool page, the Add-a-tool wizard, the editor, Details and Log work (saved, then found in the Work log), Mainsail's light theme, a job running, Klipper down, and a phone screen with no sideways scrolling. Fails on any script error or failed request | How the screens look - that's still the screenshots (`dev/demo_server.py`, `dev/maint_year_demo.py`) |
 | On-machine | The plan below | Everything above, for real | - |
 
-Run every automated layer with `sh dev/run_all.sh` (583 checks, about three minutes; needs `pip install jinja2 flask`,
+Run every automated layer with `sh dev/run_all.sh` (613 checks, about three minutes; needs `pip install jinja2 flask`,
 for the browser test `pip install playwright && python3 -m playwright install chromium` and, for its accessibility
 scan, `npm install --prefix dev axe-core@4.10.2` - without them those parts say SKIP). It runs on every push to GitHub (`.github/workflows/tests.yml`). `python3 dev/test_motion.py --quick`
 skips the sweep.
@@ -132,8 +132,11 @@ moves the machine. **Stop if** means stop, don't press on - note what happened a
 
 - [ ] **C1 Swap BlockOne to LightSaber** (`SWAP_TOOL`). *Pass:* waits until the hotend and bed are below 40 °C,
   lowers the bed to 150 or more, never homes Z, numbered swap window, confirm names LightSaber.
-- [ ] **C2 Not detected.** During a swap, confirm with the umbilical unplugged. *Pass:* "Toolhead not detected";
-  plug in, Check again works.
+- [ ] **C2 Not detected** (works from 1.4.2). During a swap, unplug the umbilical: Klipper keeps running (the nozzle
+  reads about -50 °C). Confirm with it still unplugged. *Pass:* "Toolhead not detected"; plug in, Check again
+  works. Swapping to a print head: its extruder motor only gets power after Check again succeeds.
+- [ ] **C5 Heater guard** (new in 1.4.2). With LightSaber mounted, type 200 in Mainsail's nozzle temperature box.
+  *Pass:* refused with "only for print heads", the heater stays off.
 - [ ] **C3 Wrong tool.** With LightSaber mounted, start a BlockOne file. *Pass:* refused with "hardware mismatch",
   nothing moves.
 

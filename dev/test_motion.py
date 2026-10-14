@@ -67,7 +67,11 @@ def sim(slot, x=288.0, y=203.0, z=20.0, homed="xyz", job="standby", **save):
     def heat(p, rest):
         if float(p.get("S", 0) or 0) > 0:
             s.heats.append(tuple(s.stack))
-    s.extra_cmds = {"M104": heat, "M109": heat}
+    def heat_set(p, rest):
+        if p.get("HEATER", "").lower() == "extruder" and float(p.get("TARGET", 0) or 0) > 0:
+            s.heats.append(tuple(s.stack))
+    # the real heater commands, after the Rhino guard (M104/M109/SET_HEATER_TEMPERATURE are macros since 1.4.2)
+    s.extra_cmds = {"M104.1": heat, "M109.1": heat, "_SET_HEATER_TEMPERATURE_BASE": heat_set}
     return s.place(x, y, z, homed=homed)
 
 
@@ -393,6 +397,50 @@ for base, _, files in os.walk(ROOT):
             t = open(os.path.join(base, f), errors="ignore").read()
             leftover += [f"{f}: {m}" for m in _re.findall(r"tool_swap_park_[xyz]|\b(?:551|381)\.0\b|variable_safe_z|variable_max_z", t)]
 ok(not leftover, f"no macro keeps its own copy of a position ({leftover[:4]})")
+
+print("== thermistor on the umbilical: swap detection and heater guard (1.4.2) ==")
+ok(BASE.config_sections["extruder"]["min_temp"].split()[0] == "-100", "[extruder] min_temp is -100: an unplugged head (about -50 C) is not a Klipper shutdown")
+def cmds_of(s): return [str(x[1]) for x in s.log if x[0] == "cmd"]
+s = sim(1, z=20.0); s.run_script("SWAP_TOOL TOOL=3")
+s.objects["extruder"]["temperature"] = -50.337
+n = len(s.log)
+err = run(s, "CONFIRM_TOOL_INSTALL") or ""
+ok("not detected" in err.lower() and s.prompt and s.prompt["title"] == "Toolhead not detected" and "Check again" in s.buttons(),
+   "confirm with the plug out (-50.3 C): the 'Toolhead not detected' window shows, with Check again")
+ok(s.macro_vars["SWAP_TOOL"]["current_tool"] == 1 and s.macro_vars["SWAP_TOOL"]["pending_tool"] == 3, "...and nothing is recorded yet")
+s.objects["extruder"]["temperature"] = 23.0
+s.press("Check again")
+ok(s.macro_vars["SWAP_TOOL"]["current_tool"] == 3, "plugged in (23 C), Check again: LightSaber recorded")
+s = sim(3, z=20.0); s.run_script("SWAP_TOOL TOOL=1")
+s.objects["extruder"]["temperature"] = -50.0
+n = len(s.log); run(s, "CONFIRM_TOOL_INSTALL")
+ok(not any("ENABLE=1" in c for c in cmds_of(s)[n:]), "swap to BlockOne with the plug out: the extruder driver is NOT switched on")
+s.objects["extruder"]["temperature"] = 22.0
+n = len(s.log); s.press("Check again"); c = cmds_of(s)[n:]
+ok(any("STEPPER=extruder ENABLE=1" in x for x in c) and s.macro_vars["SWAP_TOOL"]["current_tool"] == 1,
+   "...plugged in: detected first, then the extruder driver is switched on")
+for slot in (3, 4, 5):
+    s = sim(slot)
+    ok("only for print heads" in (run(s, "M104 S200") or "") and not s.heats, f"M104 S200 with {TOOLS[slot][0]}: refused")
+s = sim(3)
+ok("only for print heads" in (run(s, "SET_HEATER_TEMPERATURE HEATER=extruder TARGET=200") or "") and not s.heats,
+   "Mainsail's nozzle temperature box with LightSaber: refused")
+ok(run(s, "SET_HEATER_TEMPERATURE HEATER=heater_bed TARGET=60") is None, "...the bed heater is not affected")
+ok(run(s, "M104 S0") is None and run(s, "M109 S0") is None, "...and turning the nozzle heater off always works")
+s = sim(1); s.objects["extruder"]["temperature"] = -50.0
+ok("reads -50 C" in (run(s, "M109 S210") or "") and not s.heats, "BlockOne with the thermistor unplugged (-50 C): M109 refused")
+s.objects["extruder"]["temperature"] = 21.0
+ok(run(s, "M104 S210") is None and s.heats, "BlockOne reading 21 C: M104 S210 heats as normal")
+s = sim(0)
+ok("no toolhead confirmed" in (run(s, "M104 S200") or ""), "after a restart, before the tool question: refused")
+s = sim(1); s.objects["extruder"].update(target=210.0, temperature=-50.0); n = len(s.log)
+s.run_delayed_body("_RHINO_HEATER_WATCH")
+ok("M104.1 S0" in cmds_of(s)[n:] and any("Nozzle heater switched off" in e[0] for e in s.errors()),
+   "watchdog: heater on while the thermistor reads -50 C -> switched off with an error")
+ok(any(x[0] == "delayed" and x[1] == "_RHINO_HEATER_WATCH" for x in s.log[n:]), "...and it keeps watching (every second)")
+s = sim(1); s.objects["extruder"].update(target=210.0, temperature=180.0); n = len(s.log)
+s.run_delayed_body("_RHINO_HEATER_WATCH")
+ok("M104.1 S0" not in cmds_of(s)[n:] and not s.errors(), "watchdog leaves a normal heat-up alone")
 
 # =============================================================== Part 2: sweep
 KNOWN = {

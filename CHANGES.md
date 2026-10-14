@@ -1,5 +1,28 @@
 # What changed
 
+## 1.4.2 - swapping heads without a Klipper shutdown
+
+Found on the machine during test C1: unplugging BlockOne made Klipper shut down ("ADC out of range"). Every
+toolhead's thermistor is on the same umbilical contacts (3-4), and with `min_temp: 0` an unplugged plug (about
+-50 °C) is an instant shutdown.
+- **`[extruder] min_temp: -100`** (`tools/3dp.cfg`): unplugging during a swap no longer shuts Klipper down.
+  In its place:
+  - **Nozzle heater guard:** `M104`, `M109` and `SET_HEATER_TEMPERATURE` (Mainsail's temperature box) only switch
+    the nozzle heater on with a print head mounted and confirmed and its thermistor reading -20 °C or more. Off (0)
+    always works. The bed heater is not affected.
+  - **Heater watchdog** (`_RHINO_HEATER_WATCH`, every second): if the nozzle heater is on while the thermistor
+    reads below -20 °C (unplugged or a broken wire), it is switched off with an error.
+  - Klipper's own heating-rate check stays on.
+- **Swap: "Toolhead not detected" now works.** It counted only readings below -50 °C as unplugged (an unplugged
+  plug read -50.3, so it could slip through) - now below -20 °C. And its window could never appear: the error was
+  raised while Klipper was still reading the macro, before the window was drawn. It now uses `_TOOL_REJECT`.
+- **Swap: the extruder driver gets power only after the head is detected.** It was switched on first, so confirming
+  a print head with its plug not fully in meant plugging a stepper into a powered driver.
+- The swap window says the tool connector is off and that about -50 °C while unplugged is expected.
+
+Check on the machine: **C1, C2** (unplug during a swap: no shutdown; confirm unplugged: "Toolhead not detected"),
+**C5** (nozzle temperature refused with LightSaber).
+
 ## 1.4.1 - the laser's power is switched on for the job
 
 - **Fix: laser jobs did not fire.** The LightSaber only fires with its power rails on (`LASER_INITIALIZE`), and an
