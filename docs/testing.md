@@ -98,20 +98,20 @@ For every version, before the zip is sent:
 - [ ] `CHANGES.md`, `VERSION` and the manual updated
 - [ ] The on-machine tests for whatever changed are listed in `CHANGES.md`
 
-## On-machine acceptance plan (1.4.4)
+## On-machine acceptance plan (1.4.5)
 
 Work through it in order: later sections rely on earlier ones. Have a hand on the emergency stop for every test that
 moves the machine. **Stop if** means stop, don't press on - note what happened and report it.
 
 ### A. Install and start
 
-- [ ] **A1 Install.** Menu option 3, pick `rhino-config-1.4.4.zip`, read the preview, install.
+- [ ] **A1 Install.** Menu option 3, pick `rhino-config-1.4.5.zip`, read the preview, install.
   *Pass:* ends with the portal answering on port 5000. *Stop if:* the preview shows STOPPED.
 - [ ] **A2 Restart.** With a print head mounted: `FIRMWARE_RESTART`.
   *Pass:* Klipper ready, no config errors.
 - [ ] **A3 Tool question.** *Pass:* "Klipper restarted - which toolhead is mounted?" appears; Yes records the tool.
 - [ ] **A4** `CHECK_TOOLHEADS` lists every tool without errors.
-- [ ] **A5 Portal.** Opens at `http://<pi>:5000`, matches Mainsail's dark/light theme, shows version 1.4.4.
+- [ ] **A5 Portal.** Opens at `http://<pi>:5000`, matches Mainsail's dark/light theme, shows version 1.4.5.
   Switch Mainsail between dark and light twice: *Pass:* the portal follows each switch within 15 s, and at once
   when you click back to its tab.
 
@@ -123,6 +123,9 @@ moves the machine. **Stop if** means stop, don't press on - note what happened a
 - [ ] **B4** `Z_TILT_ADJUST` finishes within tolerance.
 - [ ] **B5 Cancel park.** Start any print, cancel it. *Pass:* bed lowers to Z150 or more, X/Y home, head goes to
   X551 Y381 without touching the frame. *Stop if:* it hits - report the position.
+- [ ] **B5b Cancel a laser job** (new in 1.4.5). LightSaber mounted, start a laser job on cardboard at low power,
+  cancel it. *Pass:* laser and rail off at once, bed lowers, **no X/Y homing**, the head goes straight to X551 Y381,
+  the job shows cancelled in Mainsail. *Stop if:* X or Y starts homing - E-stop and report it.
 - [ ] **B6 Z travel** (new in 1.4.3: `position_max` 295, measured). Home with BlockOne, `G1 Z290 F600`, then
   `G1 Z300`. *Pass:* Z290 leaves the bed clear of its mounts; Z300 is refused ("Move out of range"), nothing moves.
   *Stop if:* the bed touches a mount at Z290 - send the Z where it's 10 mm clear.

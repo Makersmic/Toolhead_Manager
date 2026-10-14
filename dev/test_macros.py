@@ -242,6 +242,20 @@ s.press("Cancel"); ok(s.pins["FoamWire_PWR"] == 0 and s.offsets == {"X": 0.0, "Y
 # ---------------------------------------------------------------- safe park height / no Z homing with non-print tools
 def cmds(s): return [str(x[1]) for x in s.log if x[0] == "cmd"]
 def homes(s): return [c for c in cmds(s) if c.split()[0].upper() == "G28"]
+# 1.4.5: CANCEL_PRINT never homes X/Y with a laser mounted (homing Y with the LightSaber on crashes it)
+def cancel(slot, homed):
+    s = fresh(slot); s.objects["toolhead"]["homed_axes"] = homed; s.objects["print_stats"]["state"] = "printing"
+    s.run_script("CANCEL_PRINT"); return s
+s = cancel(3, "xyz")
+ok(not homes(s) and any(c.startswith("G1 X") for c in cmds(s)) and s.pins["LASER_INITIALIZE"] == 0
+   and idx(s, "CANCEL_PRINT_BASE") > idx(s, "_RHINO_CANCEL"), "cancel with LightSaber: no G28, parks X/Y, rail off, Mainsail clean-up runs")
+s = cancel(3, "z")
+ok(not homes(s) and not any(c.startswith("G1 X") for c in cmds(s)) and idx(s, "CANCEL_PRINT_BASE") >= 0,
+   "cancel with LightSaber and X/Y not homed: no homing, no move, cancel still finishes")
+s = cancel(1, "xyz")
+ok(any(c.startswith("G28 X Y") for c in homes(s)), "cancel with BlockOne still homes X/Y as before")
+s = cancel(4, "xyz")
+ok(any(c.startswith("G28 X Y") for c in homes(s)), "cancel with HotJoe still homes X/Y as before")
 s = fresh(3); s.objects["toolhead"]["homed_axes"] = ""; s.save_vars["rhino_z_safe"] = 0
 s.run_script("SWAP_TOOL TOOL=1")
 ok(s.prompt and "clear" in s.prompt["title"].lower() and not homes(s), "swap after a restart with the bed not parked: asks before any homing")
