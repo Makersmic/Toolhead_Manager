@@ -1037,7 +1037,8 @@ function init() {
       if (o && document.contains(o) && o.offsetParent !== null) o.focus();
     }
   }).observe(m, { attributes: true, attributeFilter: ["class"] }));
-  applyTheme(); setInterval(applyTheme, 120000);
+  applyTheme(); setInterval(applyTheme, 15000);   // follow Mainsail's light/dark switch within seconds
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) applyTheme(); });   // and at once when you come back to this tab
   refresh().catch((e) => toast(e.message, true));
   setInterval(() => { if (!document.querySelector(".modal:not(.hidden)")) refresh().catch(() => {}); }, 10000);
 }

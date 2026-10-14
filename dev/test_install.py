@@ -231,7 +231,7 @@ try:
     open(os.path.join(CFG, "myrhino", "custom_tools.cfg"), "a").write("# a tool added in the portal\n")
     posf = os.path.join(CFG, "myrhino", "positions.cfg")
     txt = open(posf).read()
-    open(posf, "w").write(txt.replace("variable_park_x: 551.0", "variable_park_x: 540.0"))
+    open(posf, "w").write(txt.replace("variable_park_x: 551.0", "variable_park_x: 540.0").replace("variable_zero_max_z: 290.0", "variable_zero_max_z: 300.0"))
     before_update = tree(CFG)
     rc, out = run(f"{PKG}/install.sh")
     ok(rc == 0 and "an existing rhino-portal service was found" in out and "used by the old rhino-portal service" in out,
@@ -243,6 +243,8 @@ try:
     ok(tree(CFG)["myrhino/custom_tools.cfg"] == before_update["myrhino/custom_tools.cfg"], "tools added in the portal (custom_tools.cfg) kept")
     ok("variable_park_x: 540.0" in open(posf).read() and "positions (myrhino/positions.cfg) kept" in out,
        "your edited positions (myrhino/positions.cfg) kept on update")
+    ok("zero_max_z is 300, past the bed's lowest point (Z295" in out and "safe_z is" not in out,
+       "...and the install names the kept number that no longer fits Z travel (zero_max_z 300 > 295), and only that one")
     ok(portal_up(), "portal back up after the update")
 
     # ============================================================ undo

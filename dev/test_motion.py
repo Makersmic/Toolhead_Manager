@@ -115,8 +115,8 @@ def run(s, script):
 
 # =============================================================== Part 1: everyday flows
 print("== limits from printer.cfg ==")
-ok(LIM_MAX == {"x": 576.0, "y": 406.0, "z": 400.0} and LIM_MIN == {"x": 0.0, "y": 0.0, "z": -10.0},
-   f"travel limits read from printer.cfg: X0-576 Y0-406 Z-10-400 ({LIM_MIN}, {LIM_MAX})")
+ok(LIM_MAX == {"x": 576.0, "y": 406.0, "z": 295.0} and LIM_MIN == {"x": 0.0, "y": 0.0, "z": -10.0},
+   f"travel limits read from printer.cfg: X0-576 Y0-406 Z-10-295 ({LIM_MIN}, {LIM_MAX})")
 
 ok(BASE.macro_vars["RHINO_POSITIONS"]["safe_z"] == SAFE_Z, f"positions.cfg safe_z is the measured {SAFE_Z:g} mm")
 
@@ -188,7 +188,7 @@ s = sim(3, x=300, y=200, z=152.5, homed="", rhino_z_safe=1, rhino_park_z=152.5)
 s.run_script("SWAP_TOOL TOOL=1")
 hop = [m for m in s.moves if m["kind"] == "blind_z_hop"]
 ok(len(hop) == 1 and abs(s.save_vars["rhino_park_z"] - 162.5) < 1e-9, "swap after a restart: X/Y homing lowers the bed 10 mm, and the saved park height becomes 162.5")
-s = sim(3, x=300, y=200, z=395.0, homed="", rhino_z_safe=1, rhino_park_z=395.0)
+s = sim(3, x=300, y=200, z=290.0, homed="", rhino_z_safe=1, rhino_park_z=290.0)
 ok("bottom of its travel" in (run(s, "G28 X Y") or "") and not s.moves, "parked within 10 mm of the bottom: X/Y homing refused (it would lower the bed past the end)")
 s = sim(4, x=300, y=200, z=0.0, homed="", rhino_z_safe=1, rhino_park_z=152.5)
 run(s, "SET_Z_ZERO"); s.press("Yes")
@@ -230,10 +230,10 @@ s.press("SET")
 ok(len(moves(s, n)) == 0 and abs(gpos(s)[2]) < 1e-6, "SET: nothing moves, the G-code Z here is now 0")
 s.run_script("G90\nG1 Z5")
 ok(abs(pos(s)[2] - 103.9) < 1e-6, "G1 Z5 afterwards: the bed drops 5 mm (tool 5 mm above the surface)")
-s = sim(4, z=372.0)
+s = sim(4, z=282.0)
 s.run_script("SET_Z_ZERO")
 s.press("Bed down 10"); s.press("Bed down 10")
-ok(pos(s)[2] == 380.0, f"Bed down stops at Z380 ({pos(s)[2]})")
+ok(pos(s)[2] == 290.0, f"Bed down stops at Z290 ({pos(s)[2]})")
 s = sim(4, z=-5.0)
 s.run_script("SET_Z_ZERO")
 s.press("Bed up 10")
@@ -280,15 +280,15 @@ ok(all(m["frm"]["z"] >= 42.0 - 1e-6 for m in cut if (m["to"]["x"], m["to"]["y"])
    "travel moves are made above the surface")
 
 print("== lifts stop at the end of Z travel (M5) ==")
-s = sim(4, z=392.0, set_material_feed_rate=800)
-ok(run(s, "_CNC_ABORT") is None and pos(s)[2] == LIM_MAX["z"], f"CNC cancel at Z392: lifts to Z400, not Z407 ({pos(s)[2]})")
-s = sim(5, z=390.0)
-ok(run(s, "_DK_ABORT") is None and pos(s)[2] == LIM_MAX["z"], "knife cancel at Z390: lifts to Z400")
-s = sim(4, z=395.0)
+s = sim(4, z=287.0, set_material_feed_rate=800)
+ok(run(s, "_CNC_ABORT") is None and pos(s)[2] == LIM_MAX["z"], f"CNC cancel at Z287: lifts to Z295, not Z302 ({pos(s)[2]})")
+s = sim(5, z=285.0)
+ok(run(s, "_DK_ABORT") is None and pos(s)[2] == LIM_MAX["z"], "knife cancel at Z285: lifts to Z295")
+s = sim(4, z=290.0)
 s.save_vars.update(set_material_toolhead="HotJoe", set_material_material="SOFT_WOOD")
-ok(run(s, "_CNC_WARMUP") is None and pos(s)[2] == LIM_MAX["z"], "CNC warm-up lift at Z395: stops at Z400")
-s = sim(1, z=395.0, set_material_extruder_temp=210.0)
-ok(run(s, "FILAMENT_CHANGE") is None and run(s, "_FC_HEAT TOOLHEAD=BlockOne MATERIAL=PLA TEMP=210") is None and pos(s)[2] == LIM_MAX["z"], "filament change at Z395: lifts to Z400 and parks")
+ok(run(s, "_CNC_WARMUP") is None and pos(s)[2] == LIM_MAX["z"], "CNC warm-up lift at Z290: stops at Z295")
+s = sim(1, z=290.0, set_material_extruder_temp=210.0)
+ok(run(s, "FILAMENT_CHANGE") is None and run(s, "_FC_HEAT TOOLHEAD=BlockOne MATERIAL=PLA TEMP=210") is None and pos(s)[2] == LIM_MAX["z"], "filament change at Z290: lifts to Z295 and parks")
 s = sim(1, homed="xy", set_material_extruder_temp=210.0)
 ok("home the printer first" in (run(s, "FILAMENT_CHANGE") or "") and not s.heats, "filament change with Z not homed: refused before heating")
 
@@ -360,7 +360,7 @@ def esim(base, slot, x=288.0, y=203.0, z=20.0, homed="xyz", job="standby", **sav
     s.objects["print_stats"]["state"] = job
     return s.place(x, y, z, homed=homed)
 E = edited_config({"variable_park_x": "500.0", "variable_park_y": "350.0", "variable_swap_x": "120.0", "variable_swap_y": "90.0",
-                   "variable_safe_z": "160.0", "variable_zero_max_z": "370.0", "variable_prime_x": "20.0",
+                   "variable_safe_z": "160.0", "variable_zero_max_z": "280.0", "variable_prime_x": "20.0",
                    "variable_prime_y": "30.0", "variable_prime_length": "100.0"})
 s = esim(E, 1, x=200, y=150, z=0.3, job="printing"); s.run_script("CANCEL_PRINT")
 ok(pos(s) == (500.0, 350.0, 160.0), f"edited park and safe height: cancel ends at X500 Y350 Z160 {pos(s)}")
@@ -371,8 +371,8 @@ cv = s.macro_vars["_CLIENT_VARIABLE"]
 ok((cv["custom_park_x"], cv["custom_park_y"]) == (500.0, 350.0), "at start-up the park spot is copied to Mainsail's _CLIENT_VARIABLE")
 s.objects["print_stats"]["state"] = "printing"; s.run_script("PAUSE")
 ok(pos(s)[:2] == (500.0, 350.0), f"...so Mainsail's own pause parks there too {pos(s)}")
-s = esim(E, 4, z=362.0); s.run_script("SET_Z_ZERO"); s.press("Bed down 10")
-ok(pos(s)[2] == 370.0, f"edited Set Z zero limit: Bed down stops at Z370 ({pos(s)[2]})")
+s = esim(E, 4, z=272.0); s.run_script("SET_Z_ZERO"); s.press("Bed down 10")
+ok(pos(s)[2] == 280.0, f"edited Set Z zero limit: Bed down stops at Z280 ({pos(s)[2]})")
 s = esim(E, 1, rhino_zcal_blockone=-1.3, set_material_extruder_temp=210.0); s.run_script("PRIME_LINE")
 pl = [m for m in s.moves if "PRIME_LINE" in m["stack"]]
 draw = [m for m in pl if m["to"]["y"] != m["frm"]["y"] and abs(m["to"]["z"] - m["frm"]["z"]) < 1e-9 and m["to"]["z"] < 1]
@@ -452,7 +452,7 @@ STATES = {
     "middle Z20": dict(x=288, y=203, z=20),
     "near the bed": dict(x=200, y=150, z=0.3),
     "parked": dict(x=551, y=381, z=150),
-    "far corner Z380": dict(x=576, y=406, z=380),
+    "far corner Z290": dict(x=576, y=406, z=290),
     "origin Z5": dict(x=0, y=0, z=5),
     "not homed, parked": dict(x=300, y=200, z=152.5, homed="", rhino_z_safe=1, rhino_park_z=152.5),
     "not homed": dict(x=300, y=200, z=3, homed="", rhino_z_safe=0),

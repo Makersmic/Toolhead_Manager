@@ -1,5 +1,22 @@
 # What changed
 
+## 1.4.3 - the real Z travel
+
+Found on the machine: the bed hit its mounts near Z300, with Klipper allowing 400.
+- **Z travel is now 0-295** (`[stepper_z] position_max: 295`, was 400), measured with BlockOne homed: at Z295 the bed
+  is about 10 mm above its mounts. Every lift, park and Set Z zero step stops there, and Klipper refuses anything past it.
+- **Starter `myrhino/positions.cfg`:** Set Z zero's lowest bed is 290 (was 380). Your own file is kept as always; the
+  installer now says if a number in it (`safe_z`, `zero_max_z`) is past the new limit, and `RHINO_POSITIONS` reports it
+  at every start.
+- **Drag knife test cut:** the lift after the test line stops at the end of Z travel instead of being refused when
+  the surface is within 10 mm of it (found by the motion sweep with the new limit).
+- **Portal theme:** follows Mainsail's dark/light switch within 15 s, and at once when you come back to its tab
+  (it could take up to three minutes).
+- **Installer:** when an old portal started from your crontab holds port 5000, it says so and lists the commands to
+  turn it off.
+
+Check on the machine: **B6** (Z travel), **A5** (theme switching), **A7** (positions check).
+
 ## 1.4.2 - swapping heads without a Klipper shutdown
 
 Found on the machine during test C1: unplugging BlockOne made Klipper shut down ("ADC out of range"). Every

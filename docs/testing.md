@@ -98,20 +98,22 @@ For every version, before the zip is sent:
 - [ ] `CHANGES.md`, `VERSION` and the manual updated
 - [ ] The on-machine tests for whatever changed are listed in `CHANGES.md`
 
-## On-machine acceptance plan (1.4.1)
+## On-machine acceptance plan (1.4.3)
 
 Work through it in order: later sections rely on earlier ones. Have a hand on the emergency stop for every test that
 moves the machine. **Stop if** means stop, don't press on - note what happened and report it.
 
 ### A. Install and start
 
-- [ ] **A1 Install.** Menu option 3, pick `rhino-config-1.4.1.zip`, read the preview, install.
+- [ ] **A1 Install.** Menu option 3, pick `rhino-config-1.4.3.zip`, read the preview, install.
   *Pass:* ends with the portal answering on port 5000. *Stop if:* the preview shows STOPPED.
 - [ ] **A2 Restart.** With a print head mounted: `FIRMWARE_RESTART`.
   *Pass:* Klipper ready, no config errors.
 - [ ] **A3 Tool question.** *Pass:* "Klipper restarted - which toolhead is mounted?" appears; Yes records the tool.
 - [ ] **A4** `CHECK_TOOLHEADS` lists every tool without errors.
-- [ ] **A5 Portal.** Opens at `http://<pi>:5000`, matches Mainsail's dark/light theme, shows version 1.4.1.
+- [ ] **A5 Portal.** Opens at `http://<pi>:5000`, matches Mainsail's dark/light theme, shows version 1.4.3.
+  Switch Mainsail between dark and light twice: *Pass:* the portal follows each switch within 15 s, and at once
+  when you click back to its tab.
 
 ### B. Motion and homing
 
@@ -121,11 +123,14 @@ moves the machine. **Stop if** means stop, don't press on - note what happened a
 - [ ] **B4** `Z_TILT_ADJUST` finishes within tolerance.
 - [ ] **B5 Cancel park.** Start any print, cancel it. *Pass:* bed lowers to Z150 or more, X/Y home, head goes to
   X551 Y381 without touching the frame. *Stop if:* it hits - report the position.
+- [ ] **B6 Z travel** (new in 1.4.3: `position_max` 295, measured). Home with BlockOne, `G1 Z290 F600`, then
+  `G1 Z300`. *Pass:* Z290 leaves the bed clear of its mounts; Z300 is refused ("Move out of range"), nothing moves.
+  *Stop if:* the bed touches a mount at Z290 - send the Z where it's 10 mm clear.
 
 - [ ] **A6 Homing guard** (new in 1.3.8). With LightSaber mounted, press Mainsail's Home All. *Pass:* refused with a
   message, nothing moves; Home X and Home Y work. With BlockOne: Home All homes as before. *Stop if:* the bed rises.
 - [ ] **A7 Positions** (new in 1.4.0). Type `RHINO_POSITIONS`. *Pass:* lists park X551 Y381, swap X100 Y100, safe
-  Z150, Set Z zero Z380, prime X5 Y10 120 mm, and "All positions are inside the travel limits". Then change
+  Z150, Set Z zero Z290 (or your own numbers), prime X5 Y10 120 mm, and "All positions are inside the travel limits". Then change
   `park_x` in `myrhino/positions.cfg` to 540, `FIRMWARE_RESTART`, run B5 again: the head parks at X540. Put it back.
 
 ### C. Tool swap safety
@@ -157,7 +162,7 @@ moves the machine. **Stop if** means stop, don't press on - note what happened a
 With LightSaber or HotJoe mounted:
 
 - [ ] **E1 Window.** `SET_Z_ZERO`. *Pass:* Bed up/down 10, 1, 0.1 mm move the bed that far, the height shown
-  follows, and Bed down stops at Z380.
+  follows, and Bed down stops at Z290.
 - [ ] **E2 SET.** Bring the material up to the tool tip (laser: focus), press SET. *Pass:* nothing moves; then
   `G1 Z5 F300` lifts the tool 5 mm above the surface.
 - [ ] **E3 Restart, bed parked.** Finish or cancel a job (bed parks), `FIRMWARE_RESTART`, run `SET_Z_ZERO`.

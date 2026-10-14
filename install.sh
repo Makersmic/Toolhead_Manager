@@ -59,6 +59,14 @@ if py "import socket;s=socket.socket();s.settimeout(1);s.connect(('127.0.0.1',50
   if [ $old_service = 1 ] && systemctl is-active --quiet rhino-portal 2>/dev/null; then
     ok "port 5000 is used by the old rhino-portal service (it is stopped before the new one starts)"
   else
+    if crontab -l 2>/dev/null | grep -v '^[[:space:]]*#' | grep -q "rhino_portal"; then
+      fail "An old copy of the portal, started from your crontab, is using port 5000." "$(printf '%s\n' \
+        "Turn it off, then run this again:" \
+        "  crontab -l | grep -n rhino_portal      (shows the line)" \
+        "  crontab -e                             (put a # in front of that line, save)" \
+        "  sudo ss -ltnp | grep :5000             (shows pid=NNN for each copy)" \
+        "  kill NNN                               (for each pid it shows)")"
+    fi
     fail "Something else is using port 5000." "Find it with:  sudo ss -ltnp | grep :5000   - stop it, or ask for help, then run this again."
   fi
 fi
@@ -126,6 +134,20 @@ else note "myrhino/positions.cfg is new: the park, swap and prime-line positions
 if grep -q "^variable_tool_swap_park_" "$CFG/variables.cfg" 2>/dev/null; then
   note "variables.cfg still has tool_swap_park_x/y/z - nothing reads them now (the swap spot is swap_x/swap_y"
   note "in myrhino/positions.cfg). You can delete those three lines."
+fi
+# Your positions are kept, but the travel limits in printer.cfg may have changed: say which numbers no longer fit.
+if [ $had_positions = 1 ]; then
+  python3 - "$SRC/printer.cfg" "$CFG/myrhino/positions.cfg" <<'PYEOF' 2>/dev/null || true
+import re, sys
+cfg = open(sys.argv[1]).read()
+sec = re.search(r"^\[stepper_z\]\s*$(.*?)(?=^\[)", cfg, re.M | re.S)
+zmax = float(re.search(r"^position_max\s*:\s*([-\d.]+)", sec.group(1), re.M).group(1))
+pos = dict(re.findall(r"^variable_(safe_z|zero_max_z)\s*:\s*([-\d.]+)", open(sys.argv[2]).read(), re.M))
+for k, v in pos.items():
+    if float(v) > zmax:
+        print(f"   note myrhino/positions.cfg: {k} is {float(v):g}, past the bed's lowest point (Z{zmax:g} in printer.cfg).")
+        print(f"        Change it to {zmax - 5:g} or less, then FIRMWARE_RESTART (RHINO_POSITIONS lists and checks them).")
+PYEOF
 fi
 
 # ------------------------------------------------------------------ SAVE_CONFIG block

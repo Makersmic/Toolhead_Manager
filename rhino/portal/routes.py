@@ -107,9 +107,9 @@ _theme_cache = {"at": 0.0, "value": None}
 
 @bp.get("/api/theme")
 def theme():
-    """Mainsail's dark/light mode and primary colour, so the portal can match it (cached for a minute)."""
+    """Mainsail's dark/light mode and primary colour, so the portal can match it (cached for 5 s)."""
     now = time.time()
-    if _theme_cache["value"] is None or now - _theme_cache["at"] > 60:
+    if _theme_cache["value"] is None or now - _theme_cache["at"] > 5:
         _theme_cache.update(at=now, value=current_app.config["MOONRAKER"].ui_theme())
     return jsonify({"ok": True, **_theme_cache["value"]})
 

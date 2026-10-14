@@ -673,7 +673,7 @@
 },
 {
 "src": 107,
-"section": "Build reference",
+"section": "Files, backups and tests",
 "part": "Part 5  \u00b7  Reference",
 "kind": "body"
 },
@@ -691,6 +691,18 @@
 },
 {
 "src": 110,
+"section": "Build reference",
+"part": "Part 5  \u00b7  Reference",
+"kind": "body"
+},
+{
+"src": 111,
+"section": "Still to check on the machine",
+"part": "Part 5  \u00b7  Reference",
+"kind": "body"
+},
+{
+"src": 112,
 "section": "Still to check on the machine",
 "part": "Part 5  \u00b7  Reference",
 "kind": "body"
