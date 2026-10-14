@@ -165,6 +165,7 @@ ok(pos(s) == (100.0, 100.0, -1.1), f"file move G1 X100 Y100 Z0.2 lands at machin
 n = len(s.moves)
 s.run_script("END_PRINT")
 ok(pos(s)[2] >= SAFE_Z and min(zs(s, n)) >= -1.1, f"END_PRINT: bed only goes down, ends parked at Z{pos(s)[2]}")
+ok(pos(s)[:2] == (551.0, 381.0), f"END_PRINT: head ends at the park spot X551 Y381 from positions.cfg {pos(s)[:2]}")
 ok(gpos(s) == pos(s), "...and no offset is left for the next job (G-code position = machine position)")
 
 print("== G28 guard (M2) ==")

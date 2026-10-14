@@ -1,5 +1,13 @@
 # What changed
 
+## 1.4.4 - the end of a print parks where everything else does
+
+- **END_PRINT** moves the head to the park spot in `myrhino/positions.cfg` (X551 Y381 unless you changed it), after
+  lowering the bed to the safe height as before. It used to go to X0 Y200, a number written into the macro.
+  It doesn't home first: the job has just run with X and Y homed.
+
+Check on the machine: **D2** (where the head ends after a print).
+
 ## 1.4.3 - the real Z travel
 
 Found on the machine: the bed hit its mounts near Z300, with Klipper allowing 400.
