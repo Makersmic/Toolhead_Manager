@@ -9,16 +9,23 @@ body { font-family: "Inter"; font-size: 9.8pt; line-height: 1.45; color: var(--i
 section.sec, .fixed, .partpage, .cover { position: relative; }
 p { margin: 0 0 6.5pt; orphans: 3; widows: 3; }
 ul, ol { margin: 0 0 7pt; padding-left: 18pt; } li { margin: 0 0 3pt; } li p { margin: 0 0 2pt; }
+ol > li::marker { font-family: "Inter Display"; font-weight: 800; color: var(--red); }
+ul > li::marker { color: var(--red); }
+li li::marker, ol ol > li::marker { color: var(--ink); font-weight: 600; }
 b, strong { font-weight: 650; }
 code { font-family: "DejaVu Sans Mono"; font-size: 7.9pt; background: var(--soft); padding: 0 2pt; border-radius: 2pt; }
 a { color: inherit; text-decoration: none; }
 
 /* headings, in the style of the Rhino literature: bold title on a full-width rule */
-h2.sec { break-before: page; font-family: "Inter Display"; font-weight: 700; font-size: 19pt; line-height: 1.15;
-         margin: 0 0 10pt; padding-bottom: 4pt; border-bottom: 1.6pt solid var(--rule); position: relative; }
-h3 { font-family: "Inter Display"; font-weight: 700; font-size: 12pt; margin: 13pt 0 4pt; break-after: avoid; }
+h2.sec { break-before: page; font-family: "Inter Display"; font-weight: 750; font-size: 22pt; line-height: 1.1; letter-spacing: -0.3pt;
+         margin: 2pt 0 12pt; padding-bottom: 6pt; border-bottom: 0.8pt solid var(--rule); position: relative; }
+h2.sec::after { content: ""; position: absolute; left: 0; bottom: -2.2pt; width: 0.9in; height: 3.6pt; background: var(--red); }
+h3 { font-family: "Inter Display"; font-weight: 700; font-size: 12.5pt; margin: 14pt 0 4pt; break-after: avoid; }
+h3::before { content: ""; display: inline-block; width: 6pt; height: 6pt; background: var(--red); margin-right: 6pt; vertical-align: 1.5pt; }
 h4 { font-size: 10.5pt; margin: 10pt 0 3pt; }
-.htitle { font-family: "Inter Display"; font-weight: 700; font-size: 17pt; line-height: 1.15; padding-bottom: 3pt; border-bottom: 1.6pt solid var(--rule); }
+.htitle { font-family: "Inter Display"; font-weight: 750; font-size: 19pt; line-height: 1.15; letter-spacing: -0.2pt; padding-bottom: 4pt;
+          border-bottom: 0.8pt solid var(--rule); position: relative; }
+.htitle::after { content: ""; position: absolute; left: 0; bottom: -2.2pt; width: 0.9in; height: 3.6pt; background: var(--red); }
 .hsub { font-size: 9.5pt; color: var(--ink); padding: 3pt 0 2pt; border-bottom: 0.8pt solid var(--rule); margin-bottom: 9pt; }
 .htitle + :not(.hsub) { margin-top: 9pt; }
 .small { font-size: 8.5pt; color: var(--grey); }
@@ -28,10 +35,17 @@ h4 { font-size: 10.5pt; margin: 10pt 0 3pt; }
 .step { margin: 0 0 4pt; }
 .step p.st { margin-bottom: 4pt; }
 figure { margin: 3pt 0 11pt; text-align: center; break-inside: avoid; }
-figure img { max-width: 100%; max-height: 4.8in; border: 0.6pt solid #8a8a8a; display: inline-block; }
+figure img { max-width: 100%; max-height: 4.8in; border: 0.6pt solid #a8a8a8; border-radius: 4pt; display: inline-block; }
 figure.plain img { border: 0; }
 figcaption { font-size: 8pt; color: var(--grey); font-style: italic; margin-top: 2.5pt; }
-.callout { border-left: 3pt solid var(--rule); background: var(--soft); padding: 6pt 9pt; margin: 6pt 0 9pt; font-size: 9pt; break-inside: avoid; }
+.callout { border-left: 3pt solid var(--rule); background: var(--soft); padding: 7pt 10pt; margin: 7pt 0 10pt; font-size: 9pt;
+           border-radius: 0 4pt 4pt 0; break-inside: avoid; }
+.callout > :last-child { margin-bottom: 0; }
+.callout::before { display: block; font: 800 7.4pt "Inter"; letter-spacing: 1.2pt; text-transform: uppercase; margin-bottom: 3pt; }
+.callout.info::before { content: "Note"; }
+.callout.tip { border-left-color: #6b6b6b; } .callout.tip::before { content: "Tip"; color: #444; }
+.callout.warn { border-left-color: var(--red); background: #fbeceb; }
+.callout.warn::before { content: "\26A0  Warning"; color: var(--red); }
 
 /* tables: black header rows, grey rules - as in the Rhino literature */
 table { border-collapse: collapse; width: 100%; margin: 3pt 0 9pt; font-size: 8.8pt; table-layout: fixed; }
@@ -39,6 +53,12 @@ thead { display: table-header-group; }
 th { background: #111; color: #fff; font-weight: 650; text-align: left; padding: 3pt 6pt; border: 0.6pt solid #111; }
 td { border: 0.6pt solid var(--line); padding: 2.4pt 6pt; vertical-align: top; overflow-wrap: anywhere; }
 tr { break-inside: avoid; }
+table:not(.pins):not(.pinmap):not(.fillin):not(.sgrid):not(.logt):not(.chart):not(.notelog):not(.parts) td {
+  border-width: 0 0 0.6pt; border-color: #c9c9c9; }
+table:not(.pins):not(.pinmap):not(.fillin):not(.sgrid):not(.logt):not(.chart):not(.notelog):not(.parts) tbody tr:nth-child(even) td {
+  background: #f5f5f3; }
+table:not(.pins):not(.pinmap):not(.fillin):not(.sgrid):not(.logt):not(.chart):not(.notelog):not(.parts) tbody tr:last-child td {
+  border-bottom: 1.2pt solid #111; }
 .rn { color: var(--grey); font-size: 8pt; }
 table.compact td { padding: 1.6pt 6pt; }
 table.spec td:first-child, table.pins td:first-child, table.pinmap td:first-child { text-align: center; }
@@ -97,32 +117,45 @@ table.logt { margin: 0; font-size: 8pt; } table.logt th { background: #fff; colo
 table.logt td { height: 17pt; text-align: center; font-size: 7.6pt; font-weight: 650; } table.logt.nohead thead { display: none; }
 .box { display: inline-block; width: 8pt; height: 8pt; border: 0.8pt solid #111; margin-right: 3pt; vertical-align: -1pt; }
 
-/* parts */
-.partpage { break-before: page; break-after: page; height: 9.05in; display: flex; flex-direction: column; justify-content: center; padding: 0 0.2in; }
-.partnum { font: 700 13pt "Inter"; letter-spacing: 3pt; color: var(--grey); }
-.parttitle { font: 700 40pt/1.05 "Inter Display"; margin: 6pt 0 10pt; }
-.partbar { height: 7pt; background: #111; width: 2.2in; margin-bottom: 18pt; }
-.partblurb { font-size: 11.5pt; max-width: 5in; }
-.partlist { list-style: none; padding: 0; margin-top: 14pt; border-top: 0.8pt solid var(--rule); }
-.partlist li { padding: 5pt 0; border-bottom: 0.6pt solid #ccc; font-size: 10.5pt; }
+/* parts: big numeral, title, red bar, what's inside with page numbers (the outer black strip is paginate.py's under-layer) */
+.partpage { break-before: page; break-after: page; height: 9.05in; display: flex; flex-direction: column; justify-content: flex-end;
+            padding: 0 0.55in 0.3in 0; }
+.partnum { font: 800 10pt "Inter"; letter-spacing: 4pt; text-transform: uppercase; color: var(--red); }
+.partbig { font: 800 150pt/0.82 "Inter Display"; letter-spacing: -6pt; color: #111; margin: 6pt 0 4pt -6pt; }
+.parttitle { font: 750 38pt/1.05 "Inter Display"; letter-spacing: -0.6pt; margin: 14pt 0 12pt; }
+.partbar { height: 6pt; background: var(--red); width: 1.4in; margin-bottom: 16pt; }
+.partblurb { font-size: 12pt; line-height: 1.4; max-width: 4.8in; color: #333; }
+.partlist { list-style: none; padding: 0; margin-top: 18pt; border-top: 1.6pt solid var(--rule); }
+.partlist li { display: flex; justify-content: space-between; padding: 6pt 0; border-bottom: 0.6pt solid #ccc; font-size: 10.5pt; margin: 0; }
+.partlist li::marker { content: none; }
+.pln { font-weight: 700; font-variant-numeric: tabular-nums; }
 
 /* contents */
 .tocpage .htitle { margin-bottom: 12pt; }
 .toc1, .toc2, .toc3 { display: flex; align-items: baseline; gap: 4pt; }
-.toc1 { font: 700 11pt "Inter Display"; margin: 11pt 0 3pt; padding-top: 4pt; border-top: 0.8pt solid var(--rule); }
-.toc2 { font-size: 9.6pt; padding: 1.4pt 0 1.4pt 14pt; }
-.toc3 { font-size: 8.8pt; padding: 0.8pt 0 0.8pt 30pt; color: #333; }
+.toc1 { font: 700 11pt "Inter Display"; margin: 8pt 0 2pt; padding-top: 4pt; border-top: 0.8pt solid var(--rule); }
+.toc2 { font-size: 9.6pt; padding: 0.9pt 0 0.9pt 14pt; }
+.toc3 { font-size: 8.8pt; padding: 0.3pt 0 0.3pt 30pt; color: #333; }
 .dots { flex: 1; border-bottom: 0.8pt dotted #999; transform: translateY(-3pt); }
 .pn { min-width: 20pt; text-align: right; font-variant-numeric: tabular-nums; }
 
-/* cover */
+/* cover: text sits on paginate.py's full-bleed black band (top 4.55in of the sheet = 3.6in into this box) */
+.cover .mk { color: #111; }
 .cover { height: 9.05in; break-after: page; display: flex; flex-direction: column; }
-.covertitle { font: 700 30pt/1.1 "Inter Display"; margin-top: 0.9in; }
-.coverrule { height: 2pt; background: #111; margin: 8pt 0 6pt; }
-.coversub { font: 500 15pt "Inter"; color: var(--grey); }
-.coverimg { width: 100%; margin: 0.4in 0 0.3in; border: 0.6pt solid #999; }
-.coverblurb { font-size: 11pt; max-width: 4.6in; }
-.tag { margin-top: auto; align-self: flex-end; background: #111; color: #fff; width: 1.15in; padding: 6pt 6pt 8pt; text-align: right; }
+.coverkick { margin-top: 0.12in; font: 700 8.5pt "Inter"; letter-spacing: 3pt; text-transform: uppercase; color: #b9b9b9; }
+.covertitle { font: 800 44pt/1.0 "Inter Display"; letter-spacing: -1.2pt; color: #fff; margin-top: 12pt; }
+.coverrule { height: 5pt; width: 1.4in; background: var(--red); margin: 14pt 0 10pt; }
+.coversub { font: 500 11.5pt "Inter"; color: #d6d6d6; }
+.coverframe { margin-top: 0.32in; background: #fff; padding: 5pt; border: 0.6pt solid #bdbdbd; border-radius: 3pt; }
+.coverimg { width: 100%; display: block; border-radius: 1.5pt; }
+.covertools { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0 10pt; margin-top: 0.3in; }
+.ct { border-top: 1.6pt solid #111; padding-top: 5pt; }
+.cts { font: 800 17pt/1 "Inter Display"; color: var(--red); }
+.ctn { font: 700 10.5pt "Inter"; margin-top: 4pt; }
+.ctk { font-size: 8pt; color: var(--grey); line-height: 1.25; margin-top: 1pt; }
+.coverfoot { margin-top: auto; display: flex; justify-content: space-between; align-items: flex-end; gap: 0.4in; }
+.coverblurb { font-size: 10pt; color: #333; max-width: 4.5in; margin: 0; }
+.tag { flex: none; background: #111; color: #fff; width: 1.15in; padding: 6pt 6pt 8pt; text-align: right; }
 .tag img { width: 100%; display: block; background: #fff; } .tag div { font-size: 13pt; margin-top: 6pt; } .tag small { font-size: 8pt; line-height: 1.25; display: block; }
 
 .phones { display: flex; gap: 0.25in; justify-content: center; }
@@ -130,7 +163,7 @@ table.logt td { height: 17pt; text-align: center; font-size: 7.6pt; font-weight:
 input[type=checkbox] { width: 9pt; height: 9pt; margin: 0 4pt 0 0; vertical-align: -1pt; }
 li[data-checked] { list-style: none; margin-left: -14pt; }
 table.parts.dense td { height: 11.6pt; padding: 0.6pt 6pt; font-size: 8.3pt; line-height: 1.25; }
-.toc1 .pk { margin-right: 0; } .toc1 .pd { margin: 0 6pt; color: var(--grey); }
+.toc1 .pk { margin-right: 0; color: var(--red); } .toc1 .pd { margin: 0 6pt; color: var(--grey); }
 
 /* 1.2 additions */
 figure.wdfig { margin: 4pt 0 10pt; break-inside: avoid; text-align: left; }

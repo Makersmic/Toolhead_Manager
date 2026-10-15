@@ -66,13 +66,22 @@ def section(title, body, key=None, toc=True, cls=""):
     return f'<section class="sec {cls}" id="{key}"><h2 class="sec">{marker("S", key + "|" + title)}{title}</h2>{body}</section>'
 
 
+def _key(title):
+    return re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")
+
+
+PART_KEYS = {"Rhino tools log": "toolslog", "Contents": "contents"}
+
+
 def part(n, title, blurb, sections):
     CUR_PART[0] = title
     TOC.append((1, f'<span class="pk">Part {n}</span><span class="pd">·</span>{title}', f"part{n}"))
-    items = "".join(f"<li>{s}</li>" for s in sections)
+    def pg(s):
+        return PAGES.get(PART_KEYS.get(s, _key(s))) or PAGES.get(f"tool-{s}", "")
+    items = "".join(f'<li><span class="pli">{s}</span><span class="pln">{pg(s)}</span></li>' for s in sections)
     return (f'<section class="partpage" id="part{n}">{marker("P", f"part{n}|Part {n}|{title}")}'
-            f'<div class="partnum">PART {n}</div><div class="parttitle">{title}</div><div class="partbar"></div>'
-            f'<p class="partblurb">{blurb}</p><ul class="partlist">{items}</ul></section>')
+            f'<div class="partnum">Part</div><div class="partbig">{n:0>2}</div><div class="parttitle">{title}</div>'
+            f'<div class="partbar"></div><p class="partblurb">{blurb}</p><ul class="partlist">{items}</ul></section>')
 
 
 def page(body, title=None, cls="", key=None, even=False):
@@ -177,14 +186,25 @@ def xsec(fname, replace=(), drop=(), title=None):
 
 
 # ============================================================================= front matter
+VERSION = open(os.path.join(HERE, "..", "VERSION")).read().strip()
+COVER_TOOLS = [("1", "BlockOne", "Print head"), ("2", "SwitchFly", "Dual-filament print head"), ("3", "LightSaber", "Diode laser"),
+               ("4", "HotJoe", "CNC spindle"), ("5", "DragKnife", "Drag knife")]
+
+
 def cover():
+    """The black band, the tool strip's top rule and the page edges come from paginate.py's under-layer."""
+    tools = "".join(f'<div class="ct"><div class="cts">{n:0>2}</div><div class="ctn">{name}</div><div class="ctk">{kind}</div></div>'
+                    for n, name, kind in COVER_TOOLS)
     return (f'<div class="cover">{marker("C", "cover|cover")}'
-            f'<div class="covertitle">Rhino Multi-Tool Motion System</div><div class="coverrule"></div>'
-            f'<div class="coversub">User Manual</div>'
-            f'<img class="coverimg" src="{src("welcome.jpg")}">'
-            '<p class="coverblurb">The Rhino is a multi-tool motion system equipped with a variety of tools to help you '
-            'build your dreams. It uses Klipper firmware. Information can be found online at the Makersmic GitHub page.</p>'
-            f'<div class="tag"><img src="{src("logo")}"><div>2026</div><small>A Makersmic<br>Project</small></div></div>')
+            '<div class="coverkick">Makersmic · User manual</div>'
+            '<div class="covertitle">Rhino Multi-Tool<br>Motion System</div><div class="coverrule"></div>'
+            f'<div class="coversub">Release {VERSION} · Klipper, Mainsail and the Rhino Tool Manager</div>'
+            f'<div class="coverframe"><img class="coverimg" src="{src("welcome.jpg")}"></div>'
+            f'<div class="covertools">{tools}</div>'
+            '<div class="coverfoot"><p class="coverblurb">One machine, five swappable toolheads: print, laser-cut, mill and drag-cut on '
+            'the same motion system. This manual covers the machine, its tools, the software that runs them, and how to keep it all '
+            'in shape. Source and updates: the Makersmic GitHub page.</p>'
+            f'<div class="tag"><img src="{src("logo")}"><div>2026</div><small>A Makersmic<br>Project</small></div></div></div>')
 
 
 def contents():
@@ -441,10 +461,16 @@ def portal():
       'need loading. The sidebar groups it into <b>Tools</b>, <b>Hardware</b>, <b>Maintenance</b> and <b>Admin</b>; click a group\'s '
       'name to fold it away. The screenshots come from a test run with three example tools (FoamWire, PenPlotter, Needle), three '
       'pieces of system hardware and placeholder photos.</p>')
-    a(step('<h3>Tool library</h3><p>Every tool is a card: slot, category and kind, outputs, materials, notes and photos. The row of '
-           'numbered boxes is the tool\'s pin map: the umbilical contacts it uses are filled in, as on the tool pages in Part 2. The '
-           'chips at the top right show Klipper\'s state, the job state and the mounted tool. Built-in tools are read-only here; your '
-           'tools have an <b>Edit</b> button.</p>', "library", "Tool library with the built-in and added tools", h=4.0))
+    a(step('<h3>Dashboard</h3><p>The portal opens on the Dashboard: the machine\'s state and mounted tool, production hours, jobs, '
+           'filament used and tool swaps, and anything overdue or due soon. Below are charts of hours and jobs by toolhead (each has a '
+           '<b>Table</b> button for the numbers), the maintenance task status and the most urgent tasks next. The portal follows '
+           'Mainsail\'s dark or light theme within 15 seconds.</p>', "dashboard", "Dashboard after a year of use (demo data)", h=4.0))
+    a(step('<h3>Tool library</h3><p>Every tool is a card with its picture, name, slot, kind and number of materials; the mounted tool '
+           'is outlined and marked <b>Mounted</b>. The chips at the top right show Klipper\'s state, the job state, the mounted tool '
+           'and any maintenance due. Select a card to open the tool\'s own page.</p>', "library", "Tool library with the built-in and added tools", h=3.05))
+    a(step('<p class="st">A tool\'s page shows what it does, how to set up a job with it, its outputs, its connector with the contacts '
+           'it uses, its materials and its maintenance tasks. Built-in tools are read-only here (they live in <code>variables.cfg</code>); '
+           'your own tools have <b>Edit tool</b>.</p>', "toolpage", "A tool's page (FoamWire, an added tool)", h=3.05))
     a('<h3>Adding a tool</h3><p>Press <b>+ Add a tool</b>. The wizard\'s steps depend on the kind of tool: powered tools get all '
       'seven, passive tools get a Connector step instead of Outputs and Limits, print-head clones get Hardware. Every kind gets '
       'Controls and Macros.</p>')
@@ -512,7 +538,7 @@ def portal():
            'Klipper ignores letter case. <b>Purpose</b>: one line, shown in Mainsail\'s macro list. <b>Only run when this tool is '
            'mounted</b>: with another tool on the machine the macro refuses with a message. <b>Macro</b>: Klipper G-code and Jinja '
            'exactly as in a <code>[gcode_macro]</code>. The box underneath shows exactly what will be written.</p>'
-           '<p class="st small"><b>Refused:</b> a name used by any macro or Klipper command (<code>SET_PIN</code>, <code>home</code>, '
+           '<p class="st small"><b>Refused:</b> a name used by any macro or Klipper command (<code>SET_PIN</code>, <code>SWAP_TOOL</code>, '
            '<code>PAUSE</code>), G-code words such as <code>M3</code>, and template errors such as a missing <code>{% endif %}</code>. '
            '<b>Warned:</b> <code>SAVE_CONFIG</code>, <code>FIRMWARE_RESTART</code> or <code>M112</code> in the body, an unrecognised '
            'command (usually a typo), and text after <code>&nbsp;#</code> or <code>&nbsp;;</code>, which Klipper drops as a comment.</p>',
@@ -540,7 +566,7 @@ def portal():
       'After an error it does not restart, so you can see what happened. A restart started anywhere else (Mainsail, '
       '<code>RESTART_FOR_TOOLS</code>) also clears the banner. The console commands (<code>ADD_TOOLHEAD</code> and the rest) stay '
       'refused during a job: they run a shell command that Klipper waits for, which would stall the job\'s G-code.</p>')
-    a(step('<h3>Editing a tool</h3><p>Press <b>Edit</b> on the tool\'s card. On the <b>Settings</b> tab you can rename it and change its '
+    a(step('<h3>Editing a tool</h3><p>Open the tool\'s page and press <b>Edit tool</b>. On the <b>Settings</b> tab you can rename it and change its '
            'power limits and materials; the legend above the limits lists its outputs and the contacts they use.</p>',
            "e_settings", "Edit window: name, outputs, limits and materials", h=4.0))
     a(step('<p class="st">Further down are the checklist, the contacts the tool uses (tick more as you wire them), notes and photos. '
@@ -786,7 +812,12 @@ ORCA_NEW = ('<p><strong>OrcaSlicer (printing).</strong> Make one printer profile
             '<p>Together they pick the tool\'s material profile, such as <code>PLA_0_4</code>. <b>Filament type</b> (in the filament '
             'profile\'s settings) must be one of the tool\'s materials – PLA, PETG, ABS or ASA for BlockOne and SwitchFly; a type such as '
             '<i>PLA-CF</i> stops the job at the start with <i>Material PLA-CF_0_4 not defined for toolhead BlockOne</i>. End the file (<b>Machine end '
-            'G-code</b>) with <code>END_PRINT</code>.</p>')
+            'G-code</b>) with <code>END_PRINT</code>.</p>'
+            '<p><b>Pressure advance.</b> On the line after <code>START_JOB</code>, the profile calls <code>CALCULATE_PA</code> with the '
+            'head\'s bowden length in centimetres: <code>BOWDEN_LENGTH=5.9</code> for BlockOne (59 mm), <code>BOWDEN_LENGTH=3.5</code> '
+            'for SwitchFly (35 mm, both paths). The other values come from OrcaSlicer placeholders, as in the shipped BlockOne profile:</p>'
+            '<pre class="code">CALCULATE_PA BOWDEN_LENGTH=5.9 MATERIAL=[filament_type] LAYER_HEIGHT=[layer_height] '
+            'NOZZLE_SIZE=[nozzle_diameter] PRINT_SPEED=[outer_wall_speed] FILAMENT_DIAMETER=[filament_diameter] LINE_WIDTH=[line_width]</pre>')
 
 
 def build():

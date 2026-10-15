@@ -131,7 +131,7 @@ moves the machine. **Stop if** means stop, don't press on - note what happened a
   *Stop if:* the bed touches a mount at Z290 - send the Z where it's 10 mm clear.
 
 - [ ] **A6 Homing guard** (new in 1.3.8). With LightSaber mounted, press Mainsail's Home All. *Pass:* refused with a
-  message, nothing moves; Home X and Home Y work. With BlockOne: Home All homes as before. *Stop if:* the bed rises.
+  message, nothing moves; With BlockOne: Home All homes as before. Don't try Home Y with the LightSaber on until it's confirmed safe (see B5b). *Stop if:* the bed rises.
 - [ ] **A7 Positions** (new in 1.4.0). Type `RHINO_POSITIONS`. *Pass:* lists park X551 Y381, swap X100 Y100, safe
   Z150, Set Z zero Z290 (or your own numbers), prime X5 Y10 120 mm, and "All positions are inside the travel limits". Then change
   `park_x` in `myrhino/positions.cfg` to 540, `FIRMWARE_RESTART`, run B5 again: the head parks at X540. Put it back.
