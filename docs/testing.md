@@ -125,13 +125,13 @@ moves the machine. **Stop if** means stop, don't press on - note what happened a
   X551 Y381 without touching the frame. *Stop if:* it hits - report the position.
 - [ ] **B5b Cancel a laser job** (new in 1.4.5). LightSaber mounted, start a laser job on cardboard at low power,
   cancel it. *Pass:* laser and rail off at once, bed lowers, **no X/Y homing**, the head goes straight to X551 Y381,
-  the job shows cancelled in Mainsail. *Stop if:* X or Y starts homing - E-stop and report it.
+  the job shows cancelled in Mainsail. *Stop if:* X or Y starts homing - report it.
 - [ ] **B6 Z travel** (new in 1.4.3: `position_max` 295, measured). Home with BlockOne, `G1 Z290 F600`, then
   `G1 Z300`. *Pass:* Z290 leaves the bed clear of its mounts; Z300 is refused ("Move out of range"), nothing moves.
   *Stop if:* the bed touches a mount at Z290 - send the Z where it's 10 mm clear.
 
 - [ ] **A6 Homing guard** (new in 1.3.8). With LightSaber mounted, press Mainsail's Home All. *Pass:* refused with a
-  message, nothing moves; With BlockOne: Home All homes as before. Don't try Home Y with the LightSaber on until it's confirmed safe (see B5b). *Stop if:* the bed rises.
+  message, nothing moves; Home X and Home Y work once the Y endstop is set for the LightSaber. With BlockOne: Home All homes as before. *Stop if:* the bed rises.
 - [ ] **A7 Positions** (new in 1.4.0). Type `RHINO_POSITIONS`. *Pass:* lists park X551 Y381, swap X100 Y100, safe
   Z150, Set Z zero Z290 (or your own numbers), prime X5 Y10 120 mm, and "All positions are inside the travel limits". Then change
   `park_x` in `myrhino/positions.cfg` to 540, `FIRMWARE_RESTART`, run B5 again: the head parks at X540. Put it back.

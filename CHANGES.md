@@ -3,7 +3,8 @@
 ## 1.4.5 - Cancel doesn't home X/Y with the laser on
 
 - **CANCEL_PRINT with a laser mounted** (LightSaber, or any tool of type LASER) no longer runs `G28 X Y`: homing Y
-  with the LightSaber on runs it into the frame. It still switches the laser and its rail off and lowers the bed,
+  with the LightSaber on hits the frame unless the Y endstop has been moved for it (a mount that suits the LightSaber
+  is planned). It still switches the laser and its rail off and lowers the bed,
   then goes straight to the park spot, the same move END_PRINT makes. If X/Y aren't homed it says so and leaves the
   head where it is, so Mainsail's own cancel clean-up still finishes.
 - Every other tool cancels exactly as before (home X/Y, then park).
