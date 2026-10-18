@@ -1,5 +1,28 @@
 # What changed
 
+## 1.4.7 - The material record always matches the mounted tool, and SwitchFly's selector matches the record
+
+- **The problem:** G0/G1 decide what E does from the saved record (`set_material_toolhead` and
+  `set_material_extruder_index`): reversed on SwitchFly path 2, dropped for HotJoe. A swap already re-pointed the
+  record at the new tool (1.4.0, bug 9), but two cases could still leave it out of step:
+  - **Swapping SwitchFly on** wrote path 1 to the record without moving the selector. The servo stays wherever it was
+    last turned while the head is off the machine, so if it was left on path 2, feeding filament ran the stepper the
+    wrong way for the path actually selected: Extrude pulled filament out.
+  - **After a restart**, picking a tool from the first-start list ("No toolhead has been recorded yet") didn't touch
+    the record at all, so a stale SwitchFly path-2 record could reverse E on BlockOne.
+- **The fix:** one new macro, `_RHINO_RECORD_TOOL`, run by `CONFIRM_TOOL_INSTALL` (always) and by
+  `_RESTORE_TOOL_CONFIRM` (only when the record names a different tool). It points the record at the mounted tool,
+  and for SwitchFly turns the selector to path 1 (T0) with `_SWITCHFLY_SET_PATH PATH=0` so the servo and the record
+  agree; the console says so. Use `SWITCH_T1` for path 2 as before.
+- **What moves:** only the SwitchFly selector servo, at the end of the swap you confirmed (about a second). No axis,
+  no heat, no extrusion. `SET_SERVO_ANGLE` still refuses with LightSaber mounted. Answering "Yes - SwitchFly is
+  mounted" after a restart moves nothing: nothing was swapped, so the record is still right.
+- No values changed.
+
+Tests: 9 new simulator checks in `dev/test_macros.py`.
+Check on the machine: **D10-D12** (swap to SwitchFly with the selector on path 2, restart, BlockOne after SwitchFly).
+Rhino Studio's extruder block (branch `extruder-block`) relies on this record to know which path is in use.
+
 ## 1.4.6 - SwitchFly knows each path's material; the end of a job makes every tool safe
 
 **SwitchFly materials**

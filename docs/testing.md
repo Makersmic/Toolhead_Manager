@@ -98,14 +98,14 @@ For every version, before the zip is sent:
 - [ ] `CHANGES.md`, `VERSION` and the manual updated
 - [ ] The on-machine tests for whatever changed are listed in `CHANGES.md`
 
-## On-machine acceptance plan (1.4.6)
+## On-machine acceptance plan (1.4.7)
 
 Work through it in order: later sections rely on earlier ones. Have a hand on the emergency stop for every test that
 moves the machine. **Stop if** means stop, don't press on - note what happened and report it.
 
 ### A. Install and start
 
-- [ ] **A1 Install.** Menu option 3, pick `rhino-config-1.4.6.zip`, read the preview, install.
+- [ ] **A1 Install.** Menu option 3, pick `rhino-config-1.4.7.zip`, read the preview, install.
   *Pass:* ends with the portal answering on port 5000. *Stop if:* the preview shows STOPPED.
 - [ ] **A2 Restart.** With a print head mounted: `FIRMWARE_RESTART`.
   *Pass:* Klipper ready, no config errors.
@@ -181,6 +181,19 @@ With SwitchFly mounted, its nozzle height set (D1), and both paths loaded:
   exhaust fan) and switch it on. Finish a short print normally. *Pass:* the heaters go off, the head parks, and that
   item is **still on**. Then start a print and cancel it: *Pass:* cancel switches it off. Repeat the normal finish
   with LightSaber (low power, scrap): *Pass:* laser and rail off at the end, the item still on.
+
+### D, continued. The material record follows the tool (new in 1.4.7)
+
+Install `rhino-config-1.4.7.zip` first. Have a bin under the nozzle and a hand near the emergency stop.
+
+- [ ] **D10 SwitchFly back on, selector left on path 2.** With SwitchFly mounted, `SWITCH_T1` (path 2). Swap to
+  BlockOne, then back to SwitchFly and press *Confirm - SwitchFly is installed*. *Pass:* you hear the selector turn,
+  the console says it turned to path 1 (T0), `variables.save` shows `set_material_extruder_index = 0`. Heat, then
+  `M83` and `G1 E5 F120`: filament goes **in** on path 1. *Stop if:* the selector doesn't move, or filament comes out.
+- [ ] **D11 Restart, Yes.** With SwitchFly on path 2 (`SWITCH_T1`), `FIRMWARE_RESTART`, answer *Yes - SwitchFly is
+  mounted*. *Pass:* the selector doesn't move and the record still says path 2; heated, `G1 E5` feeds **in**.
+- [ ] **D12 BlockOne after SwitchFly path 2.** From D11, swap to BlockOne and confirm. *Pass:* the record says
+  BlockOne, path 1; heated, `G1 E5` feeds **in**. *Stop if:* filament comes out.
 
 ### E. Set Z zero (new in 1.3.6)
 

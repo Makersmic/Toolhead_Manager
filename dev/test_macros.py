@@ -556,6 +556,46 @@ s = cs(6); s.macros["_RHINO_CONTROLS_OFF"]["gcode"] = "SET_PIN PIN=FoamWire_EN V
 s.save_vars.update(set_material_toolhead="FoamWire", set_material_material="FOAM_EPS"); s.run_script("M3 S1000"); s.run_script("END_PRINT")
 ok(s.pins["FoamWire_PWR"] == 0 and "_TOOL_SAFE_OFF KEEP_CONTROLS=1" not in cmds(s), "END_PRINT added POWERED tool: full _TOOL_SAFE_OFF, unchanged")
 
+# ---------------------------------------------------------------- 1.4.7: the material record follows the mounted tool
+P0 = 0.0005 / 0.02                     # servo duty for path 1 (0 degrees)
+P1 = 0.0025 / 0.02                     # servo duty for path 2 (180 degrees)
+def confirm_swap(to_slot, from_slot=1, rec=None, servo=None):
+    s = fresh(from_slot); s.save_vars.update(rec or {}); s.objects["extruder"]["temperature"] = 25.0
+    if servo is not None: s.pins["SERVO_LASER"] = servo
+    s.macro_vars["SWAP_TOOL"]["pending_tool"] = to_slot; s.run_script("CONFIRM_TOOL_INSTALL"); return s
+def e_out(s, e="10"):
+    return s.render("G1", s.macros["G1"]["gcode"], {"E": e, "F": "300"}, f"E{e} F300")
+# Swap to SwitchFly with its selector left on path 2 and a BlockOne record at path 1
+s = confirm_swap(2, rec={"set_material_toolhead": "BlockOne", "set_material_extruder_index": 0}, servo=P1)
+ok(s.save_vars["set_material_toolhead"] == "SwitchFly" and s.save_vars["set_material_extruder_index"] == 0
+   and abs(s.pins["SERVO_LASER"] - P0) < 1e-9, "swap to SwitchFly: record says SwitchFly path 1 AND the selector is turned to path 1")
+ok("E-10" not in e_out(s), "...so G1 E10 feeds forward on the path the servo really selects")
+s = confirm_swap(2, rec={"set_material_toolhead": "SwitchFly", "set_material_extruder_index": 1}, servo=P1)
+ok(s.save_vars["set_material_extruder_index"] == 0 and abs(s.pins["SERVO_LASER"] - P0) < 1e-9,
+   "swap SwitchFly back on (record path 2): record and selector both reset to path 1, never out of step")
+s = confirm_swap(2); c = cmds(s)
+ok(not any(x.split()[0].upper() in ("G1", "G0", "G28", "M104", "M109", "PURGE") for x in c if x.strip()),
+   "swap to SwitchFly: only the selector servo moves - no axis, no extrusion, no heat")
+# Swap to BlockOne after SwitchFly path 2 (bug9 again, through the new macro) and to a laser
+s = confirm_swap(1, from_slot=2, rec={"set_material_toolhead": "SwitchFly", "set_material_extruder_index": 1}, servo=P1)
+ok(s.save_vars["set_material_toolhead"] == "BlockOne" and s.save_vars["set_material_extruder_index"] == 0
+   and abs(s.pins["SERVO_LASER"] - P1) < 1e-9 and "E-10" not in e_out(s), "swap to BlockOne: record re-pointed, E forward, the (unmounted) selector servo not driven")
+s = confirm_swap(3, from_slot=2, rec={"set_material_toolhead": "SwitchFly", "set_material_extruder_index": 1}, servo=0.0)
+ok(s.save_vars["set_material_toolhead"] == "LightSaber" and s.pins["SERVO_LASER"] == 0.0, "swap to LightSaber: record re-pointed, laser channel untouched")
+# After a restart
+def restore(slot, rec, servo=P1):
+    s = Sim(FIXED).load(); s.save_vars.update(rec); s.pins["SERVO_LASER"] = servo
+    s.run_script(f"_RESTORE_TOOL_CONFIRM SLOT={slot}"); return s
+s = restore(2, {"current_tool": 2, "set_material_toolhead": "SwitchFly", "set_material_extruder_index": 1})
+ok(s.save_vars["set_material_extruder_index"] == 1 and abs(s.pins["SERVO_LASER"] - P1) < 1e-9 and "E-10" in e_out(s),
+   "restart, 'Yes - SwitchFly': record already right, nothing moves, path 2 still reverses E")
+s = restore(1, {"set_material_toolhead": "SwitchFly", "set_material_extruder_index": 1})
+ok(s.save_vars["set_material_toolhead"] == "BlockOne" and s.save_vars["set_material_extruder_index"] == 0 and "E-10" not in e_out(s),
+   "restart, BlockOne picked while the record said SwitchFly path 2: re-pointed, E forward")
+s = restore(2, {"set_material_toolhead": "BlockOne", "set_material_extruder_index": 0})
+ok(s.save_vars["set_material_toolhead"] == "SwitchFly" and abs(s.pins["SERVO_LASER"] - P0) < 1e-9,
+   "restart, SwitchFly picked while the record said BlockOne: selector turned to path 1 to match")
+
 shutil.rmtree(ROOT, ignore_errors=True)
 print("\nFAILED:" if fails else "\nALL PASSED", fails or "")
 sys.exit(1 if fails else 0)

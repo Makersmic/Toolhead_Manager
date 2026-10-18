@@ -542,14 +542,20 @@
 {
 "src": 87,
 "section": "Safety systems",
-"part": "Part 4  \u00b7  Maintenance",
-"kind": "part"
+"part": "Part 3  \u00b7  Software and Operation",
+"kind": "body"
+},
+{
+"src": null,
+"section": "Notes",
+"part": "Part 3  \u00b7  Software and Operation",
+"kind": "notes"
 },
 {
 "src": 88,
-"section": "Maintenance tracking",
+"section": "Safety systems",
 "part": "Part 4  \u00b7  Maintenance",
-"kind": "body"
+"kind": "part"
 },
 {
 "src": 89,
@@ -601,7 +607,7 @@
 },
 {
 "src": 97,
-"section": "Task Library and Task Books",
+"section": "Maintenance tracking",
 "part": "Part 4  \u00b7  Maintenance",
 "kind": "body"
 },
@@ -631,7 +637,7 @@
 },
 {
 "src": 102,
-"section": "Status codes",
+"section": "Task Library and Task Books",
 "part": "Part 4  \u00b7  Maintenance",
 "kind": "body"
 },
@@ -643,12 +649,18 @@
 },
 {
 "src": 104,
-"section": "Maintenance procedures",
+"section": "Status codes",
 "part": "Part 4  \u00b7  Maintenance",
 "kind": "body"
 },
 {
 "src": 105,
+"section": "Maintenance procedures",
+"part": "Part 4  \u00b7  Maintenance",
+"kind": "body"
+},
+{
+"src": 106,
 "section": "Maintenance procedures",
 "part": "Part 4  \u00b7  Maintenance",
 "kind": "body"
@@ -660,16 +672,10 @@
 "kind": "notes"
 },
 {
-"src": 106,
+"src": 107,
 "section": "Maintenance procedures",
 "part": "Part 5  \u00b7  Reference",
 "kind": "part"
-},
-{
-"src": 107,
-"section": "Troubleshooting",
-"part": "Part 5  \u00b7  Reference",
-"kind": "body"
 },
 {
 "src": 108,
@@ -679,7 +685,7 @@
 },
 {
 "src": 109,
-"section": "Files, backups and tests",
+"section": "Troubleshooting",
 "part": "Part 5  \u00b7  Reference",
 "kind": "body"
 },
@@ -691,7 +697,7 @@
 },
 {
 "src": 111,
-"section": "Build reference",
+"section": "Files, backups and tests",
 "part": "Part 5  \u00b7  Reference",
 "kind": "body"
 },
@@ -709,7 +715,7 @@
 },
 {
 "src": 114,
-"section": "Still to check on the machine",
+"section": "Build reference",
 "part": "Part 5  \u00b7  Reference",
 "kind": "body"
 },
@@ -721,6 +727,12 @@
 },
 {
 "src": 116,
+"section": "Still to check on the machine",
+"part": "Part 5  \u00b7  Reference",
+"kind": "body"
+},
+{
+"src": 117,
 "section": "Still to check on the machine",
 "part": "Part 5  \u00b7  Reference",
 "kind": "body"
