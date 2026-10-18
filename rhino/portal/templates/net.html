@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="rhino-token" content="{{ token }}">
+  <title>Rhino network change</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="{{ url_for('static', filename='portal.css') }}">
+</head>
+<body class="net-page">
+  <main id="main" class="net-main">
+    <h1>Network change</h1>
+    {% if pending %}
+      <p class="net-summary" id="netSummary">{{ pending.summary }}</p>
+      <p>You reached the Rhino at its new settings. Keep them, or switch back now.
+         Otherwise it switches back by itself in <strong id="netLeft" data-expires="{{ pending.expires_at }}"></strong>.</p>
+      <div class="net-actions">
+        <button type="button" class="btn" id="netKeep">Keep</button>
+        <button type="button" class="btn ghost" id="netUndo">Switch back now</button>
+      </div>
+    {% else %}
+      <p>Nothing is waiting. Your network settings are as they are.</p>
+    {% endif %}
+    <p class="net-msg" id="netMsg" role="status"></p>
+    <p class="version muted">v{{ version }}</p>
+  </main>
+  <script src="{{ url_for('static', filename='net.js') }}"></script>
+</body>
+</html>

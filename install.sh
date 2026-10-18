@@ -217,6 +217,28 @@ if [ $DRY = 0 ]; then
   ok "portal answering on port 5000"
 fi
 
+# ------------------------------------------------------------------ network helper (1.4.8)
+# Lets the Portal (and Rhino Studio, through it) change the Pi's name, address, Wi-Fi and power
+# saving. One root-owned program, and one sudoers line that allows exactly that program: every
+# change it makes switches back by itself after 2 minutes unless it is kept.
+say "Network settings helper"
+if [ "${RHINO_SKIP_NET:-0}" = 1 ]; then
+  note "network helper skipped (RHINO_SKIP_NET=1)"
+elif command -v nmcli >/dev/null 2>&1; then
+  do_ sudo install -o root -g root -m 755 "$SRC/scripts/rhino_net_helper.py" /usr/local/sbin/rhino-net
+  tmp="$(mktemp)"
+  printf '# Rhino Tool Manager: the Portal may run the network helper (and nothing else) as root.\n%s ALL=(root) NOPASSWD: /usr/local/sbin/rhino-net\n' "$USER" > "$tmp"
+  if [ $DRY = 1 ] || sudo visudo -cf "$tmp" >/dev/null; then
+    do_ sudo install -o root -g root -m 440 "$tmp" /etc/sudoers.d/rhino-net
+    ok "network helper installed"
+  else
+    note "sudoers check failed - network settings stay read-only in the portal"
+  fi
+  rm -f "$tmp"
+else
+  note "No NetworkManager (nmcli) on this Pi - network settings stay read-only in the portal"
+fi
+
 # ------------------------------------------------------------------ done
 ip=$(hostname -I 2>/dev/null | awk '{print $1}')
 url="http://${ip:-YOUR-PI-ADDRESS}:5000"

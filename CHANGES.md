@@ -1,5 +1,26 @@
 # What changed
 
+## 1.4.8 - The Pi's network from Rhino Studio, with an automatic undo
+
+- **New: network settings** through the Portal, for Rhino Studio's Settings / Network: the Pi's name on the
+  network (`name.local`), a fixed or automatic (DHCP) address per interface, joining a Wi-Fi network, and Wi-Fi
+  power saving (off stops the Pi 3B dropping out). Reading needs nothing new; changing needs NetworkManager.
+- **Every change switches back by itself after 2 minutes unless it's kept.** The helper records how things are,
+  starts a timer, and only then makes the change. If the change cut the Pi off, nobody can press Keep, so it
+  undoes itself. After a fixed-address change, keep it from the new address: `http://<new address>:5000/net`.
+  One change waits at a time; changes are refused while a job is printing or paused (Keep and Undo always work).
+- **One small root helper**, `/usr/local/sbin/rhino-net` (from `scripts/rhino_net_helper.py`), root-owned, and one
+  sudoers line (`/etc/sudoers.d/rhino-net`) that lets your login run exactly that file. It checks every argument
+  against a strict pattern, runs commands as argument lists (never a shell), and only touches NetworkManager,
+  the hostname and `/etc/hosts`. Wi-Fi passwords reach it on stdin and go into a root-only NetworkManager file:
+  never on a command line, in the sudo log or in a reply. `install.sh` adds both (after `visudo` checks the
+  sudoers file); `uninstall.sh` removes them.
+- No Pi without NetworkManager (`nmcli`) gets the helper; the Portal then shows the network read-only and says why.
+- No Klipper config or macro changed.
+
+Tests: `dev/test_net.py` (55 checks: helper, Portal module, routes; every system call faked).
+Check on the machine: **N1-N8**. Have a keyboard and screen (or the SD card) handy for N5-N7, in case.
+
 ## 1.4.7 - The material record always matches the mounted tool, and SwitchFly's selector matches the record
 
 - **The problem:** G0/G1 decide what E does from the saved record (`set_material_toolhead` and

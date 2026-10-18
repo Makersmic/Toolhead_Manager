@@ -6,9 +6,10 @@ from flask import Flask
 from ..maint import MaintService
 from ..monitor import Monitor
 from ..moonraker import Moonraker
+from ..net import Network
 from ..paths import resolve
 from ..service import ToolService
-from . import maint_routes, routes, security
+from . import maint_routes, net_routes, routes, security
 
 
 def create_app(config_dir=None, moonraker_url=None, start_monitor=False):
@@ -22,11 +23,12 @@ def create_app(config_dir=None, moonraker_url=None, start_monitor=False):
     svc = ToolService(paths)
     maint = MaintService(paths, svc)
     mon.listeners.append(maint.collector(mr))
-    app.config.update(PATHS=paths, SERVICE=svc, MOONRAKER=mr, MONITOR=mon, MAINT=maint,
+    app.config.update(PATHS=paths, SERVICE=svc, MOONRAKER=mr, MONITOR=mon, MAINT=maint, NETWORK=Network(),
                       MAX_CONTENT_LENGTH=8 * 1024 * 1024, JSON_SORT_KEYS=False)
     if start_monitor:
         mon.start()
     app.register_blueprint(routes.bp)
     app.register_blueprint(maint_routes.bp)
+    app.register_blueprint(net_routes.bp)
     app.after_request(security.add_headers)
     return app

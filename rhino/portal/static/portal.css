@@ -394,3 +394,10 @@ details.fold-inline > summary { cursor: pointer; color: var(--link, var(--accent
 .table-wrap:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 :root[data-theme="light"] { --link: color-mix(in srgb, var(--accent) 80%, #000); }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+
+/* /net: keep or undo a network change (1.4.8) */
+.net-page { display: block; }
+.net-main { max-width: 560px; margin: 48px auto; padding: 0 20px; }
+.net-summary { font-weight: 600; font-size: 1.1rem; }
+.net-actions { display: flex; gap: 10px; margin: 16px 0; }
+.net-msg { min-height: 1.4em; }

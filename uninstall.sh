@@ -25,6 +25,10 @@ UNDONE="$HOME/rhino-undone-$(date +%Y-%m-%d-%H%M)"
 n=1; while [ -e "$UNDONE" ]; do n=$((n+1)); UNDONE="$HOME/rhino-undone-$(date +%Y-%m-%d-%H%M)-$n"; done
 do_ cp -a "$CFG" "$UNDONE"
 do_ sudo systemctl disable --now rhino-portal
+# 1.4.8+: the network helper and its sudoers line go too (reinstall puts them back)
+if [ "${RHINO_SKIP_NET:-0}" = 0 ] && [ -e /usr/local/sbin/rhino-net -o -e /etc/sudoers.d/rhino-net ]; then
+  do_ sudo rm -f /etc/sudoers.d/rhino-net /usr/local/sbin/rhino-net
+fi
 if [ -f "$B/_rhino_install/old-rhino-portal.service" ]; then
   echo "Putting back your previous portal service"
   do_ sudo install -m 644 "$B/_rhino_install/old-rhino-portal.service" "$SERVICE"

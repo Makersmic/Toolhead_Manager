@@ -111,7 +111,7 @@ os.makedirs(os.path.dirname(SERVICE))
 
 
 def env(**extra):
-    e = {"HOME": HOME, "USER": "tester", "PATH": BIN + os.pathsep + os.environ["PATH"], "CALLS": LOG, "PIDF": PIDF,
+    e = {"HOME": HOME, "USER": "tester", "PATH": BIN + os.pathsep + os.environ["PATH"], "CALLS": LOG, "PIDF": PIDF, "RHINO_SKIP_NET": "1",
          "RHINO_SERVICE_FILE": SERVICE, "RHINO_MOONRAKER": f"http://127.0.0.1:{moon.server_port}",
          "PORTAL_LOG": os.path.join(ROOT, "portal.log"), "TERM": "dumb", "LANG": "C.UTF-8"}
     e.update(extra)

@@ -98,14 +98,14 @@ For every version, before the zip is sent:
 - [ ] `CHANGES.md`, `VERSION` and the manual updated
 - [ ] The on-machine tests for whatever changed are listed in `CHANGES.md`
 
-## On-machine acceptance plan (1.4.7)
+## On-machine acceptance plan (1.4.8)
 
 Work through it in order: later sections rely on earlier ones. Have a hand on the emergency stop for every test that
 moves the machine. **Stop if** means stop, don't press on - note what happened and report it.
 
 ### A. Install and start
 
-- [ ] **A1 Install.** Menu option 3, pick `rhino-config-1.4.7.zip`, read the preview, install.
+- [ ] **A1 Install.** Menu option 3, pick `rhino-config-1.4.8.zip`, read the preview, install.
   *Pass:* ends with the portal answering on port 5000. *Stop if:* the preview shows STOPPED.
 - [ ] **A2 Restart.** With a print head mounted: `FIRMWARE_RESTART`.
   *Pass:* Klipper ready, no config errors.
@@ -194,6 +194,28 @@ Install `rhino-config-1.4.7.zip` first. Have a bin under the nozzle and a hand n
   mounted*. *Pass:* the selector doesn't move and the record still says path 2; heated, `G1 E5` feeds **in**.
 - [ ] **D12 BlockOne after SwitchFly path 2.** From D11, swap to BlockOne and confirm. *Pass:* the record says
   BlockOne, path 1; heated, `G1 E5` feeds **in**. *Stop if:* filament comes out.
+
+### N. Network settings (new in 1.4.8)
+
+Install `rhino-config-1.4.8.zip`. Use Rhino Studio, Settings / Network. Before N5-N7, make sure you could reach the
+Pi another way if needed (keyboard and screen, or the router's device list). **Stop if** anything doesn't switch
+back by itself within about 2 minutes.
+
+- [ ] **N1 Read.** *Pass:* name, Wi-Fi interface with its address, signal and power saving show; nothing changes.
+  `sudo -l` on the Pi lists only `/usr/local/sbin/rhino-net` for the Rhino line.
+- [ ] **N2 Power saving off, Keep.** *Pass:* a 2:00 countdown appears; Keep ends it; `iw dev wlan0 get power_save`
+  says off.
+- [ ] **N3 Undo now.** Turn power saving on, press Undo now. *Pass:* back to off.
+- [ ] **N4 Let it run out.** Turn it on and wait. *Pass:* after about 2 minutes it is off again by itself.
+- [ ] **N5 Rename.** Rename to `rhino`, open `http://rhino.local:5000/net` from your PC, press Keep. *Pass:* the
+  new name answers; Rename back to `mainsailos` the same way.
+- [ ] **N6 Fixed address.** Give `wlan0` a fixed address outside your router's DHCP range. *Pass:* Studio loses
+  the Pi (expected), `http://<new address>:5000/net` shows the change, Keep works. Then set it back to Automatic.
+- [ ] **N7 A wrong address.** Give `wlan0` a fixed address on a network you don't have, e.g. `10.9.9.50/24` with
+  gateway `10.9.9.1`, and don't keep it. *Pass:* Studio loses the Pi, and within about 2 minutes the Pi is back on
+  its old address by itself. *Stop if* it isn't back after 5 minutes.
+- [ ] **N8 During a print.** Start a print. *Pass:* changes are refused ("Not while a job is running").
+
 
 ### E. Set Z zero (new in 1.3.6)
 
