@@ -455,6 +455,107 @@ c = cmds(s); ok(c.index("G28 X Y") < c.index("G1 X551.0 Y381.0 F6000"), "cancel 
 s = fresh(1); s.objects["print_stats"]["state"] = "printing"; s.run_script("PAUSE")
 ok(any(x.startswith("G1 X551.0 Y381.0") for x in cmds(s)) and not any("X571" in x for x in cmds(s)), "pause parks there too, never at X571")
 
+# ---------------------------------------------------------------- 1.4.6 A: SwitchFly per-path materials
+def sf(saved=None, printing=False):
+    s = fresh(2); s.save_vars.update(set_material_toolhead="SwitchFly", set_material_nozzle_size=0.4)
+    if saved: s.save_vars.update(saved)
+    s.objects["toolhead"]["homed_axes"] = "xyz"; s.objects["extruder"]["temperature"] = 230.0
+    if printing: s.objects["print_stats"]["state"] = "printing"
+    return s
+def purge_key(s):
+    return next((c.split('MATERIAL_KEY="')[1].rstrip('"') for c in cmds(s) if c.startswith("PURGE ")), None)
+# SWITCH_T0/T1: the bug (default PLA_0_4 is not a SwitchFly key) is gone, nothing falls back to PLA
+s = sf({"switchfly_material_t0": "PETG"}); s.run_script("SWITCH_T0")
+ok(purge_key(s) == "PETG_0_4_T0" and s.save_vars["set_material_extruder_index"] == 0, "SWITCH_T0 with no MATERIAL uses path 1's saved material (PETG), not PLA")
+s = sf(); s.run_script("SWITCH_T0 MATERIAL=pla")
+ok(purge_key(s) == "PLA_0_4_T0" and s.save_vars["switchfly_material_t0"] == "PLA" and s.save_vars["set_material_material"] == "PLA",
+   "SWITCH_T0 MATERIAL=pla: short name (any case) builds PLA_0_4_T0 and is remembered for path 1")
+s = sf(); s.run_script("SWITCH_T1 MATERIAL=ABS_0_4_T1")
+ok(purge_key(s) == "ABS_0_4_T1" and s.save_vars["set_material_extruder_index"] == 1 and s.save_vars["switchfly_material_t1"] == "ABS",
+   "SWITCH_T1 accepts a full key, records path 2 for the E-reversal")
+s = sf({"switchfly_material_t1": "PLA", "set_material_nozzle_size": 0.8}); s.run_script("SWITCH_T1")
+ok(purge_key(s) == "PLA_0_8_T1", "the key follows the saved nozzle size (0.8)")
+s = sf(); n = len(s.log)
+ok(raises(lambda: s.run_script("SWITCH_T0 MATERIAL=NYLON"), "no NYLON") and not any(c.startswith(("G1", "PURGE", "SET_SERVO")) for c in cmds(s)),
+   "unknown material: clear error, nothing moves, no PLA fallback")
+s = sf(); ok(raises(lambda: s.run_script("SWITCH_T0 MATERIAL=PLA_0_4_T1"), "Choose one of: PLA, ABS, ASA, PETG"), "path 2's key on path 1 is refused, with the choices listed")
+s = sf(); s.run_script("SWITCH_T1")
+ok(s.prompt and "Path 2 (T1)" in s.prompt["title"] and set(s.buttons()) >= {"PLA", "ABS", "ASA", "PETG", "Cancel"}
+   and not any(c.startswith(("G1", "PURGE")) for c in cmds(s)), "by hand with nothing saved: asks, nothing moves")
+s.press("PETG"); ok(purge_key(s) == "PETG_0_4_T1" and s.save_vars["switchfly_material_t1"] == "PETG", "...answering switches with that material")
+s = sf(); s.run_script("SWITCH_T1"); s.press("Cancel"); ok(s.prompt is None and not any(c.startswith("PURGE") for c in cmds(s)), "...Cancel closes it, nothing done")
+s = sf(printing=True); ok(raises(lambda: s.run_script("SWITCH_T0"), "no material known"), "in a job with nothing saved: error, not a question or PLA")
+
+# START_JOB: the file's MATERIAL fills its path; the other path is asked, holding the file
+def sf_job(line, saved=None):
+    s = sf(saved, printing=True); s.run_script(line); return s
+s = sf_job('START_JOB TOOLHEAD="SwitchFly" MATERIAL="PLA" NOZZLE_SIZE=0.4 EXTRUDER=0', {"switchfly_material_t1": "PETG"})
+ok(s.objects["pause_resume"]["is_paused"] and s.prompt and "Path 2 (T1)" in s.prompt["title"], "Orca SwitchFly file: held, path 2 asked")
+ok(s.buttons()[0] == "Same as last time (PETG)" and {"PLA", "ABS", "ASA", "PETG"} <= set(s.buttons()), "...'Same as last time' first, then the table's materials")
+ok(any("Path 1 (T0): PLA" in t for t in s.prompt["text"]), "...showing path 1 from the file")
+s.press("Same as last time")
+ok("Confirm" in s.prompt["title"] and any("Path 1 (T0): PLA" in t for t in s.prompt["text"]) and any("Path 2 (T1): PETG" in t for t in s.prompt["text"]),
+   "CONFIRM_TOOLHEAD shows both paths")
+ok(s.objects["pause_resume"]["is_paused"], "...file still held")
+s.press("Proceed")
+sv = s.save_vars
+ok(sv["switchfly_material_t0"] == "PLA" and sv["switchfly_material_t1"] == "PETG" and sv["set_material_material"] == "PLA"
+   and sv["set_material_extruder_index"] == 0, "Proceed: both paths saved for next time, the file's path is the active one")
+ok(s.prompt and "PLA" in s.prompt["title"] and s.objects["pause_resume"]["is_paused"], "...then the usual PLA bed question, file still held")
+s = sf_job("START_JOB TOOLHEAD=SwitchFly NOZZLE_SIZE=0.4 EXTRUDER=1")
+ok(s.prompt and "Path 1 (T0)" in s.prompt["title"] and not any("Same as last time" in b for b in s.buttons()), "no materials, none saved: path 1 asked, no 'Same as last time'")
+s.press("ASA"); ok("Path 2 (T1)" in s.prompt["title"] and any("Path 1 (T0): ASA" in t for t in s.prompt["text"]), "...then path 2, showing path 1's answer")
+s.press("PETG"); s.press("Proceed")
+ok(s.save_vars["set_material_material"] == "PETG" and s.save_vars["set_material_extruder_index"] == 1 and s.save_vars["switchfly_material_t0"] == "ASA",
+   "EXTRUDER=1 job: path 2's material is the active one")
+s = sf_job("START_JOB TOOLHEAD=SwitchFly MATERIAL_T0=PLA MATERIAL_T1=petg NOZZLE_SIZE=0.4 EXTRUDER=0")
+ok(s.prompt and "Confirm" in s.prompt["title"], "MATERIAL_T0 and MATERIAL_T1 given: straight to the confirm question")
+s = sf_job("START_JOB TOOLHEAD=SwitchFly MATERIAL_T0=PLA MATERIAL_T1=PLA NOZZLE_SIZE=0.8 EXTRUDER=0"); s.press("Proceed")
+ok(s.save_vars["set_material_nozzle_size"] == 0.8, "0.8 mm nozzle job")
+s = sf(printing=True)
+ok(raises(lambda: s.run_script("START_JOB TOOLHEAD=SwitchFly MATERIAL_T1=NYLON NOZZLE_SIZE=0.4 EXTRUDER=0"), "no NYLON") and not homes(s),
+   "unknown path material: stopped before homing")
+s = sf(printing=True)
+ok(raises(lambda: s.run_script("START_JOB TOOLHEAD=SwitchFly MATERIAL=PLA MATERIAL_T0=PETG NOZZLE_SIZE=0.4 EXTRUDER=0"), "different materials"),
+   "MATERIAL and MATERIAL_T0 disagreeing: refused")
+s = sf_job("START_JOB TOOLHEAD=SwitchFly MATERIAL=PLA NOZZLE_SIZE=0.4 EXTRUDER=0"); s.press("Cancel")
+ok(s.objects["print_stats"]["state"] == "cancelled", "Cancel at the path question cancels the job")
+s = fresh(1); s.objects["print_stats"]["state"] = "printing"
+s.run_script('START_JOB TOOLHEAD="BlockOne" MATERIAL="PLA" NOZZLE_SIZE=0.4 EXTRUDER=0')
+ok("Confirm" in s.prompt["title"] and any(t == "Material: PLA" for t in s.prompt["text"]), "BlockOne job start unchanged")
+# SET_PRINT / SET_TOOLHEAD by hand
+s = sf(); before = dict(s.save_vars)
+ok(raises(lambda: s.run_script("SET_PRINT TOOLHEAD=SwitchFly MATERIAL=PLA NOZZLE_SIZE=0.4 EXTRUDER=0 MATERIAL_T1=NYLON"), "no NYLON")
+   and s.save_vars == before, "SET_PRINT checks both paths before saving anything")
+s = sf({"switchfly_material_t1": "ABS"}); s.run_script("SET_TOOLHEAD TOOLHEAD=SwitchFly MATERIAL=PETG NOZZLE_SIZE=0.4 EXTRUDER=0")
+ok(s.save_vars["switchfly_material_t0"] == "PETG" and s.save_vars["switchfly_material_t1"] == "ABS", "SET_TOOLHEAD by hand: sets its path, leaves the other path's saved material")
+s = sf(); ok(raises(lambda: s.run_script("SET_PRINT TOOLHEAD=SwitchFly NOZZLE_SIZE=0.4 EXTRUDER=1 MATERIAL_T0=PLA"), "name the material for path 2"),
+             "SET_PRINT with no material for the printing path: error, no PLA default")
+
+# ---------------------------------------------------------------- 1.4.6 B: END_PRINT safe-off for every tool
+def endjob(slot, name, mat, extra=None):
+    s = fresh(slot); s.save_vars.update(set_material_toolhead=name, set_material_material=mat, set_material_nozzle_size=0.4)
+    s.macros["_RHINO_CONTROLS_OFF"]["gcode"] = "SET_PIN PIN=dust_vacuum VALUE=0"; s.pins["dust_vacuum"] = 1.0   # a control ticked "switch off when made safe"
+    s.macro_vars["TOOL_POWER_STATE"]["active"] = 1
+    for k, v in (extra or {}).items(): s.pins[k] = v
+    s.run_script("END_PRINT"); return s
+for slot, name, mat in ((1, "BlockOne", "PLA"), (2, "SwitchFly", "PLA"), (3, "LightSaber", "PLYWOOD"), (4, "HotJoe", "SOFT_WOOD"), (5, "DragKnife", "VINYL")):
+    s = endjob(slot, name, mat, {"Spindle_power": 1.0, "LASER_INITIALIZE": 1.0})
+    ok(s.pins["Spindle_power"] == 0 and s.pins["LASER_INITIALIZE"] == 0 and abs(s.pins["SPINDLE_SPEED"] - 0.3) < 1e-9
+       and s.macro_vars["TOOL_POWER_STATE"]["active"] == 0, f"END_PRINT {name}: every tool output safe, watchdog stood down")
+    ok(s.pins["dust_vacuum"] == 1.0, f"END_PRINT {name}: controls ticked 'switch off when made safe' keep running")
+    c = cmds(s); ok(c.index("_TOOL_SAFE_OFF KEEP_CONTROLS=1") < c.index("SET_GCODE_OFFSET X=0 Y=0 Z=0") < c.index("_RHINO_PARK"), f"END_PRINT {name}: after the tool's own shutdown, before the park")
+s = endjob(2, "SwitchFly", "PLA", {"SERVO_LASER": 0.075}); ok(s.pins["SERVO_LASER"] == 0.075, "END_PRINT SwitchFly: path servo left alone")
+s = endjob(3, "LightSaber", "PLYWOOD", {"SERVO_LASER": 0.6}); ok(s.pins["SERVO_LASER"] == 0, "END_PRINT LightSaber: laser level 0")
+for script in ("CANCEL_PRINT", "EMERGENCY_STOP", "SWAP_TOOL TOOL=5"):
+    s = fresh(1); s.macros["_RHINO_CONTROLS_OFF"]["gcode"] = "SET_PIN PIN=dust_vacuum VALUE=0"; s.pins["dust_vacuum"] = 1.0
+    if script == "CANCEL_PRINT": s.objects["print_stats"]["state"] = "printing"
+    s.run_script(script)
+    ok(s.pins["dust_vacuum"] == 0, f"{script.split()[0]} still switches ticked controls off")
+s = cs(6); s.macros["_RHINO_CONTROLS_OFF"]["gcode"] = "SET_PIN PIN=FoamWire_EN VALUE=0"
+s.save_vars.update(set_material_toolhead="FoamWire", set_material_material="FOAM_EPS"); s.run_script("M3 S1000"); s.run_script("END_PRINT")
+ok(s.pins["FoamWire_PWR"] == 0 and "_TOOL_SAFE_OFF KEEP_CONTROLS=1" not in cmds(s), "END_PRINT added POWERED tool: full _TOOL_SAFE_OFF, unchanged")
+
 shutil.rmtree(ROOT, ignore_errors=True)
 print("\nFAILED:" if fails else "\nALL PASSED", fails or "")
 sys.exit(1 if fails else 0)

@@ -1,5 +1,34 @@
 # What changed
 
+## 1.4.6 - SwitchFly knows each path's material; the end of a job makes every tool safe
+
+**SwitchFly materials**
+- **The bug:** `SWITCH_T0` and `SWITCH_T1` defaulted to `PLA_0_4`, which isn't a SwitchFly key (its keys end in
+  `_T0` / `_T1`), so they stopped with an error. Any other unknown name quietly became PLA.
+- **Each path has its own material.** `START_JOB` takes `MATERIAL_T0` and `MATERIAL_T1` (PLA, PETG, ABS, ASA).
+  `MATERIAL`, as Orca and Studio write it now, fills the path named by `EXTRUDER`.
+- **A path left out is asked at the start of the job**, with the file held the same way as the confirm question:
+  "Path 2 (T1) material?" with **Same as last time** first, then that path's materials for the nozzle, and Cancel.
+  The confirm window then lists both paths and the one the file prints from.
+- **Remembered like BlockOne's material:** `SET_PRINT` checks both paths before it saves or sets anything, then keeps
+  them in `switchfly_material_t0` / `_t1`. They survive a restart and aren't cleared at the end of a job.
+- **`SWITCH_T0` / `SWITCH_T1`** take `MATERIAL=PLA` or a full key. Without it they use the path's remembered material;
+  run by hand with nothing remembered, they ask. They never fall back to PLA, and an unknown name is refused before
+  anything moves. Both now share one macro (`_SWITCHFLY_SWITCH`), so the two paths can't drift apart. Switching also
+  records that path's material as the one in use.
+- A bad name or a clash (`MATERIAL=PLA MATERIAL_T0=PETG`) stops `START_JOB` before it homes.
+
+**End of a job**
+- `END_PRINT` now runs `_TOOL_SAFE_OFF` for every kind of tool, after the tool's own shutdown: every tool output to
+  its safe level and the powered-tool watchdog stood down, as cancel, swap and the emergency stop already did.
+  It leaves `SERVO_LASER` alone with SwitchFly mounted. No values changed.
+- Controls and system hardware ticked "switch off when made safe" (an exhaust fan, air assist) **keep running** after
+  a normal finish (new `KEEP_CONTROLS=1` on `_TOOL_SAFE_OFF`). Cancel, swap and the emergency stop still switch them
+  off. Added POWERED tools end exactly as before, with the full safe-off.
+
+Tests: 50 new simulator checks in `dev/test_macros.py`.
+Check on the machine: **D4-D9** (SwitchFly path materials, end of a job).
+
 ## 1.4.5 - Cancel doesn't home X/Y with the laser on
 
 - **CANCEL_PRINT with a laser mounted** (LightSaber, or any tool of type LASER) no longer runs `G28 X Y`: homing Y

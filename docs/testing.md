@@ -98,20 +98,20 @@ For every version, before the zip is sent:
 - [ ] `CHANGES.md`, `VERSION` and the manual updated
 - [ ] The on-machine tests for whatever changed are listed in `CHANGES.md`
 
-## On-machine acceptance plan (1.4.5)
+## On-machine acceptance plan (1.4.6)
 
 Work through it in order: later sections rely on earlier ones. Have a hand on the emergency stop for every test that
 moves the machine. **Stop if** means stop, don't press on - note what happened and report it.
 
 ### A. Install and start
 
-- [ ] **A1 Install.** Menu option 3, pick `rhino-config-1.4.5.zip`, read the preview, install.
+- [ ] **A1 Install.** Menu option 3, pick `rhino-config-1.4.6.zip`, read the preview, install.
   *Pass:* ends with the portal answering on port 5000. *Stop if:* the preview shows STOPPED.
 - [ ] **A2 Restart.** With a print head mounted: `FIRMWARE_RESTART`.
   *Pass:* Klipper ready, no config errors.
 - [ ] **A3 Tool question.** *Pass:* "Klipper restarted - which toolhead is mounted?" appears; Yes records the tool.
 - [ ] **A4** `CHECK_TOOLHEADS` lists every tool without errors.
-- [ ] **A5 Portal.** Opens at `http://<pi>:5000`, matches Mainsail's dark/light theme, shows version 1.4.5.
+- [ ] **A5 Portal.** Opens at `http://<pi>:5000`, matches Mainsail's dark/light theme, shows version 1.4.6.
   Switch Mainsail between dark and light twice: *Pass:* the portal follows each switch within 15 s, and at once
   when you click back to its tab.
 
@@ -159,6 +159,28 @@ moves the machine. **Stop if** means stop, don't press on - note what happened a
   answered, 210 °C / 65 °C, prime line drawn, first layer slow (15 mm/s), `END_PRINT` lowers the bed to the park
   height, then the head goes to the park spot X551 Y381 (1.4.4; it went to X0 Y200 before).
 - [ ] **D3 Prime line length.** Measure it. *Pass:* about 120 mm. *Stop if:* about half - same cause as B1.
+
+### D, continued. SwitchFly materials and the end of a job (new in 1.4.6)
+
+With SwitchFly mounted, its nozzle height set (D1), and both paths loaded:
+
+- [ ] **D4 Path question.** Start a SwitchFly file from Orca or Studio (it names one material, e.g. PLA on path 1).
+  *Pass:* the file is held and "Path 2 (T1) material?" appears, showing "Path 1 (T0): PLA" and the materials for
+  the nozzle; nothing moves after homing. Pick the one loaded in path 2.
+  *Stop if:* the print starts before you answer.
+- [ ] **D5 Confirm shows both.** *Pass:* the confirm window lists Path 1 (T0) and Path 2 (T1) with what you chose,
+  and "Prints from: path 1 (T0)". Proceed: the usual PLA bed question, heating, prime line, print.
+- [ ] **D6 Same as last time.** Start the same file again. *Pass:* "Same as last time (<your path 2 material>)" is
+  the first button; it goes straight to the confirm window. After `FIRMWARE_RESTART` it is still offered.
+- [ ] **D7 Cancel at the path question.** Start the file, press Cancel. *Pass:* job shows cancelled, nothing heats.
+- [ ] **D8 SWITCH_T0/T1 by hand.** Machine idle and homed: type `SWITCH_T1`. *Pass:* retracts, moves the selector
+  servo, heats to path 2's material, loads and purges using the material from D4 (the console says
+  `MATERIAL=<it>_0_4_T1`), with no "defaulting to PLA". Then `SWITCH_T0 MATERIAL=NYLON`: *Pass:* refused with the
+  list of materials, nothing moves.
+- [ ] **D9 End of job, extras keep running.** Add a test item ticked "switch off when made safe" (or use your
+  exhaust fan) and switch it on. Finish a short print normally. *Pass:* the heaters go off, the head parks, and that
+  item is **still on**. Then start a print and cancel it: *Pass:* cancel switches it off. Repeat the normal finish
+  with LightSaber (low power, scrap): *Pass:* laser and rail off at the end, the item still on.
 
 ### E. Set Z zero (new in 1.3.6)
 
