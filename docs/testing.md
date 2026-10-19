@@ -224,7 +224,7 @@ Install `rhino-config-1.5.0.zip`, then use Rhino Studio. Keep `htop` open in an 
 
 - [ ] **P1 Install the engine.** Settings / Software, PrusaSlicer, Install. *Pass:* asks first, takes a few minutes,
   then shows the version and Up to date. `ls ~/printer_data/rhino_data/prusaslicer` shows the version and `current`.
-- [ ] **P2 It runs without a screen.** `~/printer_data/rhino_data/prusaslicer/current/AppRun --help-fff | head` over SSH.
+- [ ] **P2 It runs without a screen.** `~/printer_data/rhino_data/prusaslicer/current/squashfs-root/AppRun --help-fff | head` over SSH.
   *Pass:* prints options, including `--threads` and `--center`. *Stop if:* it complains about a display or a missing
   library - report the message.
 - [ ] **P3 Slice.** Prepare a small part with PrusaSlicer, BlockOne, PLA. *Pass:* progress shows, time and filament
