@@ -1,4 +1,4 @@
-"""PrusaSlicer on the Rhino host, for Rhino Studio (config 1.5.0).
+"""PrusaSlicer on the Rhino host, for Rhino Studio (config 1.5.2).
 
 Studio sends a part (binary STL, already turned and scaled), the full PrusaSlicer INI and where the
 part's centre goes; this runs PrusaSlicer's command line and hands back the G-code. Studio then wraps
@@ -6,17 +6,26 @@ it in the Rhino's own start and end lines and checks every line before it reache
 
 Keeping the machine first:
   - one slice at a time (one more may wait); a newer request from Studio cancels the older one
-  - lowest CPU and disk priority (nice 19, ionice idle), a thread cap, and a memory watchdog that stops
-    the slice before it can starve Klipper or Moonraker of memory
+  - lowest CPU and disk priority (nice 19, ionice idle), a thread cap, and a memory watchdog over the
+    whole process tree that stops the slice before it can starve Klipper or Moonraker of memory
   - while a job prints: small hosts (under 2 GB, e.g. a Pi 3B) refuse to slice at all; bigger ones
     slice with half the cores and a lower memory cap
   - the INI is re-checked here: only known option names, single-line values, and the options that
     could run programs or rewrite G-code (post_process, gcode_substitutions) are forced empty
   - identical requests (same part, settings, engine) come straight from a small cache
 
-The engine lives in <rhino_data>/prusaslicer/<version>/ (an unpacked official AppImage), with
-`current` pointing at the one in use and the previous one kept for going back. Installing and
-updating come from PrusaSlicer's GitHub releases; Studio shows them under Settings > Software.
+Where the engine comes from (1.5.2): Prusa publishes its Linux build only on Flathub
+(com.prusa3d.PrusaSlicer); its GitHub releases carry Windows and Mac builds only. So the engine is a
+per-user Flatpak (`flatpak --user`): no root, nothing outside ~/.local/share/flatpak. The Portal never
+runs sudo; the host needs the `flatpak` command once (`sudo apt install flatpak`, by hand over SSH).
+Hosts under 2 GB of memory aren't offered the engine at all: they slice with Kiri:Moto in Studio.
+
+Each slice runs in Flatpak's sandbox with no network, no display and no files but its own job folder.
+`flatpak run` starts bubblewrap, which may start the slicer in a session of its own, so cancelling and
+the memory watchdog follow the process tree (parent PIDs), not just the process group.
+
+Before an update the installed Flatpak commit is recorded; if the new version fails its test slice, the
+previous commit is put back (`flatpak update --commit=`), and Studio can ask for that by hand too.
 """
 import hashlib
 import json
@@ -25,16 +34,18 @@ import platform
 import re
 import shutil
 import signal
+import struct
 import subprocess
 import tempfile
 import threading
 import time
-import urllib.request
 import uuid
 
 from .errors import Fail
 
-RELEASES = "https://api.github.com/repos/prusa3d/PrusaSlicer/releases/latest"
+APP = "com.prusa3d.PrusaSlicer"
+REMOTE = "flathub"
+REMOTE_URL = "https://dl.flathub.org/repo/flathub.flatpakrepo"
 SMALL_HOST_MB = 2048
 MAX_MODEL = 200 * 1024 * 1024
 MAX_INI = 512 * 1024
@@ -46,6 +57,14 @@ FORCED = {"post_process": "", "gcode_substitutions": "", "binary_gcode": "0", "o
 PHASES = [("Processing triangulated mesh", 0.05, "Reading the part"), ("Generating perimeters", 0.2, "Walls"),
           ("Preparing infill", 0.45, "Infill"), ("Generating support", 0.6, "Supports"), ("Generating skirt", 0.75, "Skirt and brim"),
           ("Exporting G-code", 0.85, "Writing G-code"), ("Slicing result exported", 1.0, "Done")]
+# Flatpak's sandbox for a slice: no network, no display, no sound, no host or home files; the job
+# folder is added per slice. --die-with-parent: killing `flatpak run` takes the sandbox with it.
+SANDBOX = ["--die-with-parent", "--unshare=network", "--nosocket=x11", "--nosocket=fallback-x11", "--nosocket=wayland",
+           "--nosocket=pulseaudio", "--nofilesystem=host", "--nofilesystem=home", "--env=DISPLAY=", "--env=WAYLAND_DISPLAY="]
+ARCHES = ("x86_64", "aarch64")
+NO_FLATPAK = ("PrusaSlicer comes from Flathub, so the Rhino's host needs Flatpak first. Over SSH, run once: "
+              "sudo apt install flatpak — then press Install again. (The Portal never runs sudo itself.)")
+SMALL_MSG = ("PrusaSlicer needs a host with 2 GB of memory or more. Kiri:Moto in the browser still slices on this one.")
 
 
 def _meminfo():
@@ -62,20 +81,26 @@ def _arch():
     return "x86_64" if m in ("x86_64", "amd64") else "aarch64" if m in ("aarch64", "arm64") else m
 
 
-def pick_asset(assets, arch):
-    """The official Linux AppImage for this processor (the newer-distros GTK3 build on x86-64)."""
-    names = [(a.get("name", ""), a) for a in assets]
-    if arch == "x86_64":
-        pats = [r"linux-x64-newer-distros-GTK3.*\.AppImage$", r"linux-x64.*GTK3.*\.AppImage$", r"linux-x64.*\.AppImage$"]
-    elif arch == "aarch64":
-        pats = [r"linux-(armv8|aarch64|arm64).*\.AppImage$"]
-    else:
-        return None
-    for p in pats:
-        for n, a in names:
-            if re.search(p, n):
-                return a
-    return None
+def parse_info(text):
+    """Version and commit from `flatpak info` / `flatpak remote-info` (same `Key: value` layout)."""
+    v = re.search(r"^\s*Version:\s*(\S+)", text, re.M)
+    c = re.search(r"^\s*Commit:\s*([0-9a-f]{8,})", text, re.M)
+    return {"version": v.group(1) if v else None, "commit": c.group(1) if c else None}
+
+
+def test_cube_stl(size=20.0):
+    """A small binary STL cube (12 facets) for the test slice after an install."""
+    s = size
+    v = [(0, 0, 0), (s, 0, 0), (s, s, 0), (0, s, 0), (0, 0, s), (s, 0, s), (s, s, s), (0, s, s)]
+    faces = [(0, 2, 1), (0, 3, 2), (4, 5, 6), (4, 6, 7), (0, 1, 5), (0, 5, 4), (1, 2, 6), (1, 6, 5), (2, 3, 7), (2, 7, 6),
+             (3, 0, 4), (3, 4, 7)]
+    out = bytearray(b"Rhino test cube".ljust(80, b" ")) + struct.pack("<I", len(faces))
+    for a, b, c in faces:
+        out += struct.pack("<3f", 0, 0, 0)
+        for i in (a, b, c):
+            out += struct.pack("<3f", *v[i])
+        out += b"\0\0"
+    return bytes(out)
 
 
 def clean_ini(text, known):
@@ -98,6 +123,44 @@ def clean_ini(text, known):
     return "\n".join(out) + "\n"
 
 
+def _tree(root):
+    """`root` and every process under it, by parent PID (bubblewrap may give the slicer its own session)."""
+    kids = {}
+    for pid in os.listdir("/proc"):
+        if not pid.isdigit():
+            continue
+        try:
+            with open(f"/proc/{pid}/stat") as f:
+                st = f.read().rsplit(")", 1)[1].split()
+            kids.setdefault(int(st[1]), []).append(int(pid))
+        except (OSError, ValueError, IndexError):
+            continue
+    out, todo = [], [root]
+    while todo:
+        p = todo.pop()
+        out.append(p)
+        todo.extend(kids.get(p, []))
+    return out
+
+
+def _kill_tree(proc):
+    """Stop a slice and everything it started; the group kill catches anything already re-parented."""
+    pids = _tree(proc.pid)
+    for p in reversed(pids):
+        try:
+            os.kill(p, signal.SIGKILL)
+        except (ProcessLookupError, PermissionError):
+            pass
+    try:
+        os.killpg(proc.pid, signal.SIGKILL)
+    except (ProcessLookupError, PermissionError, AttributeError):
+        pass
+    try:
+        proc.kill()
+    except Exception:
+        pass
+
+
 class Job:
     def __init__(self, jid, workdir, key):
         self.id, self.dir, self.key = jid, workdir, key
@@ -115,12 +178,12 @@ class Job:
 
 
 class PrusaService:
-    def __init__(self, base_dir, printer_state=lambda: "standby", run=subprocess.Popen, fetch=None,
+    def __init__(self, base_dir, printer_state=lambda: "standby", run=subprocess.Popen, flatpak=None,
                  mem_mb=None, cpus=None, arch=None):
         self.base = base_dir
         self.printer_state = printer_state
         self.Popen = run
-        self.fetch = fetch or self._fetch
+        self._flatpak = flatpak            # path to `flatpak`; None = look it up; "" = treat as missing (tests)
         self.mem_mb = mem_mb or _meminfo()
         self.cpus = cpus or os.cpu_count() or 1
         self.arch = arch or _arch()
@@ -129,55 +192,121 @@ class PrusaService:
         self.lock = threading.Lock()
         self.wake = threading.Event()
         self.worker = None
-        self._latest = {"at": 0, "version": None, "asset": None, "error": None}
+        self._latest = {"at": 0, "version": None, "commit": None, "error": None, "no_build": False}
+        self._info = {"at": 0, "version": None, "commit": None}
         self.installing = False
+        self.install_phase = None
         self.install_error = None
         os.makedirs(os.path.join(self.base, "jobs"), exist_ok=True)
         os.makedirs(os.path.join(self.base, "cache"), exist_ok=True)
+
+    # ------------------------------------------------------------ flatpak
+    def flatpak(self):
+        if self._flatpak is not None:
+            return self._flatpak or None
+        return shutil.which("flatpak")
+
+    def _env(self):
+        env = {k: v for k, v in os.environ.items() if k in ("PATH", "HOME", "LANG", "USER", "TMPDIR", "XDG_RUNTIME_DIR")}
+        if "XDG_RUNTIME_DIR" not in env:       # the Portal is a system service: no login session of its own
+            d = f"/run/user/{os.getuid()}"
+            if os.path.isdir(d) and os.access(d, os.W_OK):
+                env["XDG_RUNTIME_DIR"] = d
+        env["DISPLAY"] = ""                    # never try to open a window
+        return env
+
+    def _fp(self, args, timeout=120, low=False):
+        """Run `flatpak <args>`; returns (exit code, output)."""
+        fp = self.flatpak()
+        if not fp:
+            raise Fail(NO_FLATPAK)
+        cmd = ([*self._low(), fp] if low else [fp]) + args
+        p = self.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, env=self._env(),
+                       start_new_session=True)
+        try:
+            out, _ = p.communicate(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            _kill_tree(p)
+            p.communicate()
+            return 124, f"flatpak {' '.join(args[:2])} took longer than {timeout} s and was stopped"
+        return p.returncode, out or ""
+
+    @staticmethod
+    def _low():
+        cmd = ["nice", "-n", "19"]
+        if shutil.which("ionice"):
+            cmd += ["ionice", "-c", "3"]
+        return cmd
+
+    def engine_cmd(self, workdir):
+        """The sandboxed PrusaSlicer command line, allowed to see only `workdir`."""
+        fp = self.flatpak()
+        if not fp:
+            raise Fail(NO_FLATPAK)
+        return [fp, "run", "--user", "--command=prusa-slicer", *SANDBOX, f"--filesystem={workdir}", APP]
 
     # ------------------------------------------------------------ engine
     @property
     def small(self):
         return self.mem_mb < SMALL_HOST_MB
 
-    def current_dir(self):
-        p = os.path.join(self.base, "current")
-        return os.path.realpath(p) if os.path.exists(p) else None
+    def info(self, fresh=False):
+        """{version, commit} of the installed engine (both None if it isn't installed); cached 20 s."""
+        if not fresh and time.time() - self._info["at"] < 20:
+            return self._info
+        v = {"version": None, "commit": None}
+        if self.flatpak():
+            rc, out = self._fp(["--user", "info", APP], timeout=30)
+            if rc == 0:
+                v = parse_info(out)
+                if not v["version"] and v["commit"]:
+                    v["version"] = v["commit"][:10]
+        self._info = {"at": time.time(), **v}
+        return self._info
 
     def installed(self):
-        d = self.current_dir()
-        try:
-            with open(os.path.join(d, "VERSION")) as f:
-                return f.read().strip()
-        except (OSError, TypeError):
-            return None
+        return self.info()["version"]
 
     def binary(self):
-        d = self.current_dir()
-        b = os.path.join(d, "squashfs-root", "AppRun") if d else None
-        if not b or not os.path.exists(b):
+        """Raises if there's no engine to slice with (kept for callers that only need the check)."""
+        if not self.flatpak() or not self.info()["commit"]:
             raise Fail("PrusaSlicer isn't installed on the Rhino yet (Studio: Settings > Software).")
-        return b
+        return self.flatpak()
 
     def keys(self):
-        """Option names the installed engine accepts, from its own --help-fff (cached per version)."""
-        d = self.current_dir()
-        if not d:
+        """Option names the installed engine accepts, from its own --help-fff (cached per commit)."""
+        commit = self.info()["commit"]
+        if not commit:
             return []
-        cache = os.path.join(d, "keys.json")
+        cache = os.path.join(self.base, f"keys-{commit[:16]}.json")
         try:
             with open(cache) as f:
                 return json.load(f)
         except (OSError, ValueError):
             pass
-        p = self.Popen([self.binary(), "--help-fff"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
-        out, _ = p.communicate(timeout=60)
-        keys = sorted({k.replace("-", "_") for k in re.findall(r"^\s*--([a-z][a-z0-9-]*)", out, re.M)})
+        keys = self._help_keys()
         if len(keys) < 50:
             raise Fail("The installed PrusaSlicer didn't list its options; reinstall it from Settings > Software.")
+        for f in os.listdir(self.base):
+            if f.startswith("keys-") and f.endswith(".json"):
+                os.remove(os.path.join(self.base, f))
         with open(cache, "w") as f:
             json.dump(keys, f)
         return keys
+
+    def _help_keys(self):
+        d = tempfile.mkdtemp(prefix=".help-", dir=self.base)
+        try:
+            p = self.Popen(self.engine_cmd(d) + ["--help-fff"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+                           env=self._env(), start_new_session=True)
+            try:
+                out, _ = p.communicate(timeout=120)
+            except subprocess.TimeoutExpired:
+                _kill_tree(p)
+                return []
+            return sorted({k.replace("-", "_") for k in re.findall(r"^\s*--([a-z][a-z0-9-]*)", out or "", re.M)})
+        finally:
+            shutil.rmtree(d, ignore_errors=True)
 
     def refuse(self):
         """Why a slice can't start right now, or None."""
@@ -193,116 +322,209 @@ class PrusaService:
             return max(1, self.cpus // 2), int(self.mem_mb * 0.4)
         return max(1, self.cpus - 1), max(256, min(int(self.mem_mb * 0.7), self.mem_mb - 768))
 
-    # ------------------------------------------------------------ releases
-    def _fetch(self, url, dest=None, timeout=30):
-        req = urllib.request.Request(url, headers={"User-Agent": "Rhino-Tool-Manager", "Accept": "application/vnd.github+json"})
-        with urllib.request.urlopen(req, timeout=timeout) as r:
-            if dest is None:
-                return r.read()
-            with open(dest, "wb") as f:
-                shutil.copyfileobj(r, f, 1024 * 1024)
-            return dest
+    # ------------------------------------------------------------ install, update, go back
+    def _has_remote(self):
+        rc, out = self._fp(["--user", "remotes", "--columns=name"], timeout=30)
+        return rc == 0 and REMOTE in out.split()
 
     def latest(self, force=False):
-        if not force and time.time() - self._latest["at"] < 6 * 3600 and self._latest["version"]:
+        """What Flathub offers for this processor; checked at most every 6 hours unless forced."""
+        if not force and time.time() - self._latest["at"] < 6 * 3600:
             return self._latest
+        lat = {"at": time.time(), "version": None, "commit": None, "error": None, "no_build": False}
         try:
-            data = json.loads(self.fetch(RELEASES))
-            tag = data.get("tag_name", "")
-            ver = re.sub(r"^version_", "", tag)
-            asset = pick_asset(data.get("assets", []), self.arch)
-            self._latest = {"at": time.time(), "version": ver or None,
-                            "asset": {"url": asset["browser_download_url"], "name": asset["name"], "size": asset.get("size"),
-                                      "digest": asset.get("digest")} if asset else None, "error": None}
-        except Exception as e:  # offline, rate limited
-            self._latest = {**self._latest, "at": time.time(), "error": f"Couldn't check GitHub: {e}"}
-        return self._latest
+            if self.flatpak() and self._has_remote():   # before the first install there's nothing to ask yet
+                rc, out = self._fp(["--user", "remote-info", REMOTE, APP], timeout=60)
+                if rc == 0:
+                    lat.update(parse_info(out))
+                elif re.search(r"nothing matches|not found|no such ref|couldn't find", out, re.I):
+                    lat["no_build"] = True
+                else:
+                    lat["error"] = "Couldn't check Flathub: " + (out.strip().splitlines() or ["no answer"])[-1][:200]
+        except Fail:
+            pass
+        self._latest = lat
+        return lat
+
+    def blocked(self):
+        """Why the engine can't be installed or updated on this host, or None."""
+        if self.arch not in ARCHES:
+            return f"There's no official PrusaSlicer build for this processor ({self.arch}). Kiri:Moto in the browser still slices."
+        if self.small:
+            return SMALL_MSG
+        if not self.flatpak():
+            return NO_FLATPAK
+        if self._latest["no_build"]:
+            return f"Flathub has no PrusaSlicer build for this processor ({self.arch}). Kiri:Moto in the browser still slices."
+        return None
+
+    def previous(self):
+        try:
+            with open(os.path.join(self.base, "previous.json")) as f:
+                p = json.load(f)
+            return p if p.get("commit") else None
+        except (OSError, ValueError):
+            return None
 
     def state(self):
-        inst = self.installed()
+        inf = self.info()
         lat = self.latest()
-        def newer(a, b):
+        why = self.blocked()
+        inst = inf["version"]
+        def newer():
+            if not inst:
+                return False
+            if inf["commit"] and lat["commit"]:
+                return inf["commit"] != lat["commit"]
             n = lambda v: [int(x) for x in re.findall(r"\d+", v or "")]
-            return bool(a and b and n(b) > n(a))
+            return bool(lat["version"] and n(lat["version"]) > n(inst))
+        prev = self.previous()
         return {
-            "engine": {"name": "PrusaSlicer", "installed": inst, "latest": lat["version"],
-                       "update_available": (not inst and bool(lat["asset"])) or (newer(inst, lat["version"]) and bool(lat["asset"])),
-                       "installing": self.installing, "install_error": self.install_error or lat["error"],
-                       "can_install": bool(lat["asset"]) or lat["version"] is None, "arch": self.arch},
+            "engine": {"name": "PrusaSlicer", "source": "Flathub", "installed": inst, "latest": lat["version"],
+                       "update_available": not why and (not inst or newer()),
+                       "installing": self.installing, "install_phase": self.install_phase,
+                       "install_error": self.install_error or lat["error"],
+                       "can_install": not why, "blocked": why, "arch": self.arch,
+                       "previous": prev["version"] if prev and inst and prev["commit"] != inf["commit"] else None},
             "host": {"mem_total_mb": self.mem_mb, "cpus": self.cpus, "small": self.small},
             "busy": next((j.id for j in self.jobs.values() if j.state == "running"), None),
             "refuse": self.refuse(),
         }
 
-    def install_latest(self):
-        """Download, unpack and test the latest release in the background, then switch to it."""
+    def _start(self, target, *args):
         if self.installing:
             raise Fail("An install is already running.")
         if self.printer_state() in ("printing", "paused"):
             raise Fail("Not while a job is running: installing uses the processor and the disk.")
-        lat = self.latest(force=True)
-        if not lat["asset"]:
-            raise Fail(lat["error"] or f"No PrusaSlicer build for this processor ({self.arch}).")
-        self.installing, self.install_error = True, None
-        threading.Thread(target=self._install, args=(lat["version"], lat["asset"]), daemon=True).start()
-        return {"ok": True, "version": lat["version"]}
+        self.latest(force=True)
+        why = self.blocked()
+        if why:
+            raise Fail(why)
+        self.installing, self.install_error, self.install_phase = True, None, "Starting"
+        threading.Thread(target=target, args=args, daemon=True).start()
 
-    def _install(self, version, asset):
-        target = os.path.join(self.base, version)
-        tmp = tempfile.mkdtemp(prefix=f".install-{version}-", dir=self.base)
+    def install_latest(self):
+        """Install, or update to, Flathub's current PrusaSlicer in the background; test it; go back if it fails."""
+        self._start(self._install)
+        return {"ok": True, "version": self._latest["version"]}
+
+    def roll_back(self):
+        """Put back the version that was installed before the last update."""
+        prev = self.previous()
+        if not prev or not self.info(fresh=True)["commit"] or prev["commit"] == self.info()["commit"]:
+            raise Fail("There's no earlier PrusaSlicer to go back to.")
+        self._start(self._roll_back, prev)
+        return {"ok": True, "version": prev["version"]}
+
+    def _fail_tail(self, what, rc, out):
+        lines = [l for l in (out or "").strip().splitlines() if l.strip()]
+        return f"{what} (flatpak exit {rc}): " + (" / ".join(lines[-2:])[:300] or "no output")
+
+    def _install(self):
         try:
-            img = os.path.join(tmp, "PrusaSlicer.AppImage")
-            self.fetch(asset["url"], img, timeout=900)
-            if asset.get("digest", "") and asset["digest"].startswith("sha256:"):
-                h = hashlib.sha256()
-                with open(img, "rb") as f:
-                    for chunk in iter(lambda: f.read(1 << 20), b""):
-                        h.update(chunk)
-                if h.hexdigest() != asset["digest"].split(":", 1)[1]:
-                    raise Fail("The download didn't match GitHub's checksum.")
-            os.chmod(img, 0o755)
-            p = self.Popen(["nice", "-n", "19", img, "--appimage-extract"], cwd=tmp, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
-            _, err = p.communicate(timeout=900)
-            app = os.path.join(tmp, "squashfs-root", "AppRun")
-            if p.returncode != 0 or not os.path.exists(app):
-                raise Fail(f"Unpacking failed: {(err or '').strip()[-200:]}")
-            os.remove(img)
-            t = self.Popen([app, "--help-fff"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
-            out, _ = t.communicate(timeout=120)
-            if t.returncode not in (0, 1) or "--layer-height" not in out:
-                raise Fail("The new PrusaSlicer didn't start on this machine; the old one stays in use.")
-            with open(os.path.join(tmp, "VERSION"), "w") as f:
-                f.write(version + "\n")
-            if os.path.exists(target):
-                shutil.rmtree(target)
-            os.replace(tmp, target)
-            prev = self.current_dir()
-            link = os.path.join(self.base, "current")
-            tmp_link = link + ".new"
-            if os.path.lexists(tmp_link):
-                os.remove(tmp_link)
-            os.symlink(version, tmp_link)
-            os.replace(tmp_link, link)                  # atomic switch
-            keep = {version, os.path.basename(prev) if prev else None}
-            for d in os.listdir(self.base):             # keep the new one and the one before it
-                full = os.path.join(self.base, d)
-                if d not in keep and d not in ("current", "jobs", "cache") and not d.startswith(".") and os.path.isdir(full):
-                    shutil.rmtree(full, ignore_errors=True)
-            if prev and os.path.basename(prev) != version:
-                with open(os.path.join(self.base, "previous"), "w") as f:
-                    f.write(os.path.basename(prev))
+            self.install_phase = "Adding Flathub"
+            rc, out = self._fp(["--user", "remote-add", "--if-not-exists", REMOTE, REMOTE_URL], timeout=300, low=True)
+            if rc != 0:
+                raise Fail(self._fail_tail("Couldn't add Flathub", rc, out))
+            before = self.info(fresh=True)
+            if before["commit"]:
+                self.install_phase = "Updating from Flathub"
+                rc, out = self._fp(["--user", "update", "-y", "--noninteractive", APP], timeout=3600, low=True)
+            else:
+                self.install_phase = "Downloading from Flathub (the first time brings its runtime too)"
+                rc, out = self._fp(["--user", "install", "-y", "--noninteractive", REMOTE, APP], timeout=3600, low=True)
+            if rc != 0:
+                if re.search(r"nothing matches|not found|no such ref", out, re.I):
+                    self._latest["no_build"] = True
+                raise Fail(self._fail_tail("Flathub install failed", rc, out))
+            after = self.info(fresh=True)
+            if not after["commit"]:
+                raise Fail("Flatpak says it installed PrusaSlicer, but it isn't listed afterwards.")
+            if before["commit"] and before["commit"] == after["commit"]:
+                return                                       # already the latest
+            self.install_phase = "Checking it slices"
+            err = self._self_test()
+            if err:
+                if before["commit"]:
+                    self.install_phase = f"Going back to {before['version']}"
+                    rc, out = self._fp(["--user", "update", "-y", "--noninteractive", f"--commit={before['commit']}", APP],
+                                       timeout=3600, low=True)
+                    self.info(fresh=True)
+                    if rc == 0:
+                        raise Fail(f"The new PrusaSlicer failed its test slice ({err}), so {before['version']} was put back.")
+                    raise Fail(f"The new PrusaSlicer failed its test slice ({err}), and going back failed too: "
+                               + self._fail_tail("", rc, out) + ". Use Kiri:Moto until it's sorted.")
+                raise Fail(f"PrusaSlicer installed but failed its test slice: {err}")
+            if before["commit"]:
+                with open(os.path.join(self.base, "previous.json"), "w") as f:
+                    json.dump({"version": before["version"], "commit": before["commit"]}, f)
         except Exception as e:
             self.install_error = str(e)
         finally:
-            shutil.rmtree(tmp, ignore_errors=True)
-            self.installing = False
+            try:                                   # settle the state before saying it's done
+                self.info(fresh=True)
+                self.latest(force=True)            # Flathub may have only just been added
+            finally:
+                self.installing, self.install_phase = False, None
+
+    def _roll_back(self, prev):
+        try:
+            cur = self.info(fresh=True)
+            self.install_phase = f"Going back to {prev['version']}"
+            rc, out = self._fp(["--user", "update", "-y", "--noninteractive", f"--commit={prev['commit']}", APP],
+                               timeout=3600, low=True)
+            if rc != 0:
+                raise Fail(self._fail_tail(f"Couldn't go back to {prev['version']} (Flathub may no longer have it)", rc, out))
+            self.info(fresh=True)
+            self.install_phase = "Checking it slices"
+            err = self._self_test()
+            if err:
+                raise Fail(f"{prev['version']} is back but failed its test slice: {err}")
+            with open(os.path.join(self.base, "previous.json"), "w") as f:   # going back again = forward
+                json.dump({"version": cur["version"], "commit": cur["commit"]}, f)
+        except Exception as e:
+            self.install_error = str(e)
+        finally:
+            try:                                   # settle the state before saying it's done
+                self.info(fresh=True)
+                self.latest(force=True)            # Flathub may have only just been added
+            finally:
+                self.installing, self.install_phase = False, None
+
+    def _self_test(self):
+        """Slice a 20 mm cube in the sandbox exactly as a real slice runs; returns an error or None."""
+        keys = self._help_keys()
+        if "layer_height" not in keys:
+            return "it didn't start without a screen"
+        d = tempfile.mkdtemp(prefix=".selftest-", dir=self.base)
+        try:
+            part, out = os.path.join(d, "cube.stl"), os.path.join(d, "cube.gcode")
+            with open(part, "wb") as f:
+                f.write(test_cube_stl())
+            p = self.Popen([*self._low(), *self.engine_cmd(d), "--export-gcode", "--center", "100,100", "--threads", "1",
+                            "--output", out, part], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+                           env=self._env(), start_new_session=True)
+            try:
+                log, _ = p.communicate(timeout=600)
+            except subprocess.TimeoutExpired:
+                _kill_tree(p)
+                return "the test slice took over 10 minutes"
+            if p.returncode != 0 or not os.path.exists(out) or os.path.getsize(out) == 0:
+                tail = [l for l in (log or "").splitlines() if l.strip()][-2:]
+                return "the test slice failed: " + (" / ".join(tail)[:200] or f"exit {p.returncode}")
+            for f in os.listdir(self.base):          # a new engine knows different options
+                if f.startswith("keys-"):
+                    os.remove(os.path.join(self.base, f))
+            return None
+        finally:
+            shutil.rmtree(d, ignore_errors=True)
 
     # ------------------------------------------------------------ slicing
     def submit(self, model, ini, name, center):
         why = self.refuse()
         if why:
             raise Fail(why)
-        binary = self.binary()
+        self.binary()                      # says to install first if there's no engine
         if not model or len(model) > MAX_MODEL or len(model) < 84:
             raise Fail("The part is empty or too big")
         try:
@@ -313,7 +535,7 @@ class PrusaService:
             raise Fail("Part position outside the bed")
         known = set(self.keys())
         ini = clean_ini(ini, known)
-        key = hashlib.sha256(model + ini.encode() + f"{cx:.3f},{cy:.3f}|{self.installed()}".encode()).hexdigest()[:32]
+        key = hashlib.sha256(model + ini.encode() + f"{cx:.3f},{cy:.3f}|{self.info()['commit']}".encode()).hexdigest()[:32]
         with self.lock:
             # Studio sends a new request when its settings change: the older ones are no longer wanted
             for j in self.jobs.values():
@@ -335,7 +557,7 @@ class PrusaService:
             with open(os.path.join(d, "rhino.ini"), "w") as f:
                 f.write(ini)
             job.center = (cx, cy)
-            job.binary = binary
+            job.cmd = self.engine_cmd(d)
             self.queue.append(job)
             self._prune()
             if not self.worker or not self.worker.is_alive():
@@ -349,10 +571,7 @@ class PrusaService:
         if job.state == "queued":
             job.state, job.phase, job.finished = "cancelled", "Cancelled", time.time()
         elif job.proc and job.proc.poll() is None:
-            try:
-                os.killpg(job.proc.pid, signal.SIGKILL)
-            except (ProcessLookupError, PermissionError, AttributeError):
-                job.proc.kill()
+            _kill_tree(job.proc)
 
     def cancel(self, jid):
         with self.lock:
@@ -386,16 +605,11 @@ class PrusaService:
                 continue
             self._run(job)
 
-    def _group_rss_mb(self, pgid):
+    @staticmethod
+    def _tree_rss_mb(root):
         total = 0
-        for pid in os.listdir("/proc"):
-            if not pid.isdigit():
-                continue
+        for pid in _tree(root):
             try:
-                with open(f"/proc/{pid}/stat") as f:
-                    st = f.read().rsplit(")", 1)[1].split()
-                if int(st[2]) != pgid:
-                    continue
                 with open(f"/proc/{pid}/statm") as f:
                     total += int(f.read().split()[1]) * os.sysconf("SC_PAGE_SIZE")
             except (OSError, ValueError, IndexError):
@@ -408,14 +622,10 @@ class PrusaService:
         threads, cap = self.limits()
         job.state, job.phase, job.progress = "running", "Starting PrusaSlicer", 0.0
         out = os.path.join(job.dir, "out.gcode")
-        cmd = ["nice", "-n", "19"]
-        if shutil.which("ionice"):
-            cmd += ["ionice", "-c", "3"]
-        cmd += [job.binary, "--export-gcode", "--load", os.path.join(job.dir, "rhino.ini"),
+        cmd = [*self._low(), *job.cmd, "--export-gcode", "--load", os.path.join(job.dir, "rhino.ini"),
                 "--center", f"{job.center[0]:.3f},{job.center[1]:.3f}", "--threads", str(threads),
                 "--loglevel", "3", "--output", out, os.path.join(job.dir, "part.stl")]
-        env = {k: v for k, v in os.environ.items() if k in ("PATH", "HOME", "LANG", "USER", "TMPDIR")}
-        env["DISPLAY"] = ""          # never try to open a window
+        env = self._env()
         log = []
         try:
             job.proc = self.Popen(cmd, cwd=job.dir, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, env=env,
@@ -424,7 +634,7 @@ class PrusaService:
             peak = [0]
             def watch():
                 while not stop.wait(0.5):
-                    mb = self._group_rss_mb(job.proc.pid)
+                    mb = self._tree_rss_mb(job.proc.pid)
                     peak[0] = max(peak[0], mb)
                     if mb > cap:
                         job.error = (f"PrusaSlicer needed more than {cap} MB of memory, so it was stopped to keep Klipper safe. "

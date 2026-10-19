@@ -1,5 +1,33 @@
 # What changed
 
+## 1.5.2 - PrusaSlicer comes from Flathub
+
+- **Fixed: Install said "No PrusaSlicer build for this processor".** Prusa no longer puts Linux builds on GitHub; its
+  only official Linux build is the Flatpak on Flathub (`com.prusa3d.PrusaSlicer`). The 1.5.0 installer looked for an
+  AppImage on GitHub, so it failed on every processor, not just ARM. The engine now installs, updates and runs
+  through Flathub, for x86-64 and 64-bit ARM.
+- **One step by hand, once:** the host needs Flatpak (`sudo apt install flatpak` over SSH). The Portal never runs sudo;
+  until Flatpak is there, Studio's Software row says exactly that instead of offering Install.
+- **Per-user and sandboxed.** The engine goes in for the Portal's login only (`flatpak --user`, under
+  `~/.local/share/flatpak`). Each slice runs in Flatpak's sandbox with no network, no display and no files but its
+  own job folder.
+- **Hosts under 2 GB of memory (a Pi 3B) aren't offered the engine**: Studio says so and names Kiri:Moto in the
+  browser, which still slices there. An engine already on a small host keeps working, within the old limits.
+- **Every install and update is test-sliced** (a 20 mm cube, in the sandbox, exactly as a real slice) before it's
+  used. If an update can't slice, the version before is put back by itself. **Go back** in Studio does the same by
+  hand (`flatpak update --commit=`; it needs Flathub to still hold that build).
+- **Cancel and the memory watchdog follow the whole process tree.** `flatpak run` starts bubblewrap, which can start
+  the slicer in a session of its own; stopping only the process group could leave it running. Unchanged: nice 19,
+  ionice idle, thread cap, half the cores during a print, one slice at a time, cache, forced safety options.
+- New route: `POST /api/slicer/engine/rollback` (token-checked). `GET /api/slicer` adds `source`, `install_phase`,
+  `blocked` and `previous`; nothing was removed, so Studio 0.6.0 still works (it just shows less).
+- The old AppImage download, its checksum check and the unpacked engine folders are gone; old
+  `~/printer_data/rhino_data/prusaslicer/<version>` folders from 1.5.0-1.5.1 can be deleted by hand.
+
+Tests: `dev/test_prusa.py` now drives a stand-in `flatpak` (no flatpak missing, small host, 32-bit ARM, install,
+update, a broken update undone, go back, no build on Flathub, sandbox flags, cancel killing a slicer in its own
+session, memory counted over the tree, routes). Check on the machine: **P0-P9** (`docs/testing.md`).
+
 ## 1.5.1 - Rhino Studio served from the Rhino
 
 - **New: open Rhino Studio from any PC, phone or tablet at `http://<pi>:5001`**, with nothing to install on it. The

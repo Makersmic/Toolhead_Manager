@@ -578,13 +578,17 @@ def portal():
            '&lt;name&gt;</b>; press it within 4 seconds to confirm. The tool\'s pins are freed, its photos removed and its maintenance '
            'tasks archived. Restart Klipper afterwards.</p>', "e_delete", "Two-click delete confirmation", h=0.6))
     a('<h3>Slicing for Rhino Studio</h3><p>The portal can run <b>PrusaSlicer</b> on the Rhino for Rhino Studio\'s Prepare, so a '
-      'phone or tablet can slice a 3D model without a PC. Install it from Rhino Studio, <b>Settings › Software</b>; the same row '
-      'offers <b>Update</b> when Prusa releases a new stable version, and the previous version is kept in '
-      '<code>~/printer_data/rhino_data/prusaslicer/</code>.</p><p>Slicing always gives way to the printer: it runs at the lowest '
+      'phone or tablet can slice a 3D model without a PC. Prusa ships its Linux build only through Flathub, so the host needs '
+      'Flatpak once: over SSH, <code>sudo apt install flatpak</code> (the portal never runs sudo itself). Then install PrusaSlicer '
+      'from Rhino Studio, <b>Settings › Software</b>: it goes in for your login only (<code>flatpak --user</code>) and slices a test '
+      'cube before it is used. The same row offers <b>Update</b> when Flathub has a newer build; if a new build can\'t slice, the '
+      'one before is put back, and <b>Go back</b> does the same by hand. It needs a host with 2 GB of memory or more: on a Pi 3B, '
+      'slice with Kiri:Moto in Studio instead.</p><p>Each slice runs in Flatpak\'s sandbox, with no network and no files but '
+      'its own. Slicing always gives way to the printer: it runs at the lowest '
       'priority, one slice at a time, with fewer cores and less memory while a job prints. A host under 2 GB (a Pi 3B) waits until '
       'the job is finished. Whatever settings Studio sends, the Rhino\'s start and end G-code, temperatures, bed and nozzle are '
       'always its own. PrusaSlicer is © Prusa Research and the Slic3r authors, under the AGPL-3.0 licence, and is downloaded '
-      'from Prusa on the machine.</p>')
+      'from Flathub on the machine.</p>')
     a('<h3>Rhino Studio from the Rhino</h3><p>The install also serves <b>Rhino Studio</b> from the Pi, at '
       '<code>http://&lt;pi&gt;:5001</code>: open it from any PC, phone or tablet on your network, with nothing to install on it. '
       'The nginx that serves Mainsail serves it on a port of its own, and Mainsail\'s site is left as it is. Updating the Tool '

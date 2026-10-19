@@ -1,4 +1,4 @@
-"""PrusaSlicer on the Rhino, for Rhino Studio (config 1.5.0). See rhino/prusa.py.
+"""PrusaSlicer on the Rhino, for Rhino Studio (config 1.5.0; Flathub engine 1.5.2). See rhino/prusa.py.
 
 Reads are plain GETs. Starting or cancelling a slice and installing the engine are token-checked
 POSTs (security.check_write); the slice upload is multipart (the part as STL, the settings as INI)."""
@@ -65,6 +65,12 @@ def check():
 def update():
     security.check_write()
     return jsonify(_svc().install_latest())
+
+
+@bp.post("/api/slicer/engine/rollback")
+def rollback():
+    security.check_write()
+    return jsonify(_svc().roll_back())
 
 
 def printer_state_from(moonraker, every=2.0):

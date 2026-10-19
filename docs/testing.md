@@ -232,27 +232,35 @@ Install `rhino-config-1.5.1.zip`. **Stop if** Mainsail stops opening - send the 
 - [ ] **S7 Undo.** Menu option 4, newest backup. *Pass:* port 5001 no longer answers (or shows the Studio from
   before); Mainsail still opens. Then install 1.5.1 again.
 
-### P. PrusaSlicer on the Rhino (new in 1.5.0)
+### P. PrusaSlicer on the Rhino (1.5.0; from Flathub since 1.5.2)
 
-Install `rhino-config-1.5.0.zip`, then use Rhino Studio. Keep `htop` open in an SSH window. **Stop if** Klipper reports
+Install `rhino-config-1.5.2.zip`, then use Rhino Studio. Keep `htop` open in an SSH window. **Stop if** Klipper reports
 "Timer too close" or shuts down, or a print stutters while slicing.
 
-- [ ] **P1 Install the engine.** Settings / Software, PrusaSlicer, Install. *Pass:* asks first, takes a few minutes,
-  then shows the version and Up to date. `ls ~/printer_data/rhino_data/prusaslicer` shows the version and `current`.
-- [ ] **P2 It runs without a screen.** `~/printer_data/rhino_data/prusaslicer/current/squashfs-root/AppRun --help-fff | head` over SSH.
-  *Pass:* prints options, including `--threads` and `--center`. *Stop if:* it complains about a display or a missing
-  library - report the message.
+- [ ] **P0 Flatpak, once.** On the host, over SSH: `sudo apt install flatpak`. *Pass:* `flatpak --version` prints a
+  version. (The Portal never runs sudo; until this is done, Settings / Software says so instead of offering Install.)
+- [ ] **P1 Install the engine.** Settings / Software, PrusaSlicer, Install. *Pass:* asks first; the row shows
+  "Adding Flathub", "Downloading from Flathub…" (the first time also fetches its runtime, a few hundred MB, so allow
+  10-20 minutes), then "Checking it slices", then the version and Up to date. `flatpak --user list` shows
+  `com.prusa3d.PrusaSlicer`. *Stop if:* anything asks for a password. **On a Pi 3B** the row says it needs 2 GB of
+  memory and offers no Install: that's the pass.
+- [ ] **P2 It runs without a screen.** Over SSH: `flatpak run --user --command=prusa-slicer com.prusa3d.PrusaSlicer --help-fff | head`.
+  *Pass:* prints options, including `--threads` and `--center`. *Stop if:* it complains about a display, D-Bus or
+  XDG_RUNTIME_DIR - report the message.
 - [ ] **P3 Slice.** Prepare a small part with PrusaSlicer, BlockOne, PLA. *Pass:* progress shows, time and filament
-  appear, every check passes, `htop` shows `prusa-slicer` at nice 19.
+  appear, every check passes, `htop` shows `prusa-slicer` (under `bwrap`) at nice 19. *Stop if:* the slice fails with
+  "Permission denied" (the sandbox can't see its job folder) - report it.
 - [ ] **P4 Forced values.** Open the sliced file. *Pass:* it starts with `START_JOB`, uses the material's
   temperatures, has `M83`, and no `M104`/`M140` above 0 or `G28` of its own.
-- [ ] **P5 Cancel and newer wins.** Change a setting while it slices. *Pass:* the old `prusa-slicer` goes from `htop`
-  and a new one starts; only one runs at a time.
+- [ ] **P5 Cancel and newer wins.** Change a setting while it slices. *Pass:* the old `prusa-slicer` **and its `bwrap`**
+  go from `htop` and a new one starts; only one runs at a time. Then press Cancel: nothing PrusaSlicer is left in `htop`.
 - [ ] **P6 Cache.** Prepare again with nothing changed. *Pass:* back at once.
-- [ ] **P7 During a print.** Start a print, then Prepare a bigger part. *Pass:* 4 GB+ host slices with about half the
-  cores and the print keeps going smoothly; Pi 3B refuses, saying why.
-- [ ] **P8 Update and keep previous.** When a newer release is out, Update. *Pass:* the new version shows, the old
-  folder is still there, and slicing works.
+- [ ] **P7 During a print.** Start a print, then Prepare a bigger part. *Pass:* the host slices with about half the
+  cores and the print keeps going smoothly; a Pi 3B refuses, saying why.
+- [ ] **P8 Update.** When Flathub has a newer build, Update. *Pass:* "Updating from Flathub", "Checking it slices",
+  then the new version, and a **Go back to <old version>** line under the row.
+- [ ] **P9 Go back.** Press Go back. *Pass:* the old version shows again and slices; the line now offers the newer one.
+  (It needs Flathub to still hold that build: if it says it no longer has it, that's a pass too, and Update works.)
 
 ### E. Set Z zero (new in 1.3.6)
 
