@@ -47,3 +47,16 @@ def add_headers(resp):
 
 def error(message, status=400):
     return jsonify({"ok": False, "error": message}), status
+
+
+# Uploads: 8 MB everywhere (photos, forms), except a part sent to the slicer (up to 200 MB of STL).
+UPLOAD_LIMIT = 8 * 1024 * 1024
+SLICER_LIMIT = 210 * 1024 * 1024
+
+
+def limit_upload():
+    n = request.content_length or 0
+    limit = SLICER_LIMIT if request.path == "/api/slicer/slice" else UPLOAD_LIMIT
+    if n > limit:
+        return error(f"Too big: {n // (1024 * 1024)} MB (at most {limit // (1024 * 1024)} MB)", 413)
+    return None

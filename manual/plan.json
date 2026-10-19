@@ -487,7 +487,7 @@
 },
 {
 "src": 78,
-"section": "Pins, outputs and system hardware",
+"section": "The Tool Manager portal",
 "part": "Part 3  \u00b7  Software and Operation",
 "kind": "body"
 },
@@ -505,7 +505,7 @@
 },
 {
 "src": 81,
-"section": "Admin lists",
+"section": "Pins, outputs and system hardware",
 "part": "Part 3  \u00b7  Software and Operation",
 "kind": "body"
 },
@@ -523,7 +523,7 @@
 },
 {
 "src": 84,
-"section": "Console commands",
+"section": "Admin lists",
 "part": "Part 3  \u00b7  Software and Operation",
 "kind": "body"
 },
@@ -535,7 +535,7 @@
 },
 {
 "src": 86,
-"section": "Safety systems",
+"section": "Console commands",
 "part": "Part 3  \u00b7  Software and Operation",
 "kind": "body"
 },
@@ -546,22 +546,16 @@
 "kind": "body"
 },
 {
-"src": null,
-"section": "Notes",
-"part": "Part 3  \u00b7  Software and Operation",
-"kind": "notes"
-},
-{
 "src": 88,
 "section": "Safety systems",
-"part": "Part 4  \u00b7  Maintenance",
-"kind": "part"
+"part": "Part 3  \u00b7  Software and Operation",
+"kind": "body"
 },
 {
 "src": 89,
-"section": "Maintenance tracking",
+"section": "Safety systems",
 "part": "Part 4  \u00b7  Maintenance",
-"kind": "body"
+"kind": "part"
 },
 {
 "src": 90,
@@ -613,7 +607,7 @@
 },
 {
 "src": 98,
-"section": "Task Library and Task Books",
+"section": "Maintenance tracking",
 "part": "Part 4  \u00b7  Maintenance",
 "kind": "body"
 },
@@ -643,7 +637,7 @@
 },
 {
 "src": 103,
-"section": "Status codes",
+"section": "Task Library and Task Books",
 "part": "Part 4  \u00b7  Maintenance",
 "kind": "body"
 },
@@ -655,12 +649,18 @@
 },
 {
 "src": 105,
-"section": "Maintenance procedures",
+"section": "Status codes",
 "part": "Part 4  \u00b7  Maintenance",
 "kind": "body"
 },
 {
 "src": 106,
+"section": "Maintenance procedures",
+"part": "Part 4  \u00b7  Maintenance",
+"kind": "body"
+},
+{
+"src": 107,
 "section": "Maintenance procedures",
 "part": "Part 4  \u00b7  Maintenance",
 "kind": "body"
@@ -672,16 +672,10 @@
 "kind": "notes"
 },
 {
-"src": 107,
+"src": 108,
 "section": "Maintenance procedures",
 "part": "Part 5  \u00b7  Reference",
 "kind": "part"
-},
-{
-"src": 108,
-"section": "Troubleshooting",
-"part": "Part 5  \u00b7  Reference",
-"kind": "body"
 },
 {
 "src": 109,
@@ -691,7 +685,7 @@
 },
 {
 "src": 110,
-"section": "Files, backups and tests",
+"section": "Troubleshooting",
 "part": "Part 5  \u00b7  Reference",
 "kind": "body"
 },
@@ -703,7 +697,7 @@
 },
 {
 "src": 112,
-"section": "Build reference",
+"section": "Files, backups and tests",
 "part": "Part 5  \u00b7  Reference",
 "kind": "body"
 },
@@ -721,7 +715,7 @@
 },
 {
 "src": 115,
-"section": "Still to check on the machine",
+"section": "Build reference",
 "part": "Part 5  \u00b7  Reference",
 "kind": "body"
 },
@@ -733,6 +727,12 @@
 },
 {
 "src": 117,
+"section": "Still to check on the machine",
+"part": "Part 5  \u00b7  Reference",
+"kind": "body"
+},
+{
+"src": 118,
 "section": "Still to check on the machine",
 "part": "Part 5  \u00b7  Reference",
 "kind": "body"

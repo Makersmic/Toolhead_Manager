@@ -7,9 +7,10 @@ from ..maint import MaintService
 from ..monitor import Monitor
 from ..moonraker import Moonraker
 from ..net import Network
+from ..prusa import PrusaService
 from ..paths import resolve
 from ..service import ToolService
-from . import maint_routes, net_routes, routes, security
+from . import maint_routes, net_routes, routes, security, slicer_routes
 
 
 def create_app(config_dir=None, moonraker_url=None, start_monitor=False):
@@ -24,11 +25,14 @@ def create_app(config_dir=None, moonraker_url=None, start_monitor=False):
     maint = MaintService(paths, svc)
     mon.listeners.append(maint.collector(mr))
     app.config.update(PATHS=paths, SERVICE=svc, MOONRAKER=mr, MONITOR=mon, MAINT=maint, NETWORK=Network(),
-                      MAX_CONTENT_LENGTH=8 * 1024 * 1024, JSON_SORT_KEYS=False)
+                      MAX_CONTENT_LENGTH=210 * 1024 * 1024, JSON_SORT_KEYS=False)
+    app.config["PRUSA"] = PrusaService(os.path.join(paths.state_dir, "prusaslicer"), slicer_routes.printer_state_from(mr))
     if start_monitor:
         mon.start()
     app.register_blueprint(routes.bp)
     app.register_blueprint(maint_routes.bp)
     app.register_blueprint(net_routes.bp)
+    app.register_blueprint(slicer_routes.bp)
+    app.before_request(security.limit_upload)
     app.after_request(security.add_headers)
     return app

@@ -1,5 +1,37 @@
 # What changed
 
+## 1.5.0 - PrusaSlicer runs on the Rhino, for Rhino Studio
+
+- **New: slicing service** in the Portal for Rhino Studio's Prepare. Studio sends the part (as STL) and only the
+  PrusaSlicer settings you changed; the Portal slices with **PrusaSlicer** on the host and hands back the G-code,
+  which Studio turns into a Rhino file and checks as before. Kiri:Moto in the browser stays available.
+- **The Rhino's safety values are forced here too.** The Portal rebuilds the settings file itself: unknown names are
+  dropped, and start/end G-code, temperatures, G-code flavour (klipper), bed shape, nozzle, relative E, scripts and
+  substitutions are always the Rhino's, whatever was sent. Labelling objects for `EXCLUDE_OBJECT` and arc moves
+  (G2/G3) are refused unless `[exclude_object]` / `[gcode_arcs]` are in the config.
+- **Slicing gives way to the printer.** One slice at a time (a newer request stops the older one), run at the lowest
+  CPU and disk priority (`nice 19`, `ionice idle`), with a thread count and a memory cap watched over the whole
+  process group:
+  - idle: all cores but one, up to 70% of memory (and always 768 MB left over);
+  - while a job prints or is paused: half the cores, 40% of memory;
+  - small hosts (under 2 GB, e.g. a Pi 3B) don't slice during a job, and stop a slice if a job starts.
+  The 8 most recent results are kept, so slicing the same thing again comes back at once.
+- **Engine in the update manager.** Rhino Studio, Settings / Software has a PrusaSlicer row: Install, or Update when a
+  newer stable release is out (checked every 6 hours). It installs the official Linux (arm64/x86-64) release
+  unpacked into `~/printer_data/rhino_data/prusaslicer/<version>`, checks the download's sha256 where GitHub gives one,
+  checks the new engine runs before switching to it, and keeps the previous version. Nothing goes in system folders,
+  and no sudo.
+- Uploads to `/api/slicer/slice` may be up to 200 MB; every other Portal request keeps the 8 MB limit.
+- No Klipper config or macro changed.
+
+Tests: `dev/test_prusa.py` (37 checks: settings cleaning and forced values, refusals, limits, cancel, cache,
+memory watchdog, install and keep-previous, routes; PrusaSlicer faked).
+Check on the machine: **P1-P8**. PrusaSlicer's command-line options and the unpacked engine running without a
+screen are not proven on the Pi yet - P1 and P2 check them first.
+
+PrusaSlicer is © Prusa Research and the Slic3r authors, AGPL-3.0. It is downloaded from Prusa's GitHub releases on
+the machine; this zip doesn't contain it.
+
 ## 1.4.8 - The Pi's network from Rhino Studio, with an automatic undo
 
 - **New: network settings** through the Portal, for Rhino Studio's Settings / Network: the Pi's name on the

@@ -577,6 +577,14 @@ def portal():
     a(step('<h3>Deleting a tool</h3><p>In the edit window press <b>Delete tool</b>. The button changes to <b>Click again to delete '
            '&lt;name&gt;</b>; press it within 4 seconds to confirm. The tool\'s pins are freed, its photos removed and its maintenance '
            'tasks archived. Restart Klipper afterwards.</p>', "e_delete", "Two-click delete confirmation", h=0.6))
+    a('<h3>Slicing for Rhino Studio</h3><p>The portal can run <b>PrusaSlicer</b> on the Rhino for Rhino Studio\'s Prepare, so a '
+      'phone or tablet can slice a 3D model without a PC. Install it from Rhino Studio, <b>Settings › Software</b>; the same row '
+      'offers <b>Update</b> when Prusa releases a new stable version, and the previous version is kept in '
+      '<code>~/printer_data/rhino_data/prusaslicer/</code>.</p><p>Slicing always gives way to the printer: it runs at the lowest '
+      'priority, one slice at a time, with fewer cores and less memory while a job prints. A host under 2 GB (a Pi 3B) waits until '
+      'the job is finished. Whatever settings Studio sends, the Rhino\'s start and end G-code, temperatures, bed and nozzle are '
+      'always its own. PrusaSlicer is © Prusa Research and the Slic3r authors, under the AGPL-3.0 licence, and is downloaded '
+      'from Prusa on the machine.</p>')
     a(keep('<h3>On a phone</h3><p>The portal works on a phone: the menu folds behind <b>☰</b>, and the status chips scroll sideways in '
            'the top bar.</p><div class="phones">' + fig("phone_library", "Tool library") + fig("phone_menu", "Menu") +
            fig("phone_maint", "Maintenance") + "</div>"))

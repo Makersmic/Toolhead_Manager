@@ -98,20 +98,20 @@ For every version, before the zip is sent:
 - [ ] `CHANGES.md`, `VERSION` and the manual updated
 - [ ] The on-machine tests for whatever changed are listed in `CHANGES.md`
 
-## On-machine acceptance plan (1.4.8)
+## On-machine acceptance plan (1.5.0)
 
 Work through it in order: later sections rely on earlier ones. Have a hand on the emergency stop for every test that
 moves the machine. **Stop if** means stop, don't press on - note what happened and report it.
 
 ### A. Install and start
 
-- [ ] **A1 Install.** Menu option 3, pick `rhino-config-1.4.8.zip`, read the preview, install.
+- [ ] **A1 Install.** Menu option 3, pick `rhino-config-1.5.0.zip`, read the preview, install.
   *Pass:* ends with the portal answering on port 5000. *Stop if:* the preview shows STOPPED.
 - [ ] **A2 Restart.** With a print head mounted: `FIRMWARE_RESTART`.
   *Pass:* Klipper ready, no config errors.
 - [ ] **A3 Tool question.** *Pass:* "Klipper restarted - which toolhead is mounted?" appears; Yes records the tool.
 - [ ] **A4** `CHECK_TOOLHEADS` lists every tool without errors.
-- [ ] **A5 Portal.** Opens at `http://<pi>:5000`, matches Mainsail's dark/light theme, shows version 1.4.6.
+- [ ] **A5 Portal.** Opens at `http://<pi>:5000`, matches Mainsail's dark/light theme, shows version 1.5.0.
   Switch Mainsail between dark and light twice: *Pass:* the portal follows each switch within 15 s, and at once
   when you click back to its tab.
 
@@ -216,6 +216,28 @@ back by itself within about 2 minutes.
   its old address by itself. *Stop if* it isn't back after 5 minutes.
 - [ ] **N8 During a print.** Start a print. *Pass:* changes are refused ("Not while a job is running").
 
+
+### P. PrusaSlicer on the Rhino (new in 1.5.0)
+
+Install `rhino-config-1.5.0.zip`, then use Rhino Studio. Keep `htop` open in an SSH window. **Stop if** Klipper reports
+"Timer too close" or shuts down, or a print stutters while slicing.
+
+- [ ] **P1 Install the engine.** Settings / Software, PrusaSlicer, Install. *Pass:* asks first, takes a few minutes,
+  then shows the version and Up to date. `ls ~/printer_data/rhino_data/prusaslicer` shows the version and `current`.
+- [ ] **P2 It runs without a screen.** `~/printer_data/rhino_data/prusaslicer/current/AppRun --help-fff | head` over SSH.
+  *Pass:* prints options, including `--threads` and `--center`. *Stop if:* it complains about a display or a missing
+  library - report the message.
+- [ ] **P3 Slice.** Prepare a small part with PrusaSlicer, BlockOne, PLA. *Pass:* progress shows, time and filament
+  appear, every check passes, `htop` shows `prusa-slicer` at nice 19.
+- [ ] **P4 Forced values.** Open the sliced file. *Pass:* it starts with `START_JOB`, uses the material's
+  temperatures, has `M83`, and no `M104`/`M140` above 0 or `G28` of its own.
+- [ ] **P5 Cancel and newer wins.** Change a setting while it slices. *Pass:* the old `prusa-slicer` goes from `htop`
+  and a new one starts; only one runs at a time.
+- [ ] **P6 Cache.** Prepare again with nothing changed. *Pass:* back at once.
+- [ ] **P7 During a print.** Start a print, then Prepare a bigger part. *Pass:* 4 GB+ host slices with about half the
+  cores and the print keeps going smoothly; Pi 3B refuses, saying why.
+- [ ] **P8 Update and keep previous.** When a newer release is out, Update. *Pass:* the new version shows, the old
+  folder is still there, and slicing works.
 
 ### E. Set Z zero (new in 1.3.6)
 
