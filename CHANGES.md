@@ -1,5 +1,12 @@
 # What changed
 
+## 1.5.3 - 2 GB boards, updates from Studio
+
+- **2 GB boards are offered PrusaSlicer.** A "2 GB" board reports about 1850-1950 MB to Linux, so 1.5.2's 2048 MB
+  line refused them. The line is now 1800 MB (`SMALL_HOST_MB`); a Pi 3B (~906 MB) is still not offered it.
+- **Slicing during a job needs 4 GB** (`PRINT_SLICE_MB` = 3000 MB): a 2 GB board waits for the job to end, as the
+  Pi 3B did, and a slice running when a job starts is stopped. 4 GB and up slice alongside a job, niced and watched.
+
 ## 1.5.2 - PrusaSlicer comes from Flathub
 
 - **Fixed: Install said "No PrusaSlicer build for this processor".** Prusa no longer puts Linux builds on GitHub; its

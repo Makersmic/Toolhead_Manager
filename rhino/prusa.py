@@ -8,7 +8,7 @@ Keeping the machine first:
   - one slice at a time (one more may wait); a newer request from Studio cancels the older one
   - lowest CPU and disk priority (nice 19, ionice idle), a thread cap, and a memory watchdog over the
     whole process tree that stops the slice before it can starve Klipper or Moonraker of memory
-  - while a job prints: small hosts (under 2 GB, e.g. a Pi 3B) refuse to slice at all; bigger ones
+  - while a job prints: hosts under 4 GB (a 2 GB board; PRINT_SLICE_MB) refuse to slice at all; bigger ones
     slice with half the cores and a lower memory cap
   - the INI is re-checked here: only known option names, single-line values, and the options that
     could run programs or rewrite G-code (post_process, gcode_substitutions) are forced empty
@@ -46,7 +46,12 @@ from .errors import Fail
 APP = "com.prusa3d.PrusaSlicer"
 REMOTE = "flathub"
 REMOTE_URL = "https://dl.flathub.org/repo/flathub.flatpakrepo"
-SMALL_HOST_MB = 2048
+# A "2 GB" board reports roughly 1850-1950 MB to the OS (the rest goes to the GPU/firmware),
+# so the line sits at 1800 MB: 2 GB boards are offered the engine, a Pi 3B (~906 MB) isn't. (1.5.3)
+SMALL_HOST_MB = 1800
+# Slicing while a job prints needs more headroom than slicing at all: 2 GB boards wait for the
+# job to end (as the Pi 3B did before 1.5.3); 4 GB and up slice alongside it, niced and watched.
+PRINT_SLICE_MB = 3000
 MAX_MODEL = 200 * 1024 * 1024
 MAX_INI = 512 * 1024
 KEY_RE = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
@@ -310,8 +315,8 @@ class PrusaService:
 
     def refuse(self):
         """Why a slice can't start right now, or None."""
-        if self.small and self.printer_state() in ("printing", "paused"):
-            return ("This host has under 2 GB of memory: slicing while a job prints could starve Klipper. "
+        if self.mem_mb < PRINT_SLICE_MB and self.printer_state() in ("printing", "paused"):
+            return ("This host has under 4 GB of memory: slicing while a job prints could starve Klipper. "
                     "Slice when the job ends, or use Kiri:Moto in the browser.")
         return None
 
@@ -641,8 +646,8 @@ class PrusaService:
                                      "Try simpler supports, classic perimeters, or a lower-detail model.")
                         self._cancel(job)
                         return
-                    if self.small and self.printer_state() in ("printing", "paused"):
-                        job.error = "A job started on this small host, so the slice was stopped to keep Klipper safe."
+                    if self.mem_mb < PRINT_SLICE_MB and self.printer_state() in ("printing", "paused"):
+                        job.error = "A job started, and this host has under 4 GB of memory, so the slice was stopped to keep Klipper safe."
                         self._cancel(job)
                         return
             w = threading.Thread(target=watch, daemon=True)

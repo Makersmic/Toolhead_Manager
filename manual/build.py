@@ -585,8 +585,8 @@ def portal():
       'one before is put back, and <b>Go back</b> does the same by hand. It needs a host with 2 GB of memory or more: on a Pi 3B, '
       'slice with Kiri:Moto in Studio instead.</p><p>Each slice runs in Flatpak\'s sandbox, with no network and no files but '
       'its own. Slicing always gives way to the printer: it runs at the lowest '
-      'priority, one slice at a time, with fewer cores and less memory while a job prints. A host under 2 GB (a Pi 3B) waits until '
-      'the job is finished. Whatever settings Studio sends, the Rhino\'s start and end G-code, temperatures, bed and nozzle are '
+      'priority, one slice at a time, with fewer cores and less memory while a job prints. A host under 4 GB (a 2 GB board, or a Pi 3B '
+      'with an engine put there by hand) waits until the job is finished. Whatever settings Studio sends, the Rhino\'s start and end G-code, temperatures, bed and nozzle are '
       'always its own. PrusaSlicer is © Prusa Research and the Slic3r authors, under the AGPL-3.0 licence, and is downloaded '
       'from Flathub on the machine.</p>')
     a('<h3>Rhino Studio from the Rhino</h3><p>The install also serves <b>Rhino Studio</b> from the Pi, at '

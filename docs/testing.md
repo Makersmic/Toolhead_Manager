@@ -243,7 +243,8 @@ Install `rhino-config-1.5.2.zip`, then use Rhino Studio. Keep `htop` open in an 
   "Adding Flathub", "Downloading from Flathub…" (the first time also fetches its runtime, a few hundred MB, so allow
   10-20 minutes), then "Checking it slices", then the version and Up to date. `flatpak --user list` shows
   `com.prusa3d.PrusaSlicer`. *Stop if:* anything asks for a password. **On a Pi 3B** the row says it needs 2 GB of
-  memory and offers no Install: that's the pass.
+  memory and offers no Install: that's the pass. **On a 2 GB board** (e.g. the T95, reports ~1850-1950 MB; 1.5.3)
+  Install is offered; while a job prints, Slice says the host has under 4 GB and waits.
 - [ ] **P2 It runs without a screen.** Over SSH: `flatpak run --user --command=prusa-slicer com.prusa3d.PrusaSlicer --help-fff | head`.
   *Pass:* prints options, including `--threads` and `--center`. *Stop if:* it complains about a display, D-Bus or
   XDG_RUNTIME_DIR - report the message.
