@@ -308,3 +308,19 @@ With LightSaber or HotJoe mounted:
   `rhino-backup` on GitHub.
 
 Record results in the portal's Work log or in an issue on GitHub, with the test ID (e.g. "E3 failed: bed rose 2 mm").
+
+## 1.5.3: the updater (install from Rhino Studio)
+
+- [ ] **U1 Set up by the install.** Install 1.5.3 by hand (rhino.sh option 3). Then over SSH:
+  `systemctl status rhino-update.path` is *active (waiting)*; `ls -l /usr/local/sbin/rhino-update` is owned by root;
+  `ls ~/printer_data/rhino_data/update/incoming` exists. *Stop if:* the install asks for anything new.
+- [ ] **U2 The Portal still has no sudo.** `systemctl show rhino-portal -p NoNewPrivileges` says `yes`.
+- [ ] **U3 A whole run from Studio.** Studio → Settings → Software → Install from zip: drop the same 1.5.3 zip, Install.
+  Steps tick through, the Portal restarts, Studio reloads; `cat ~/rhino-manager/installed-version` is 1.5.3;
+  `journalctl -u rhino-update -n 40` shows the install; a new `~/rhino-backup-<time>` exists; files in
+  `~/printer_data/config` are still owned by your login (`find ~/printer_data/config ! -user $USER | head` prints nothing).
+  *Stop if:* anything under your home ends up owned by root, or Klipper doesn't come back.
+- [ ] **U4 Refused during a job.** Start a print; Install says a job is running and nothing happens.
+- [ ] **U5 A bad zip.** Drop any other zip: refused with a reason, nothing kept in `incoming/`.
+- [ ] **U6 Ubuntu (OptiPlex).** Same as U3 on the OptiPlex, where your login needs a password for sudo: the install still
+  finishes (the updater doesn't use your sudo).

@@ -6,7 +6,28 @@
 #
 # Run it as your normal login (not with sudo); it asks for your password when it needs it.
 # It stops at the first problem and tells you what to do. Undo with:  bash ~/rhino-<version>/uninstall.sh
+#
+#   install.sh --unattended    only for the Rhino updater (1.5.3): rhino-update runs it as root for the
+#                              login in RHINO_USER, when Rhino Studio installs an uploaded zip. sudo is then a
+#                              pass-through, and everything it writes in that login's folders is given back to it.
 set -u
+
+UNATTENDED=0
+if [ "${1:-}" = "--unattended" ]; then
+  [ "$(id -u)" = 0 ] && [ -n "${RHINO_USER:-}" ] && getent passwd "$RHINO_USER" >/dev/null \
+    || { echo "--unattended is only for the Rhino updater (root, with RHINO_USER set)."; exit 1; }
+  UNATTENDED=1
+  USER="$RHINO_USER"; HOME="$(getent passwd "$USER" | cut -d: -f6)"; export USER HOME
+  sudo() {
+    case "${1:-}" in
+      -v) return 0 ;;
+      -n) shift; "$@" ;;
+      -u) local u="$2"; shift 2; runuser -u "$u" -- "$@" ;;
+      *) "$@" ;;
+    esac
+  }
+  crontab() { command crontab -u "$USER" "$@"; }
+fi
 
 SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CFG="${RHINO_CONFIG_DIR:-$HOME/printer_data/config}"
@@ -22,6 +43,10 @@ NGX="${RHINO_NGINX_DIR:-/etc/nginx}"
 NGINX_BIN="${RHINO_NGINX_BIN:-/usr/sbin/nginx}"
 STUDIO_DIR="${RHINO_STUDIO_DIR:-$HOME/rhino-studio}"
 STUDIO_PORT="${RHINO_STUDIO_PORT:-5001}"
+# The updater (1.5.3): the Portal drops zips here; only dev/test_install.py changes these.
+UPD="$(dirname "$CFG")/rhino_data/update"
+UNITS="${RHINO_UNIT_DIR:-/etc/systemd/system}"
+UPDATER_BIN="${RHINO_UPDATER_BIN:-/usr/local/sbin/rhino-update}"
 MARK='#*# <---------------------- SAVE_CONFIG ---------------------->'
 DRY=0
 [ "${1:-}" = "--dry-run" ] && DRY=1
@@ -36,10 +61,13 @@ do_() { if [ $DRY = 1 ]; then printf '   would run: %s\n' "$*"; else "$@"; fi; }
 py()  { python3 -c "$1" 2>/dev/null; }
 
 [ $DRY = 1 ] && printf '\033[1mDRY RUN - nothing will be changed.\033[0m\n'
+# Unattended: whatever happens, files written in the login's folders go back to the login
+give_back() { chown -R --no-dereference "$USER:$(id -g "$USER")" "$CFG" "$BACKUP" "$STUDIO_DIR" "$LAST" "$HOME/rhino-manager" "$UPD" 2>/dev/null; return 0; }
+[ $UNATTENDED = 1 ] && trap give_back EXIT
 
 # ------------------------------------------------------------------ checks before anything changes
 say "Checking this Pi"
-[ "$(id -u)" = 0 ] && fail "Run this as your normal login, without sudo." "Example:  bash $SRC/install.sh"
+[ $UNATTENDED = 0 ] && [ "$(id -u)" = 0 ] && fail "Run this as your normal login, without sudo." "Example:  bash $SRC/install.sh"
 [ -f "$CFG/printer.cfg" ] || fail "No printer.cfg in $CFG." "Is this the Klipper Pi? Your config folder should be ~/printer_data/config."
 ok "config folder: $CFG"
 [ -f "$SRC/scripts/rhino_portal.py" ] && [ -d "$SRC/rhino" ] || fail "The new files are not next to this script ($SRC)." "Unzip the whole zip again (see the install guide, step 3)."
@@ -98,7 +126,7 @@ for c in rsync unzip; do
 done
 
 # ------------------------------------------------------------------ sudo once, up front
-if [ $DRY = 0 ]; then
+if [ $DRY = 0 ] && [ $UNATTENDED = 0 ]; then
   say "Your Pi password (needed to install packages and the service; typing is invisible)"
   sudo -v || fail "sudo did not accept the password."
   ok "sudo ready"
@@ -242,6 +270,27 @@ elif command -v nmcli >/dev/null 2>&1; then
   rm -f "$tmp"
 else
   note "No NetworkManager (nmcli) on this Pi - network settings stay read-only in the portal"
+fi
+
+# ------------------------------------------------------------------ updater (1.5.3)
+# Lets Rhino Studio install a release zip without SSH or Mainsail. One root-owned program, started only by
+# systemd when the Portal drops a request file in its own folder: the Portal itself never gets sudo.
+say "Updater (install a new zip from Rhino Studio)"
+if [ "${RHINO_SKIP_UPDATER:-0}" = 1 ]; then
+  note "updater skipped (RHINO_SKIP_UPDATER=1)"
+else
+  do_ mkdir -p "$UPD/incoming"
+  [ $DRY = 0 ] && [ $UNATTENDED = 0 ] && chmod 755 "$UPD" "$UPD/incoming"
+  do_ sudo install -o root -g root -m 755 "$SRC/scripts/rhino_update_helper.py" "$UPDATER_BIN"
+  tmp="$(mktemp)"
+  sed "s#@USER@#$USER#g; s#@DROP@#$UPD#g; s#@BIN@#$UPDATER_BIN#g; s#@MOONRAKER@#$MOONRAKER#g" "$SRC/service/rhino-update.service" > "$tmp"
+  do_ sudo install -m 644 "$tmp" "$UNITS/rhino-update.service"
+  sed "s#@DROP@#$UPD#g" "$SRC/service/rhino-update.path" > "$tmp"
+  do_ sudo install -m 644 "$tmp" "$UNITS/rhino-update.path"
+  rm -f "$tmp"
+  do_ sudo systemctl daemon-reload
+  do_ sudo systemctl enable --now rhino-update.path
+  [ $DRY = 0 ] && ok "updater ready: Studio > Settings > Software > Install from zip"
 fi
 
 # ------------------------------------------------------------------ Rhino Studio (1.5.1)

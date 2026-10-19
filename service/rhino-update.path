@@ -1,0 +1,10 @@
+# Rhino updater (1.5.3): runs rhino-update.service when the Portal drops a request.
+[Unit]
+Description=Watch for a Rhino update request from Rhino Studio
+
+[Path]
+PathExists=@DROP@/request.json
+Unit=rhino-update.service
+
+[Install]
+WantedBy=multi-user.target

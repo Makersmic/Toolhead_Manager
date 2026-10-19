@@ -4,6 +4,12 @@
 
 - **2 GB boards are offered PrusaSlicer.** A "2 GB" board reports about 1850-1950 MB to Linux, so 1.5.2's 2048 MB
   line refused them. The line is now 1800 MB (`SMALL_HOST_MB`); a Pi 3B (~906 MB) is still not offered it.
+- **Install a new zip from Rhino Studio.** Settings > Software > Install from zip: drop `rhino-config-<version>.zip`,
+  see what it is, press Install. A small root-owned updater (`/usr/local/sbin/rhino-update`, started only by
+  `rhino-update.path` when the Portal drops a request) checks the zip again, refuses during a job, runs BACKUP_CFG if you
+  have it, installs with `install.sh --unattended` (backup first, as always), records the version and sends
+  FIRMWARE_RESTART. The Portal never gets sudo (its service keeps `NoNewPrivileges`). The zip installed and the one
+  before are kept, so Studio offers **Go back**. Set up by this install, so 1.5.3 itself goes in once by hand.
 - **Slicing during a job needs 4 GB** (`PRINT_SLICE_MB` = 3000 MB): a 2 GB board waits for the job to end, as the
   Pi 3B did, and a slice running when a job starts is stopped. 4 GB and up slice alongside a job, niced and watched.
 

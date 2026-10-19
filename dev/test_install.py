@@ -123,7 +123,7 @@ with socket.socket() as s_:
 
 
 def env(**extra):
-    e = {"HOME": HOME, "USER": "tester", "PATH": BIN + os.pathsep + os.environ["PATH"], "CALLS": LOG, "PIDF": PIDF, "RHINO_SKIP_NET": "1",
+    e = {"HOME": HOME, "USER": "tester", "PATH": BIN + os.pathsep + os.environ["PATH"], "CALLS": LOG, "PIDF": PIDF, "RHINO_SKIP_NET": "1", "RHINO_SKIP_UPDATER": "1",
          "RHINO_SERVICE_FILE": SERVICE, "RHINO_MOONRAKER": f"http://127.0.0.1:{moon.server_port}",
          "PORTAL_LOG": os.path.join(ROOT, "portal.log"), "TERM": "dumb", "LANG": "C.UTF-8",
          "RHINO_NGINX_DIR": NGX, "RHINO_NGINX_BIN": os.path.join(BIN, "nginx"), "RHINO_STUDIO_DIR": STUDIO,
@@ -340,6 +340,23 @@ try:
     rc, out = run(f"{PKG}/install.sh")
     ok(rc == 0 and "this zip has no Studio in it" in out and not os.path.exists(STUDIO), "a zip without Studio: skipped, install finishes")
     run(f"{PKG}/uninstall.sh")
+
+    # ============================================================ the updater (1.5.3)
+    print("== updater: set up by the install ==")
+    UNITS = os.path.join(ROOT, "units"); os.makedirs(UNITS, exist_ok=True)
+    UBIN = os.path.join(ROOT, "rhino-update")
+    if os.geteuid() != 0:
+        print("SKIP updater set-up (install -o root needs root here)")
+    else:
+        rc, out = run(f"{PKG}/install.sh", RHINO_SKIP_UPDATER="0", RHINO_UNIT_DIR=UNITS, RHINO_UPDATER_BIN=UBIN)
+        drop = os.path.join(os.path.dirname(CFG), "rhino_data", "update")
+        usvc = open(os.path.join(UNITS, "rhino-update.service")).read() if os.path.exists(os.path.join(UNITS, "rhino-update.service")) else ""
+        upath = open(os.path.join(UNITS, "rhino-update.path")).read() if os.path.exists(os.path.join(UNITS, "rhino-update.path")) else ""
+        ok(rc == 0 and os.path.isfile(UBIN) and os.path.isdir(os.path.join(drop, "incoming")), "updater program and drop folder installed")
+        ok(f"--user tester --drop {drop}" in usvc and "@" not in usvc and "Type=oneshot" in usvc, "updater unit filled in for this login")
+        ok(f"PathExists={drop}/request.json" in upath, "path unit watches the Portal's request file")
+        ok("systemctl enable --now rhino-update.path" in open(LOG).read(), "path unit enabled")
+        run(f"{PKG}/uninstall.sh")
 finally:
     if os.path.exists(PIDF):
         try:

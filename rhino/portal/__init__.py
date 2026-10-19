@@ -10,7 +10,7 @@ from ..net import Network
 from ..prusa import PrusaService
 from ..paths import resolve
 from ..service import ToolService
-from . import maint_routes, net_routes, routes, security, slicer_routes
+from . import maint_routes, net_routes, routes, security, slicer_routes, update_routes
 
 
 def create_app(config_dir=None, moonraker_url=None, start_monitor=False):
@@ -33,6 +33,7 @@ def create_app(config_dir=None, moonraker_url=None, start_monitor=False):
     app.register_blueprint(maint_routes.bp)
     app.register_blueprint(net_routes.bp)
     app.register_blueprint(slicer_routes.bp)
+    app.register_blueprint(update_routes.bp)
     app.before_request(security.limit_upload)
     app.after_request(security.add_headers)
     return app

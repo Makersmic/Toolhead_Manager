@@ -1,0 +1,10 @@
+# Rhino updater (1.5.3): installs a release zip uploaded from Rhino Studio. Started only by
+# rhino-update.path (never at boot, never by the Portal). install.sh fills in the user, folder and program.
+[Unit]
+Description=Rhino updater (install a Tool Manager zip from Rhino Studio)
+After=network-online.target moonraker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 @BIN@ --user @USER@ --drop @DROP@ --moonraker @MOONRAKER@
+TimeoutStartSec=45min

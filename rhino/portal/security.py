@@ -52,11 +52,12 @@ def error(message, status=400):
 # Uploads: 8 MB everywhere (photos, forms), except a part sent to the slicer (up to 200 MB of STL).
 UPLOAD_LIMIT = 8 * 1024 * 1024
 SLICER_LIMIT = 210 * 1024 * 1024
+UPDATE_LIMIT = 100 * 1024 * 1024  # a release zip (1.5.3), a few MB in practice
 
 
 def limit_upload():
     n = request.content_length or 0
-    limit = SLICER_LIMIT if request.path == "/api/slicer/slice" else UPLOAD_LIMIT
+    limit = {"/api/slicer/slice": SLICER_LIMIT, "/api/update/upload": UPDATE_LIMIT}.get(request.path, UPLOAD_LIMIT)
     if n > limit:
         return error(f"Too big: {n // (1024 * 1024)} MB (at most {limit // (1024 * 1024)} MB)", 413)
     return None
