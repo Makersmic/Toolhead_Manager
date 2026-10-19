@@ -75,7 +75,9 @@ threading.Thread(target=moon.serve_forever, daemon=True).start()
 # ---------------------------------------------------------------- stand-ins for the Pi's system commands
 STUBS = {
     "id": '[ "${1:-}" = "-u" ] && { echo "${FAKE_UID:-1000}"; exit 0; }; exec /usr/bin/id "$@"',
-    "sudo": 'echo "sudo $*" >> "$CALLS"; [ "${1:-}" = "-v" ] && exit 0; exec "$@"',
+    "sudo": 'echo "sudo $*" >> "$CALLS"; [ "${1:-}" = "-v" ] && exit 0; [ "${1:-}" = "-u" ] && shift 2; exec "$@"',
+    # nginx: only "nginx -t" is used; NGINX_T_FAIL=1 makes it refuse the config
+    "nginx": 'echo "nginx $*" >> "$CALLS"; [ "${NGINX_T_FAIL:-0}" = 1 ] && { echo "nginx: [emerg] unknown directive (fake)" >&2; exit 1; }; exit 0',
     "apt-get": 'echo "apt-get $*" >> "$CALLS"; exit 0',
     "hostname": 'echo 127.0.0.1',
     "journalctl": 'echo "(fake journal)"',
@@ -108,12 +110,24 @@ for name, body in STUBS.items():
     open(p, "w").write("#!/usr/bin/env bash\n" + body + "\n")
     os.chmod(p, os.stat(p).st_mode | stat.S_IEXEC)
 os.makedirs(os.path.dirname(SERVICE))
+NGX = os.path.join(ROOT, "etc", "nginx")
+for d in ("sites-available", "sites-enabled"):
+    os.makedirs(os.path.join(NGX, d))
+open(os.path.join(NGX, "nginx.conf"), "w").write("user www-data;\nhttp { include sites-enabled/*; }\n")
+STUDIO = os.path.join(HOME, "rhino-studio")
+SITE = os.path.join(NGX, "sites-available", "rhino-studio")
+LINK = os.path.join(NGX, "sites-enabled", "rhino-studio")
+with socket.socket() as s_:
+    s_.bind(("127.0.0.1", 0))
+    STUDIO_PORT = s_.getsockname()[1]
 
 
 def env(**extra):
     e = {"HOME": HOME, "USER": "tester", "PATH": BIN + os.pathsep + os.environ["PATH"], "CALLS": LOG, "PIDF": PIDF, "RHINO_SKIP_NET": "1",
          "RHINO_SERVICE_FILE": SERVICE, "RHINO_MOONRAKER": f"http://127.0.0.1:{moon.server_port}",
-         "PORTAL_LOG": os.path.join(ROOT, "portal.log"), "TERM": "dumb", "LANG": "C.UTF-8"}
+         "PORTAL_LOG": os.path.join(ROOT, "portal.log"), "TERM": "dumb", "LANG": "C.UTF-8",
+         "RHINO_NGINX_DIR": NGX, "RHINO_NGINX_BIN": os.path.join(BIN, "nginx"), "RHINO_STUDIO_DIR": STUDIO,
+         "RHINO_STUDIO_PORT": str(STUDIO_PORT)}
     e.update(extra)
     return e
 
@@ -149,6 +163,11 @@ def package(dest):
     """The release zip's contents, unpacked (same exclusions as the zip)."""
     shutil.copytree(REPO, dest, ignore=shutil.ignore_patterns(".git", ".github", "__pycache__", "node_modules", "manual",
                                                               "docs", "*.zip", "package*.json"))
+    if not os.path.isfile(os.path.join(dest, "studio", "index.html")):   # a stand-in Studio build (dev/make_zip.sh adds the real one)
+        os.makedirs(os.path.join(dest, "studio", "assets"), exist_ok=True)
+        open(os.path.join(dest, "studio", "index.html"), "w").write("<!doctype html><title>Rhino Studio</title>")
+        open(os.path.join(dest, "studio", "assets", "app-1.js"), "w").write("// v1")
+        open(os.path.join(dest, "studio", "VERSION"), "w").write("0.6.0\n")
     return dest
 
 
@@ -156,7 +175,7 @@ def package(dest):
 os.makedirs(CFG)
 open(os.path.join(CFG, "printer.cfg"), "w").write("[include mainsail.cfg]\n[printer]\nkinematics: cartesian\n\n"
                                                   f"{MARK}\n#*# [probe]\n#*# z_offset = 1.234\n")
-open(os.path.join(CFG, "moonraker.conf"), "w").write("[server]\nhost: 0.0.0.0\n")
+open(os.path.join(CFG, "moonraker.conf"), "w").write("[server]\nhost: 0.0.0.0\nport: 7130\n\n[authorization]\nport: 9\n")
 open(os.path.join(CFG, "variables.cfg"), "w").write("[gcode_macro VARIABLES]\nvariable_tool_swap_park_x: 100.0\nvariable_tool_swap_park_y: 100.0\ngcode:\n")
 os.makedirs(os.path.join(CFG, ".git", "refs", "heads"))
 open(os.path.join(CFG, ".git", "HEAD"), "w").write("ref: refs/heads/main\n")
@@ -197,6 +216,8 @@ try:
     ok(tree(CFG) == original and not backups() and not os.path.exists(SERVICE), "...and really changes nothing (config, backups, service)")
     ok("SAVE_CONFIG section - it would be carried over" in out and "would change /home/pi in:" in out, "...and says what it would do")
     ok(open(LOG).read() == "", "...without calling sudo, apt or systemctl")
+    ok(not os.path.exists(STUDIO) and not os.path.exists(SITE) and f"would run: sudo {BIN}/nginx -t" in out,
+       "...Studio: no files or nginx site, says it would check nginx before reloading it")
 
     # ============================================================ first install
     print("== first install ==")
@@ -225,6 +246,17 @@ try:
     ok("You can delete those three lines" in out, "...and it points out the old tool_swap_park lines in variables.cfg")
     calls = open(LOG).read()
     ok("systemctl daemon-reload" in calls and "systemctl enable --now rhino-portal" in calls, "service enabled to start at boot")
+    # Studio on nginx
+    site = open(SITE).read() if os.path.exists(SITE) else ""
+    ok(os.path.isfile(os.path.join(STUDIO, "index.html")) and not any(k.startswith("studio/") for k in now),
+       "Studio's files go to ~/rhino-studio, not into the config folder")
+    ok(f"listen {STUDIO_PORT};" in site and f"root {STUDIO};" in site and "127.0.0.1:7130" in site and "@" not in site.split("server {", 1)[1],
+       "nginx site filled in: port, Studio folder, Moonraker's port from moonraker.conf (not [authorization]'s)")
+    ok(os.path.islink(LINK) and os.path.realpath(LINK) == os.path.realpath(SITE), "...and enabled")
+    ok(calls.index(f"nginx -t") < calls.index("systemctl reload nginx") and "Studio:  http://127.0.0.1:" in out,
+       "nginx -t passes before nginx is reloaded; the finish names Studio's address")
+    ok("nginx -t" in calls and "systemctl restart nginx" not in calls, "...a reload, never a restart (Mainsail stays up)")
+    open(os.path.join(STUDIO, "from-first-install"), "w").write("1")
 
     # ============================================================ update over the top
     print("== update (install again) ==")
@@ -246,6 +278,11 @@ try:
     ok("zero_max_z is 300, past the bed's lowest point (Z295" in out and "safe_z is" not in out,
        "...and the install names the kept number that no longer fits Z travel (zero_max_z 300 > 295), and only that one")
     ok(portal_up(), "portal back up after the update")
+    keep = os.path.join(HOME, bks[1], "_rhino_install")
+    ok(os.path.isfile(os.path.join(keep, "old-rhino-studio", "from-first-install")) and os.path.isfile(os.path.join(keep, "old-rhino-studio.nginx")),
+       "Studio update: the old Studio folder and site are kept in the new backup")
+    ok(not os.path.exists(os.path.join(STUDIO, "from-first-install")) and os.path.isfile(os.path.join(STUDIO, "index.html")),
+       "...and ~/rhino-studio is exactly the new build")
 
     # ============================================================ undo
     print("== undo (uninstall.sh) ==")
@@ -258,6 +295,10 @@ try:
     ok(rc == 0 and restored == original, "undo to the first backup: the config folder is exactly as before the first install")
     ok(not os.path.exists(SERVICE) and not portal_up(), "...the service is removed and the portal stopped")
     ok(any(x.startswith("rhino-undone-") for x in os.listdir(HOME)), "...and what was there is kept aside in ~/rhino-undone-<time>")
+    ok(not os.path.exists(SITE) and not os.path.lexists(LINK) and not os.path.exists(STUDIO),
+       "...Studio's nginx site and folder are gone again (there was none before)")
+    ok(any(os.path.isdir(os.path.join(HOME, x, "rhino-studio")) for x in os.listdir(HOME) if x.startswith("rhino-undone-")),
+       "...the Studio folder is kept aside too")
 
     # ============================================================ the menu: option 3 (new zip), then option 4 back
     print("== menu: install a new zip ==")
@@ -275,6 +316,30 @@ try:
     rc, out = run(os.path.join(HOME, "rhino-manager", "rhino.sh"), stdin="4\n1\ny\n\nq\n")
     ok(tree(CFG) == original and not os.path.exists(os.path.join(HOME, "rhino-manager", "installed-version")),
        "menu option 4 puts the oldest backup back and forgets the installed version")
+
+    # ============================================================ Studio problems never stop the install
+    print("== Studio: nginx refuses, port taken, no Studio in the zip ==")
+    PKG = os.path.join(HOME, f"rhino-{VERSION}")
+    open(LOG, "w").close()
+    rc, out = run(f"{PKG}/install.sh", NGINX_T_FAIL="1")
+    ok(rc == 0 and "Install finished." in out and "did not accept the Studio site" in out and "unknown directive" in out,
+       "nginx -t refuses the site: the install still finishes, and says why")
+    ok(not os.path.exists(SITE) and not os.path.lexists(LINK) and "systemctl reload nginx" not in open(LOG).read(),
+       "...the site is taken out again and nginx is never reloaded with it")
+    run(f"{PKG}/uninstall.sh")
+    blocker = socket.socket()
+    blocker.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    blocker.bind(("127.0.0.1", STUDIO_PORT))
+    blocker.listen()
+    rc, out = run(f"{PKG}/install.sh")
+    blocker.close()
+    ok(rc == 0 and f"something else already uses port {STUDIO_PORT}" in out and not os.path.exists(SITE),
+       "Studio's port taken by something else: skipped with how to find it, install finishes")
+    run(f"{PKG}/uninstall.sh")
+    shutil.rmtree(os.path.join(PKG, "studio"))
+    rc, out = run(f"{PKG}/install.sh")
+    ok(rc == 0 and "this zip has no Studio in it" in out and not os.path.exists(STUDIO), "a zip without Studio: skipped, install finishes")
+    run(f"{PKG}/uninstall.sh")
 finally:
     if os.path.exists(PIDF):
         try:

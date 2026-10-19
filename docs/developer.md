@@ -67,4 +67,7 @@ generated sections.
 ## Releases
 
 `VERSION` and `rhino/__init__.py` hold the version; `CHANGES.md` says what changed and what to check on the machine.
+Build the zip with `sh dev/make_zip.sh ../rhino-studio`: it builds Rhino Studio into `studio/` (never committed) and
+writes `rhino-config-<VERSION>.zip` next to the repo. The installer serves `studio/` with nginx
+(`service/rhino-studio.nginx`); without a `studio/` folder that step is skipped.
 The release checklist is in [testing.md](testing.md#release-checklist).

@@ -1,0 +1,92 @@
+# Rhino Studio, served by the Pi's nginx (Rhino Tool Manager 1.5.1+).
+# install.sh fills in the @...@ values and installs this as /etc/nginx/sites-available/rhino-studio.
+# It is a server of its own on its own port: Mainsail's site is not touched.
+#
+#   /               Studio's files (@ROOT@)
+#   /websocket, /printer/ /server/ /machine/ /access/ /api/    Moonraker (port @MOONRAKER@), as Mainsail does it
+#   /webcam/ ... /webcam4/     crowsnest's cameras (ports 8080-8083), as Mainsail does it
+#   /portal/        the Rhino Portal (port 5000)
+server {
+    listen @PORT@;
+
+    root @ROOT@;
+    index index.html;
+    server_name _;
+    access_log off;
+    error_log /var/log/nginx/rhino-studio-error.log;
+
+    # G-code uploads go to Moonraker; the Portal limits its own uploads
+    client_max_body_size 0;
+
+    gzip on;
+    gzip_min_length 1024;
+    gzip_types text/css application/javascript application/json image/svg+xml application/wasm text/plain;
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+    location = /index.html {
+        add_header Cache-Control "no-cache";
+    }
+    # Built files have their hash in the name, so a browser may keep them
+    location /assets/ {
+        add_header Cache-Control "public, max-age=31536000, immutable";
+    }
+    # The slicer's WebAssembly must be served as application/wasm (older nginx doesn't know the type)
+    location ~ \.wasm$ {
+        types { application/wasm wasm; }
+    }
+
+    location /websocket {
+        proxy_pass http://127.0.0.1:@MOONRAKER@/websocket;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_read_timeout 86400;
+    }
+    location ~ ^/(printer|api|access|machine|server)/ {
+        proxy_pass http://127.0.0.1:@MOONRAKER@$request_uri;
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Scheme $scheme;
+    }
+
+    location /webcam/ {
+        postpone_output 0;
+        proxy_buffering off;
+        proxy_ignore_headers X-Accel-Buffering;
+        proxy_pass http://127.0.0.1:8080/;
+    }
+    location /webcam2/ {
+        postpone_output 0;
+        proxy_buffering off;
+        proxy_ignore_headers X-Accel-Buffering;
+        proxy_pass http://127.0.0.1:8081/;
+    }
+    location /webcam3/ {
+        postpone_output 0;
+        proxy_buffering off;
+        proxy_ignore_headers X-Accel-Buffering;
+        proxy_pass http://127.0.0.1:8082/;
+    }
+    location /webcam4/ {
+        postpone_output 0;
+        proxy_buffering off;
+        proxy_ignore_headers X-Accel-Buffering;
+        proxy_pass http://127.0.0.1:8083/;
+    }
+
+    # The Portal checks that a change comes from the page's own address, so it gets the browser's Host
+    location /portal/ {
+        proxy_pass http://127.0.0.1:5000/;
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        client_max_body_size 210m;
+        proxy_read_timeout 300;
+    }
+}

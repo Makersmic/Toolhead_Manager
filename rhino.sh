@@ -23,6 +23,13 @@ portal_state() {
   elif [ -f /etc/systemd/system/rhino-portal.service ]; then echo "${R}stopped${N}"
   else echo "${Y}not installed${N}"; fi
 }
+studio_state() {
+  local site=/etc/nginx/sites-enabled/rhino-studio port ip
+  [ -e "$site" ] || { echo "${Y}not served from this Pi${N}"; return; }
+  port=$(sed -n 's/^[[:space:]]*listen[[:space:]]\+\([0-9]*\);.*/\1/p' "$site" | head -n1)
+  ip=$(hostname -I 2>/dev/null | awk '{print $1}')
+  echo "${G}on${N}       http://${ip:-YOUR-PI}:${port:-?}"
+}
 is_package() { [ -f "$HERE/install.sh" ] && [ -d "$HERE/rhino" ]; }
 
 header() {
@@ -33,6 +40,7 @@ header() {
   row "Installed version : $(inst_version)"
   is_package && row "This folder has   : $(src_version)   ($HERE)"
   row "Portal            : $(portal_state)"
+  row "Rhino Studio      : $(studio_state)"
   line '|' '-' '|'
 }
 

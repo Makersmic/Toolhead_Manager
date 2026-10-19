@@ -17,6 +17,11 @@ n=1; while [ -e "$BACKUP" ]; do n=$((n+1)); BACKUP="$HOME/rhino-backup-$STAMP-$n
 LAST="$HOME/.rhino-last-backup"
 SERVICE="${RHINO_SERVICE_FILE:-/etc/systemd/system/rhino-portal.service}"   # only dev/test_install.py sets this
 MOONRAKER="${RHINO_MOONRAKER:-http://127.0.0.1:7125}"
+# Rhino Studio, served by nginx (1.5.1). Only dev/test_install.py changes these.
+NGX="${RHINO_NGINX_DIR:-/etc/nginx}"
+NGINX_BIN="${RHINO_NGINX_BIN:-/usr/sbin/nginx}"
+STUDIO_DIR="${RHINO_STUDIO_DIR:-$HOME/rhino-studio}"
+STUDIO_PORT="${RHINO_STUDIO_PORT:-5001}"
 MARK='#*# <---------------------- SAVE_CONFIG ---------------------->'
 DRY=0
 [ "${1:-}" = "--dry-run" ] && DRY=1
@@ -118,7 +123,7 @@ say "Copying the new files into your config folder"
 had_positions=0; [ -f "$CFG/myrhino/positions.cfg" ] && had_positions=1
 # Never copied: your saved state, git files, the test folder, zips and the installers themselves.
 EXCL=(--exclude .git/ --exclude .gitignore --exclude variables.cfg --exclude variables.save --exclude dev/ --exclude '*.zip'
-      --exclude install.sh --exclude uninstall.sh --exclude rhino.sh --exclude VERSION
+      --exclude install.sh --exclude uninstall.sh --exclude rhino.sh --exclude VERSION --exclude /studio/
       --exclude myrhino/custom_tools.cfg --exclude myrhino/maintenance_status.cfg --exclude myrhino/positions.cfg)
 do_ rsync -a "${EXCL[@]}" "$SRC/" "$CFG/" || fail "Copy failed." "Your backup is in $BACKUP."
 # Generated files and your positions: only put the starter copy in place if you do not have one yet.
@@ -239,15 +244,76 @@ else
   note "No NetworkManager (nmcli) on this Pi - network settings stay read-only in the portal"
 fi
 
+# ------------------------------------------------------------------ Rhino Studio (1.5.1)
+# Studio's built files go to ~/rhino-studio, and nginx (already serving Mainsail) serves them on a port of their
+# own, forwarding Moonraker, the cameras and /portal like the dev server on a PC does. Mainsail's site is not
+# touched. Anything here that doesn't work is reported and skipped: it never stops the install, and nginx is
+# only reloaded after "nginx -t" accepts the new site, so a problem can't take Mainsail down.
+say "Rhino Studio (served by nginx on port $STUDIO_PORT)"
+SITE="$NGX/sites-available/rhino-studio"
+studio_url=""
+studio_skip() { note "$1"; note "Rhino Studio is not served from this Pi - it still runs from a PC (npm run dev)."; }
+if [ ! -f "$SRC/studio/index.html" ]; then
+  studio_skip "this zip has no Studio in it"
+elif [ ! -x "$NGINX_BIN" ] || [ ! -d "$NGX/sites-enabled" ]; then
+  studio_skip "no nginx with a sites-enabled folder on this Pi"
+elif ! printf '%s' "$STUDIO_PORT" | grep -Eq '^[0-9]{2,5}$'; then
+  studio_skip "RHINO_STUDIO_PORT must be a port number"
+elif [ ! -f "$SITE" ] && py "import socket;s=socket.socket();s.settimeout(1);s.connect(('127.0.0.1',$STUDIO_PORT))"; then
+  studio_skip "something else already uses port $STUDIO_PORT (see it with:  sudo ss -ltnp | grep :$STUDIO_PORT)"
+else
+  mport=$(sed -n '/^\[server\]/,/^\[/s/^port[[:space:]]*[:=][[:space:]]*\([0-9]*\).*/\1/p' "$CFG/moonraker.conf" 2>/dev/null | head -n1)
+  mport="${mport:-7125}"
+  sv="$(cat "$SRC/studio/VERSION" 2>/dev/null || echo '?')"
+  # the files: the old copy is moved into the backup, so undo can put it back
+  if [ -d "$STUDIO_DIR" ]; then do_ mv "$STUDIO_DIR" "$BACKUP/_rhino_install/old-rhino-studio"; fi
+  do_ mkdir -p "$STUDIO_DIR"
+  do_ rsync -a "$SRC/studio/" "$STUDIO_DIR/"
+  # the site: the old one is kept in the backup too
+  [ -f "$SITE" ] && do_ cp "$SITE" "$BACKUP/_rhino_install/old-rhino-studio.nginx"
+  tmp="$(mktemp)"
+  sed "s#@PORT@#$STUDIO_PORT#g; s#@ROOT@#$STUDIO_DIR#g; s#@MOONRAKER@#$mport#g" "$SRC/service/rhino-studio.nginx" > "$tmp"
+  do_ sudo install -m 644 "$tmp" "$SITE"
+  do_ sudo ln -sfn "$SITE" "$NGX/sites-enabled/rhino-studio"
+  rm -f "$tmp"
+  if [ $DRY = 1 ]; then
+    printf '   would run: sudo %s -t   (and only then reload nginx)\n' "$NGINX_BIN"
+  elif sudo "$NGINX_BIN" -t >/dev/null 2>&1; then
+    sudo systemctl reload nginx
+    ngx_user=$(sed -n 's/^[[:space:]]*user[[:space:]]\+\([^[:space:];]*\).*/\1/p' "$NGX/nginx.conf" 2>/dev/null | head -n1)
+    if [ -n "$ngx_user" ] && ! sudo -u "$ngx_user" test -r "$STUDIO_DIR/index.html"; then
+      note "nginx (user $ngx_user) can't read $STUDIO_DIR - your home folder isn't open to it."
+      note "Mainsail in ~/mainsail usually needs the same; ask before changing folder permissions."
+    fi
+    studio_url=1
+    if py "import urllib.request;b=urllib.request.urlopen('http://127.0.0.1:$STUDIO_PORT/',timeout=3).read();assert b'Rhino Studio' in b"; then
+      ok "Rhino Studio $sv answering on port $STUDIO_PORT"
+    else
+      note "nginx took the new site, but Studio didn't answer on port $STUDIO_PORT yet."
+      note "Check with:  curl -s http://127.0.0.1:$STUDIO_PORT/ | head -n 5     and  sudo tail /var/log/nginx/rhino-studio-error.log"
+    fi
+  else
+    # nginx refused the site: take it out again so Mainsail keeps working, and say why
+    why=$(sudo "$NGINX_BIN" -t 2>&1 | tail -n 3)
+    sudo rm -f "$NGX/sites-enabled/rhino-studio" "$SITE"
+    [ -f "$BACKUP/_rhino_install/old-rhino-studio.nginx" ] && sudo install -m 644 "$BACKUP/_rhino_install/old-rhino-studio.nginx" "$SITE" \
+      && sudo ln -sfn "$SITE" "$NGX/sites-enabled/rhino-studio"
+    studio_skip "nginx did not accept the Studio site, so it was taken out again (Mainsail is unchanged):"
+    printf '%s\n' "$why" | sed 's/^/        /'
+  fi
+fi
+
 # ------------------------------------------------------------------ done
 ip=$(hostname -I 2>/dev/null | awk '{print $1}')
 url="http://${ip:-YOUR-PI-ADDRESS}:5000"
+[ -n "$studio_url" ] && studio_url="http://${ip:-YOUR-PI-ADDRESS}:$STUDIO_PORT"
 printf '\n\033[1m%s\033[0m\n' "$([ $DRY = 1 ] && echo 'Dry run finished - nothing was changed.' || echo 'Install finished.')"
 [ $DRY = 1 ] && { echo "Run it for real with:  bash $SRC/install.sh"; exit 0; }
 cat <<EOF
 
 Portal:  $url
-Backup:  $BACKUP   (undo: menu option 4, or  bash $SRC/uninstall.sh)
+${studio_url:+Studio:  $studio_url   (on a phone or tablet too)
+}Backup:  $BACKUP   (undo: menu option 4, or  bash $SRC/uninstall.sh)
 
 Next, in Mainsail:
   1. Mount a PRINT HEAD (BlockOne or SwitchFly) before you home or move Z.

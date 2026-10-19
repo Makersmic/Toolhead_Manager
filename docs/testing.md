@@ -98,20 +98,20 @@ For every version, before the zip is sent:
 - [ ] `CHANGES.md`, `VERSION` and the manual updated
 - [ ] The on-machine tests for whatever changed are listed in `CHANGES.md`
 
-## On-machine acceptance plan (1.5.0)
+## On-machine acceptance plan (1.5.1)
 
 Work through it in order: later sections rely on earlier ones. Have a hand on the emergency stop for every test that
 moves the machine. **Stop if** means stop, don't press on - note what happened and report it.
 
 ### A. Install and start
 
-- [ ] **A1 Install.** Menu option 3, pick `rhino-config-1.5.0.zip`, read the preview, install.
+- [ ] **A1 Install.** Menu option 3, pick `rhino-config-1.5.1.zip`, read the preview, install.
   *Pass:* ends with the portal answering on port 5000. *Stop if:* the preview shows STOPPED.
 - [ ] **A2 Restart.** With a print head mounted: `FIRMWARE_RESTART`.
   *Pass:* Klipper ready, no config errors.
 - [ ] **A3 Tool question.** *Pass:* "Klipper restarted - which toolhead is mounted?" appears; Yes records the tool.
 - [ ] **A4** `CHECK_TOOLHEADS` lists every tool without errors.
-- [ ] **A5 Portal.** Opens at `http://<pi>:5000`, matches Mainsail's dark/light theme, shows version 1.5.0.
+- [ ] **A5 Portal.** Opens at `http://<pi>:5000`, matches Mainsail's dark/light theme, shows version 1.5.1.
   Switch Mainsail between dark and light twice: *Pass:* the portal follows each switch within 15 s, and at once
   when you click back to its tab.
 
@@ -216,6 +216,21 @@ back by itself within about 2 minutes.
   its old address by itself. *Stop if* it isn't back after 5 minutes.
 - [ ] **N8 During a print.** Start a print. *Pass:* changes are refused ("Not while a job is running").
 
+
+### S. Rhino Studio from the Rhino (new in 1.5.1)
+
+Install `rhino-config-1.5.1.zip`. **Stop if** Mainsail stops opening - send the output of `sudo nginx -t`.
+
+- [ ] **S1 Install.** *Pass:* the install ends with `Studio:  http://<pi>:5001`, and the menu header shows Rhino Studio
+  `on`. Mainsail still opens on its usual address.
+- [ ] **S2 Open it.** `http://<pi>:5001` on the PC and on a phone. *Pass:* Studio opens, Connected, the mounted tool shows.
+- [ ] **S3 Portal.** Care and Toolheads. *Pass:* tasks, tools and photos show.
+- [ ] **S4 A change through the Portal.** Settings > Software, PrusaSlicer: Install (P1). *Pass:* it starts; no
+  "Cross-site request refused".
+- [ ] **S5 Cameras.** Control. *Pass:* the camera picture shows.
+- [ ] **S6 Job.** Prepare a part and Send to Rhino. *Pass:* it's in Files.
+- [ ] **S7 Undo.** Menu option 4, newest backup. *Pass:* port 5001 no longer answers (or shows the Studio from
+  before); Mainsail still opens. Then install 1.5.1 again.
 
 ### P. PrusaSlicer on the Rhino (new in 1.5.0)
 

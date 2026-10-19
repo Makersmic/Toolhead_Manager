@@ -585,6 +585,10 @@ def portal():
       'the job is finished. Whatever settings Studio sends, the Rhino\'s start and end G-code, temperatures, bed and nozzle are '
       'always its own. PrusaSlicer is © Prusa Research and the Slic3r authors, under the AGPL-3.0 licence, and is downloaded '
       'from Prusa on the machine.</p>')
+    a('<h3>Rhino Studio from the Rhino</h3><p>The install also serves <b>Rhino Studio</b> from the Pi, at '
+      '<code>http://&lt;pi&gt;:5001</code>: open it from any PC, phone or tablet on your network, with nothing to install on it. '
+      'The nginx that serves Mainsail serves it on a port of its own, and Mainsail\'s site is left as it is. Updating the Tool '
+      'Manager from its zip updates Studio too; undo takes it back out. The menu\'s header shows the address.</p>')
     a(keep('<h3>On a phone</h3><p>The portal works on a phone: the menu folds behind <b>☰</b>, and the status chips scroll sideways in '
            'the top bar.</p><div class="phones">' + fig("phone_library", "Tool library") + fig("phone_menu", "Menu") +
            fig("phone_maint", "Maintenance") + "</div>"))

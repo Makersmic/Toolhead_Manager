@@ -1,5 +1,27 @@
 # What changed
 
+## 1.5.1 - Rhino Studio served from the Rhino
+
+- **New: open Rhino Studio from any PC, phone or tablet at `http://<pi>:5001`**, with nothing to install on it. The
+  zip now carries a build of Rhino Studio (0.6.0); the installer puts it in `~/rhino-studio` and adds an nginx site
+  of its own on port 5001 (`/etc/nginx/sites-available/rhino-studio`, from `service/rhino-studio.nginx`). The nginx
+  that serves Mainsail serves it; **Mainsail's own site is not touched**.
+- The site forwards what Studio needs, as the dev server on a PC does: Moonraker (its port read from
+  `moonraker.conf`, sent the way Mainsail's site sends it), crowsnest's cameras (`/webcam/` to `/webcam4/`) and
+  `/portal` to the Portal. Slicer uploads up to 210 MB; G-code uploads go to Moonraker unlimited, as in Mainsail.
+- **It can't take Mainsail down:** nginx is only reloaded (never restarted) after `nginx -t` accepts the new site;
+  if it doesn't, the site is taken out again and the install says why. No nginx, port 5001 taken, or a zip without
+  Studio: that step is skipped with a note, and the rest of the install carries on. Studio still runs from a PC.
+- **Undo** (menu option 4) puts back the Studio folder and site from before that install, or removes them.
+- The menu shows where Studio is served. Updating the Tool Manager updates Studio.
+- `dev/make_zip.sh ../rhino-studio` builds the release zip with Studio in it (`studio/` is never committed).
+- No Klipper config, macro or Portal code changed.
+
+Tests: `dev/test_install.py` (Studio files, site, backup and undo, nginx refusing the site, port taken, no Studio),
+`dev/test_studio_site.py` (the site in a real nginx: Studio's files, Moonraker and websocket headers, Portal Host
+and Origin, upload limits, cameras, WebAssembly type).
+Check on the machine: **S1-S7** (in Rhino Studio's `docs/testing.md`), and that Mainsail still opens.
+
 ## 1.5.0 - PrusaSlicer runs on the Rhino, for Rhino Studio
 
 - **New: slicing service** in the Portal for Rhino Studio's Prepare. Studio sends the part (as STL) and only the

@@ -10,6 +10,8 @@
 set -u
 CFG="${RHINO_CONFIG_DIR:-$HOME/printer_data/config}"
 SERVICE="${RHINO_SERVICE_FILE:-/etc/systemd/system/rhino-portal.service}"   # only dev/test_install.py sets this
+NGX="${RHINO_NGINX_DIR:-/etc/nginx}"; NGINX_BIN="${RHINO_NGINX_BIN:-/usr/sbin/nginx}"
+STUDIO_DIR="${RHINO_STUDIO_DIR:-$HOME/rhino-studio}"
 DRY=0; B=""
 for a in "$@"; do [ "$a" = "--dry-run" ] && DRY=1 || B="$a"; done
 [ -z "$B" ] && [ -f "$HOME/.rhino-last-backup" ] && B="$(cat "$HOME/.rhino-last-backup")"
@@ -39,5 +41,23 @@ else
   do_ sudo systemctl daemon-reload
 fi
 do_ rsync -a --delete --exclude _rhino_install/ "$B/" "$CFG/"
+# 1.5.1+: Rhino Studio on nginx - put back what was there before that install (or nothing)
+SITE="$NGX/sites-available/rhino-studio"
+if [ -f "$B/_rhino_install/old-rhino-studio.nginx" ] || [ -e "$SITE" ] || [ -d "$B/_rhino_install/old-rhino-studio" ] || [ -d "$STUDIO_DIR" ]; then
+  echo "Putting Rhino Studio back as it was"
+  if [ -f "$B/_rhino_install/old-rhino-studio.nginx" ]; then
+    do_ sudo install -m 644 "$B/_rhino_install/old-rhino-studio.nginx" "$SITE"
+    do_ sudo ln -sfn "$SITE" "$NGX/sites-enabled/rhino-studio"
+  else
+    do_ sudo rm -f "$NGX/sites-enabled/rhino-studio" "$SITE"
+  fi
+  if [ -d "$STUDIO_DIR" ]; then do_ mkdir -p "$UNDONE"; do_ mv "$STUDIO_DIR" "$UNDONE/rhino-studio"; fi
+  if [ -d "$B/_rhino_install/old-rhino-studio" ]; then do_ cp -a "$B/_rhino_install/old-rhino-studio" "$STUDIO_DIR"; fi
+  if [ $DRY = 1 ]; then echo "   would run: sudo $NGINX_BIN -t, then reload nginx"
+  elif [ -x "$NGINX_BIN" ]; then
+    if sudo "$NGINX_BIN" -t >/dev/null 2>&1; then sudo systemctl reload nginx
+    else echo "nginx -t found a problem - not reloading nginx. See:  sudo nginx -t"; fi
+  fi
+fi
 echo
 [ $DRY = 1 ] && echo "Dry run finished - nothing was changed." || echo "Restored. In Mainsail run FIRMWARE_RESTART."
