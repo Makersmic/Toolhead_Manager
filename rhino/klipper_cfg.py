@@ -50,15 +50,19 @@ def _strip_includes(text):
 class ConfigTree:
     """Parsed config. Build one per request - it is cheap and always current."""
 
-    def __init__(self, paths, skip_generated=True):
+    def __init__(self, paths, skip_generated=True, extra_aliases=None):
+        """extra_aliases: {ALIAS: PIN} Klipper also sees but this tree doesn't read - the Rhino pin
+        labels ([board_pins rhino]), which live in the generated file skipped above."""
         self.paths = paths
         self.files = []              # [(relative path, ConfigParser)]
         self.missing_includes = []   # include targets that matched nothing
         self._seen = set()
         skip = {os.path.abspath(paths.registry_cfg)} if skip_generated else set()
         self._walk(paths.printer_cfg, skip)
-        self.aliases = self._aliases()
+        self.alias_defs = []         # [{"alias", "pin", "file", "section"}] from every [board_pins ...] read here
+        self.aliases = {**{a.upper(): p.upper() for a, p in (extra_aliases or {}).items()}, **self._aliases()}
         self.macro_names, self.object_names, self.heaters = set(), {}, []
+        self.pin_uses = []           # every pin line: [{"file", "section", "key", "value", "pin", "alias"}]
         self.claimed_pins, self.output_pins = self._scan()
 
     # ---- include graph -------------------------------------------------------------
@@ -89,13 +93,18 @@ class ConfigTree:
 
     # ---- pins ----------------------------------------------------------------------
     def _aliases(self):
+        """Every [board_pins] and [board_pins <name>] section (Klipper allows several)."""
         out = {}
-        for _, cp in self.files:
-            if cp.has_section("board_pins"):
-                for line in cp.get("board_pins", "aliases", fallback="").replace("\n", ",").split(","):
+        for rel, cp in self.files:
+            for sec in cp.sections():
+                if sec.split(" ")[0] != "board_pins":
+                    continue
+                for line in cp.get(sec, "aliases", fallback="").replace("\n", ",").split(","):
                     if "=" in line:
                         a, p = (x.strip() for x in line.split("=", 1))
-                        out[a.upper()] = p.upper()
+                        if a:
+                            out[a.upper()] = p.upper()
+                            self.alias_defs.append({"alias": a.upper(), "pin": p.upper(), "file": rel, "section": sec})
         return out
 
     def resolve(self, pin):
@@ -119,7 +128,7 @@ class ConfigTree:
                     self.heaters.append(kind)
                 elif kind == "heater_generic" and rest:
                     self.heaters.append(rest)
-                if sec.split(" ")[0] in _SKIP_SECTIONS or sec == "board_pins":
+                if sec.split(" ")[0] in _SKIP_SECTIONS or sec.split(" ")[0] == "board_pins":
                     continue
                 opts = dict(cp.items(sec))
                 for key, val in opts.items():
@@ -134,6 +143,10 @@ class ConfigTree:
                         p = self.resolve(tok)
                         if p:
                             claimed.setdefault(p, f"{rel} [{sec}]")
+                        bare = re.sub(r"^[!^~]+", "", tok).upper()
+                        if tok:
+                            self.pin_uses.append({"file": rel, "section": sec, "key": key, "value": tok, "pin": p,
+                                                  "alias": bare if bare in self.aliases else ""})
                 if sec.startswith("output_pin "):
                     name = sec[len("output_pin "):].strip()
                     outs[name] = {"pwm": opts.get("pwm", "False").strip().lower() in ("true", "1", "yes"),

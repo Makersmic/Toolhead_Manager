@@ -1,6 +1,6 @@
 # What changed
 
-## 1.5.3 - 2 GB boards, updates from Studio, rhinostudio.local
+## 1.5.3 - 2 GB boards, updates from Studio, rhinostudio.local, pin labels
 
 - **2 GB boards are offered PrusaSlicer.** A "2 GB" board reports about 1850-1950 MB to Linux, so 1.5.2's 2048 MB
   line refused them. The line is now 1800 MB (`SMALL_HOST_MB`); a Pi 3B (~906 MB) is still not offered it.
@@ -25,6 +25,21 @@
   - The Portal needed no change: nginx passes the browser's Host, so its cross-site check sees `rhinostudio.local` on
     both sides. Moonraker's own same-origin check passes the same way.
   - Some Android phones don't resolve `.local` names; use the address with `:5001` there.
+- **Pin labels: names for board pins, as Klipper aliases.** Kept in the registry (`custom_tools.json` "labels") and
+  written as `[board_pins rhino]` into the generated `custom_tools.cfg`, which printer.cfg always includes and an update
+  never overwrites. Any section can then say `pin: ENCLOSURE_LIGHT` (with `!` / `^` as usual); moving the light is one
+  change to the label. Rhino Studio shows them on Toolheads › Board pins (pick a free pin, save, the old pin shows under
+  it). Routes: `POST /api/pins/label` (add, or change with "original"), `POST /api/preview/pins/label`,
+  `DELETE /api/pins/label/<alias>` (refused while something uses it), `POST /api/pins/label/use`.
+  - **Use a label** rewrites exactly one `key: pin` line in one of your files to the label (prefix and comment kept),
+    after copying the file to `rhino_data/config_backups` (newest 20 kept); it's read back the way Klipper will, and
+    put back if the section doesn't resolve to the same pin. Paths outside the config folder and the generated file
+    are refused.
+  - **System hardware can sit on a label** (Studio's Scan Config picks one): its section says `pin: <label>`, the label
+    lists it as a user, and moving the label moves the hardware. A labelled pin can't be taken by its raw name.
+  - Aliases in your own `[board_pins]` sections are listed read-only. Fixed: named `[board_pins <name>]` sections
+    (Klipper allows several) were not read at all, so their pins counted as unknown.
+  - Nothing restarts Klipper; every change waits in the restart banner as before. Tests: `dev/test_labels.py`.
 - **Slicing during a job needs 4 GB** (`PRINT_SLICE_MB` = 3000 MB): a 2 GB board waits for the job to end, as the
   Pi 3B did, and a slice running when a job starts is stopped. 4 GB and up slice alongside a job, niced and watched.
 

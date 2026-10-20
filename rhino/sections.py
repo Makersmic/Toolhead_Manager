@@ -26,7 +26,7 @@ def macro_section(name, purpose, body, guard_slot=None, guard_tool="", owner="")
 
 def pin_spec(c):
     """'^!PC1' - Klipper wants the pull-up mark before the invert mark."""
-    return ("^" if c.get("pullup") else "") + ("!" if c.get("invert") else "") + c["pin"]
+    return ("^" if c.get("pullup") else "") + ("!" if c.get("invert") else "") + (c.get("pin_label") or c["pin"])
 
 
 def control_section(tool_name, c, owner=None):

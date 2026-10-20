@@ -18,6 +18,10 @@
     POST /api/hardware              add or replace one piece of system hardware ("original" = its current name)
     POST /api/preview/hardware      validate one piece of system hardware, return the .cfg text (writes nothing)
     DELETE /api/hardware/<name>
+    POST /api/pins/label            add or change a pin label {"alias", "pin", "original"?} ([board_pins rhino])
+    POST /api/preview/pins/label    check one (writes nothing)
+    DELETE /api/pins/label/<alias>  remove an unused label
+    POST /api/pins/label/use        make one section's pin line use a label {"file", "section", "key", "alias"}
     POST /api/restart               FIRMWARE_RESTART via Moonraker (refused while a job runs)
     POST /api/restart/auto          {"on": true|false} restart by itself when the running job ends
 """
@@ -202,6 +206,31 @@ def hardware_save():
             current_app.config["MAINT"].asset_renamed(f"hw:{r['renamed_from']}", f"hw:{r['name']}")
         return r
     return _write(go, lambda r: f"system hardware {r['name']} saved")
+
+
+@bp.post("/api/pins/label")
+def label_save():
+    def change(r):
+        if r.get("previous") and r["previous"] != r["pin"]:
+            return f"pin label {r['alias']}: {r['previous']} -> {r['pin']}"
+        return f"pin label {r['alias']} = {r['pin']}"
+    return _write(lambda: _svc().label_save(security.json_body()), change)
+
+
+@bp.post("/api/preview/pins/label")
+def label_preview():
+    security.check_write()
+    return jsonify(_svc().label_save(security.json_body(), dry_run=True))
+
+
+@bp.delete("/api/pins/label/<alias>")
+def label_remove(alias):
+    return _write(lambda: _svc().label_remove(alias), lambda r: f"pin label {r['alias']} removed")
+
+
+@bp.post("/api/pins/label/use")
+def label_use():
+    return _write(lambda: _svc().label_use(security.json_body()), lambda r: f"[{r['section']}] uses pin label {r['alias']}")
 
 
 @bp.delete("/api/hardware/<name>")

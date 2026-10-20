@@ -146,8 +146,18 @@ def clean_control(ctx, tool_name, raw, objects, mine_objects, pins_here, hardwar
         raise Fail(f"{name}: choose what the control does")
     c = {"name": name, "role": role, "purpose": builders.text(raw.get("purpose"), f"{name} purpose", 80)}
 
+    label = None
     if hardware:
         pin = builders.board_pin_any(ctx, raw.get("pin"), f"{name} pin", exclude_hw=raw.get("original") or None)
+        # a pin label (or an alias of your own) keeps its name in the section: pin: ENCLOSURE_LIGHT (1.5.3)
+        bare = re.sub(r"^[!^~]+", "", str(raw.get("pin") or "").strip()).upper()
+        labels = ctx.reg.get("labels", {})
+        if not builders.PIN_RE.match(bare) and pin:
+            label = bare
+        else:
+            holder = sorted(a for a, q in labels.items() if q == pin)
+            if holder:
+                raise Fail(f"{name}: {pin} has the pin label {holder[0]} - choose {holder[0]} (Scan Config lists it)")
     else:
         pin = builders.board_pin(ctx, raw.get("pin"), f"{name} pin", exclude_tool=tool_name)
     if pin in pins_here:
@@ -162,6 +172,8 @@ def clean_control(ctx, tool_name, raw, objects, mine_objects, pins_here, hardwar
         warnings.append(f"{name}: make sure {pin} is a plain logic pin, not a MOSFET power output "
                         f"(describe it in myrhino/umbilical.json and the portal checks this for you).")
     c.update(pin=pin, invert=_flag(raw.get("invert")))
+    if label:
+        c["pin_label"] = label
 
     if role == "input":
         c["pullup"] = _flag(raw.get("pullup"))

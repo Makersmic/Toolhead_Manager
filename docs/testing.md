@@ -326,6 +326,13 @@ With LightSaber or HotJoe mounted:
 
 Record results in the portal's Work log or in an issue on GitHub, with the test ID (e.g. "E3 failed: bed rose 2 mm").
 
+## 1.5.3: pin labels
+
+Run Rhino Studio 0.6.2's checks **PL1-PL5** and **SC1** (rhino-studio `docs/testing.md`). On the host afterwards:
+`grep -A4 'board_pins rhino' ~/printer_data/config/myrhino/custom_tools.cfg` shows the labels, and
+`ls ~/printer_data/rhino_data/config_backups` has the copy made by Use a label. **Stop if** Klipper reports an alias error
+after a restart: send klippy.log's last lines.
+
 ## 1.5.3: the updater (install from Rhino Studio)
 
 - [ ] **U1 Set up by the install.** Install 1.5.3 by hand (rhino.sh option 3). Then over SSH:

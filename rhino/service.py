@@ -5,8 +5,11 @@ Klipper config, then saves JSON + generated .cfg together. If anything raises, n
 changed. Methods return plain dicts so they serialise straight to JSON for the portal.
 """
 import copy
+import os
+import re
+import shutil
 
-from . import builders, extras, lists, registry, sections, tooldocs
+from . import builders, extras, lists, pin_labels, registry, sections, tooldocs
 from .errors import Fail
 from .klipper_cfg import ConfigTree
 from .paths import Paths
@@ -35,9 +38,10 @@ class ToolService:
 
     # ---------------------------------------------------------------- context
     def _ctx(self, reg=None):
-        tree = ConfigTree(self.paths)
-        bmap, btools = tree.builtin_tools()
         reg = reg if reg is not None else registry.load(self.paths)
+        # the Rhino pin labels are in the generated file the tree skips: Klipper sees them, so the tree must too
+        tree = ConfigTree(self.paths, extra_aliases=reg.get("labels", {}))
+        bmap, btools = tree.builtin_tools()
         outs = dict(tree.output_pins)
         for n, o in registry.owned_outputs(reg).items():
             outs[n] = {"pwm": o["pwm"], "value": 0.0, "pin": "", "file": "myrhino/custom_tools.cfg"}
@@ -398,7 +402,104 @@ class ToolService:
                      "pin": o.get("pin", ""), "contact": builders.contact_of_pin(ctx, o.get("pin")), "hardware": bool(o.get("hardware"))}
                     for n, o in sorted(ctx.outs.items())]
         return {"pins": pins, "channels": channels, "contacts": contacts, "hardware": self.hardware_list(ctx),
-                "missing_includes": tree.missing_includes}
+                "missing_includes": tree.missing_includes, **pin_labels.report(ctx, tree),
+                "free_board_pins": self._label_choices(ctx, tree)}
+
+    # ---------------------------------------------------------------- pin labels (1.5.3)
+    def _label_choices(self, ctx, tree):
+        """Pins a label may point at: known board headers and connector pins nothing else has."""
+        held = registry.pins_in_use({**ctx.reg, "labels": {}})
+        on_umb = set(ctx.umbilical) | {c["pin"] for c in ctx.contacts if c["pin"]}
+        out = []
+        for p in list(BOARD_HEADERS) + [x for x in ctx.umbilical if x not in BOARD_HEADERS]:
+            if p in ctx.claimed or p in held:
+                continue
+            labelled = [a for a, q in ctx.reg.get("labels", {}).items() if q == p]
+            out.append({"pin": p, "header": BOARD_HEADERS.get(p, ""), "connector": p in on_umb, "labelled": labelled})
+        return out
+
+    def label_save(self, raw, dry_run=False):
+        """Add a pin label, or change one (raw["original"] = its current name)."""
+        reg = copy.deepcopy(registry.load(self.paths))
+        ctx, tree = self._ctx(reg)
+        alias = pin_labels.clean_alias(raw.get("alias"))
+        pin = pin_labels.clean_pin(raw.get("pin"))
+        original = (raw.get("original") or "").strip().upper() or None
+        if original and original not in reg["labels"]:
+            raise Fail(f"No pin label called {original}")
+        warnings = pin_labels.check_label(ctx, tree, alias, pin, original)
+        before = reg["labels"].get(original or alias)
+        if original:
+            del reg["labels"][original]
+        reg["labels"][alias] = pin
+        for hw in reg.get("hardware", {}).values():      # system hardware on this label follows it
+            if hw.get("pin_label") == (original or alias):
+                hw["pin"], hw["pin_label"] = pin, alias
+        if dry_run:
+            return {"ok": True, "alias": alias, "pin": pin, "warnings": warnings}
+        old_cfg = registry.render_cfg(registry.load(self.paths))
+        registry.save(self.paths, reg)
+        used = [u["where"] for u in pin_labels.uses_of(tree, original or alias, ctx.reg)]
+        return {"ok": True, "alias": alias, "pin": pin, "previous": before, "warnings": warnings, "used_by": used,
+                "restart_needed": registry.render_cfg(reg) != old_cfg}
+
+    def label_remove(self, alias):
+        reg = copy.deepcopy(registry.load(self.paths))
+        alias = str(alias or "").strip().upper()
+        if alias not in reg["labels"]:
+            raise Fail(f"No pin label called {alias}")
+        _, tree = self._ctx(reg)
+        users = pin_labels.uses_of(tree, alias, reg)
+        if users:
+            raise Fail(f"{alias} is used by {', '.join(u['where'] for u in users)} - change those to a pin first")
+        del reg["labels"][alias]
+        registry.save(self.paths, reg)
+        return {"ok": True, "alias": alias, "restart_needed": True}
+
+    def label_use(self, raw):
+        """Make one section's pin line use a label instead of the raw pin (one line in one of your files).
+        With raw["new_label"], the label is made first for the pin that line names."""
+        reg = copy.deepcopy(registry.load(self.paths))
+        ctx, tree = self._ctx(reg)
+        rel, section, key = str(raw.get("file") or ""), str(raw.get("section") or ""), str(raw.get("key") or "")
+        full = pin_labels.safe_rel(self.paths, rel)
+        line = next((u for u in tree.pin_uses if u["file"] == rel and u["section"] == section and u["key"] == key), None)
+        if not line:
+            raise Fail(f"No {key} line in {rel} [{section}]")
+        if line["alias"]:
+            raise Fail(f"[{section}] already uses the label {line['alias']}")
+        if not line["pin"]:
+            raise Fail(f"{line['value']} isn't a plain board pin")
+        alias = pin_labels.clean_alias(raw.get("alias"))
+        made = False
+        if alias not in reg["labels"] and alias not in tree.aliases:
+            # a new label for the pin this line already names: the line itself is its only user
+            if line["pin"] in registry.pins_in_use({**reg, "labels": {}}):
+                raise Fail(f"{line['pin']} is kept for something else")
+            reg["labels"][alias] = line["pin"]
+            made = True
+        target = reg["labels"].get(alias) or tree.aliases.get(alias)
+        if target != line["pin"]:
+            raise Fail(f"{alias} names {target}, but [{section}] uses {line['pin']}")
+        prefix = re.match(r"^[!^~]*", line["value"]).group(0)
+        with open(full, encoding="utf-8") as f:
+            text = f.read()
+        new_text = pin_labels.rewrite_pin_line(text, section, key, line["value"], prefix + alias)
+        backup = pin_labels.backup_file(self.paths, rel)
+        if made:
+            registry.save(self.paths, reg)
+        tmp = full + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            f.write(new_text)
+        os.replace(tmp, full)
+        # read it back the way Klipper will: the section must still claim the same pin
+        check = ConfigTree(self.paths, extra_aliases=reg["labels"])
+        again = next((u for u in check.pin_uses if u["file"] == rel and u["section"] == section and u["key"] == key), None)
+        if not again or again["pin"] != line["pin"] or again["alias"] != alias:
+            shutil.copy2(backup, full)
+            raise Fail(f"After the change [{section}] didn't read back as {alias} ({line['pin']}) - the file was put back")
+        return {"ok": True, "alias": alias, "pin": line["pin"], "file": rel, "section": section, "made_label": made,
+                "backup": os.path.relpath(backup, self.paths.state_dir), "restart_needed": True}
 
     def options(self):
         """Everything the add-tool wizard (and the hardware editor) needs to build its drop-downs."""
