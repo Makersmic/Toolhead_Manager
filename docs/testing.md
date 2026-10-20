@@ -232,6 +232,23 @@ Install `rhino-config-1.5.1.zip`. **Stop if** Mainsail stops opening - send the 
 - [ ] **S7 Undo.** Menu option 4, newest backup. *Pass:* port 5001 no longer answers (or shows the Studio from
   before); Mainsail still opens. Then install 1.5.1 again.
 
+Studio by name (new in 1.5.3). **Stop if** Mainsail stops opening at its usual address - send `sudo nginx -t` and
+`ls -l /etc/nginx/sites-enabled`.
+
+- [ ] **S8 Install.** The install's "Rhino Studio by name" step ends with `rhinostudio.local announced (<address>)`,
+  and the finish lists `http://rhinostudio.local`. On Ubuntu Server without avahi it prints the apt line instead:
+  run it, install again. *Pass:* `systemctl status rhino-studio-name` is *active (running)*; `avahi-resolve -4 -n
+  rhinostudio.local` prints the host's address.
+- [ ] **S9 Open it by name.** `http://rhinostudio.local` on the PC and on a phone (an iPhone or a Windows PC is the
+  sure test; some Android phones can't do `.local`). *Pass:* Studio opens, Connected, the mounted tool shows; Care
+  and Toolheads load. *Stop if* Studio opens but stays "Connecting" - send what the browser console says (Moonraker
+  refusing the origin: add `*.local` under `cors_domains` in moonraker.conf).
+- [ ] **S10 Mainsail is unchanged.** `http://<address>` (no port) and `http://<hostname>.local` still open Mainsail.
+- [ ] **S11 A change through the Portal by name.** From `rhinostudio.local`, change anything in Care (log a task).
+  *Pass:* it saves; no "Cross-site request refused".
+- [ ] **S12 Undo.** Menu option 4. *Pass:* `rhinostudio.local` no longer resolves (give it a minute) or no longer
+  opens Studio; Mainsail and `:5001` behave as before. Then install 1.5.3 again.
+
 ### P. PrusaSlicer on the Rhino (1.5.0; from Flathub since 1.5.2)
 
 Install `rhino-config-1.5.2.zip`, then use Rhino Studio. Keep `htop` open in an SSH window. **Stop if** Klipper reports

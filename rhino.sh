@@ -30,6 +30,8 @@ studio_state() {
   ip=$(hostname -I 2>/dev/null | awk '{print $1}')
   echo "${G}on${N}       http://${ip:-YOUR-PI}:${port:-?}"
 }
+# 1.5.3: the name Studio also answers to (rhinostudio.local), or nothing
+studio_name() { sed -n 's/^[[:space:]]*server_name[[:space:]]\+\([^;[:space:]]*\).*/\1/p' /etc/nginx/sites-enabled/rhino-studio-name 2>/dev/null | head -n1; }
 is_package() { [ -f "$HERE/install.sh" ] && [ -d "$HERE/rhino" ]; }
 
 header() {
@@ -41,6 +43,7 @@ header() {
   is_package && row "This folder has   : $(src_version)   ($HERE)"
   row "Portal            : $(portal_state)"
   row "Rhino Studio      : $(studio_state)"
+  local sn; sn=$(studio_name); [ -n "$sn" ] && row "                    ${G}by name${N}  http://$sn"
   line '|' '-' '|'
 }
 

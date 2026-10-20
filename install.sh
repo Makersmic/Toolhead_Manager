@@ -43,6 +43,10 @@ NGX="${RHINO_NGINX_DIR:-/etc/nginx}"
 NGINX_BIN="${RHINO_NGINX_BIN:-/usr/sbin/nginx}"
 STUDIO_DIR="${RHINO_STUDIO_DIR:-$HOME/rhino-studio}"
 STUDIO_PORT="${RHINO_STUDIO_PORT:-5001}"
+# Studio by name (1.5.3): http://rhinostudio.local on port 80. Only dev/test_install.py changes these.
+STUDIO_NAME="${RHINO_STUDIO_NAME:-rhinostudio}"
+NAME_PORT="${RHINO_STUDIO_NAME_PORT:-80}"
+AVAHI_SOCK="${RHINO_AVAHI_SOCKET:-/run/avahi-daemon/socket}"   # there while avahi-daemon runs
 # The updater (1.5.3): the Portal drops zips here; only dev/test_install.py changes these.
 UPD="$(dirname "$CFG")/rhino_data/update"
 UNITS="${RHINO_UNIT_DIR:-/etc/systemd/system}"
@@ -124,6 +128,11 @@ fi
 for c in rsync unzip; do
   command -v $c >/dev/null || { note "$c is missing - it will be installed"; NEED_APT="${NEED_APT:-} $c"; }
 done
+# avahi's command-line tools announce rhinostudio.local (1.5.3). Only the tools: avahi-daemon itself is never
+# installed by this script (it changes what the host announces on the network), see the Studio-by-name step.
+if [ -e "$AVAHI_SOCK" ] && ! command -v avahi-publish >/dev/null; then
+  note "avahi-utils is missing - it will be installed (announces $STUDIO_NAME.local)"; NEED_APT="${NEED_APT:-} avahi-utils"
+fi
 
 # ------------------------------------------------------------------ sudo once, up front
 if [ $DRY = 0 ] && [ $UNATTENDED = 0 ]; then
@@ -321,7 +330,7 @@ else
   # the site: the old one is kept in the backup too
   [ -f "$SITE" ] && do_ cp "$SITE" "$BACKUP/_rhino_install/old-rhino-studio.nginx"
   tmp="$(mktemp)"
-  sed "s#@PORT@#$STUDIO_PORT#g; s#@ROOT@#$STUDIO_DIR#g; s#@MOONRAKER@#$mport#g" "$SRC/service/rhino-studio.nginx" > "$tmp"
+  sed "s#@PORT@#$STUDIO_PORT#g; s#@NAME@#_#g; s#@ROOT@#$STUDIO_DIR#g; s#@MOONRAKER@#$mport#g" "$SRC/service/rhino-studio.nginx" > "$tmp"
   do_ sudo install -m 644 "$tmp" "$SITE"
   do_ sudo ln -sfn "$SITE" "$NGX/sites-enabled/rhino-studio"
   rm -f "$tmp"
@@ -352,6 +361,100 @@ else
   fi
 fi
 
+# ------------------------------------------------------------------ Studio by name (1.5.3)
+# http://rhinostudio.local with no port: a second copy of the Studio site on port 80 that answers only that name
+# (never default_server, so Mainsail keeps every other name and the bare address), and a small service that asks
+# avahi to announce the name. Same rules as the site above: nginx is only reloaded after "nginx -t", nothing here
+# stops the install, and if the page the bare address shows (Mainsail) changes, the name site is taken out again.
+say "Rhino Studio by name (http://$STUDIO_NAME.local)"
+NSITE="$NGX/sites-available/rhino-studio-name"; NLINK="$NGX/sites-enabled/rhino-studio-name"
+NUNIT="$UNITS/rhino-studio-name.service"
+name_url=""
+name_skip() { note "$1"; [ -n "$studio_url" ] && note "Studio still opens at the host's address with :$STUDIO_PORT."; return 0; }
+# a page on port $NAME_PORT, as a browser asking for the given name sees it (a fingerprint, or nothing)
+page80() { py "import hashlib,urllib.request as u;r=u.Request('http://127.0.0.1:$NAME_PORT/',headers={'Host':'$1'});print(hashlib.sha256(u.urlopen(r,timeout=3).read()).hexdigest())"; }
+nginx80() { grep -REqs "^[[:space:]]*listen[[:space:]]+([^;[:space:]]*:)?$NAME_PORT([[:space:];]|$)" "$NGX/sites-enabled/" "$NGX/conf.d/"; }
+name_site_out() {
+  sudo rm -f "$NLINK" "$NSITE"
+  [ -f "$BACKUP/_rhino_install/old-rhino-studio-name.nginx" ] && sudo install -m 644 "$BACKUP/_rhino_install/old-rhino-studio-name.nginx" "$NSITE" \
+    && sudo ln -sfn "$NSITE" "$NLINK"
+  return 0
+}
+if ! printf '%s' "$STUDIO_NAME" | grep -Eq '^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$'; then
+  name_skip "RHINO_STUDIO_NAME must be letters, digits and dashes"
+elif [ $DRY = 0 ] && [ -z "$studio_url" ]; then
+  name_skip "skipped: Studio isn't served by nginx on this host (see the step above)"
+else
+  # 1. the nginx site
+  if py "import socket;s=socket.socket();s.settimeout(1);s.connect(('127.0.0.1',$NAME_PORT))" && ! nginx80; then
+    name_skip "port $NAME_PORT is used by something other than nginx (see it with:  sudo ss -ltnp | grep :$NAME_PORT)"
+  else
+    mport="${mport:-7125}"
+    before="$(page80 127.0.0.1)"
+    [ -f "$NSITE" ] && do_ cp "$NSITE" "$BACKUP/_rhino_install/old-rhino-studio-name.nginx"
+    tmp="$(mktemp)"
+    sed "s#@PORT@#$NAME_PORT#g; s#@NAME@#$STUDIO_NAME.local#g; s#@ROOT@#$STUDIO_DIR#g; s#@MOONRAKER@#$mport#g; s#rhino-studio-error.log#rhino-studio-name-error.log#g" \
+      "$SRC/service/rhino-studio.nginx" > "$tmp"
+    do_ sudo install -m 644 "$tmp" "$NSITE"
+    do_ sudo ln -sfn "$NSITE" "$NLINK"
+    rm -f "$tmp"
+    if [ $DRY = 1 ]; then
+      printf '   would run: sudo %s -t   (and only then reload nginx, then check Mainsail still answers the bare address)\n' "$NGINX_BIN"
+    elif sudo "$NGINX_BIN" -t >/dev/null 2>&1; then
+      sudo systemctl reload nginx
+      sleep 1
+      after="$(page80 127.0.0.1)"
+      if [ -n "$before" ] && [ "$after" != "$before" ]; then
+        name_site_out
+        sudo "$NGINX_BIN" -t >/dev/null 2>&1 && sudo systemctl reload nginx
+        name_skip "the page at the host's bare address changed with the name site in, so it was taken out again (Mainsail is unchanged)"
+      else
+        [ -z "$before" ] && note "nothing answered on port $NAME_PORT before - Studio now answers there for its name only"
+        if py "import urllib.request as u;assert b'Rhino Studio' in u.urlopen(u.Request('http://127.0.0.1:$NAME_PORT/',headers={'Host':'$STUDIO_NAME.local'}),timeout=3).read()"; then
+          ok "nginx serves Studio for $STUDIO_NAME.local on port $NAME_PORT; the bare address is unchanged"
+        else
+          note "nginx took the name site, but Studio didn't answer for $STUDIO_NAME.local yet."
+          note "Check with:  curl -s -H 'Host: $STUDIO_NAME.local' http://127.0.0.1:$NAME_PORT/ | head -n 5"
+        fi
+        name_url=1
+      fi
+    else
+      why=$(sudo "$NGINX_BIN" -t 2>&1 | tail -n 3)
+      name_site_out
+      name_skip "nginx did not accept the name site, so it was taken out again (Mainsail is unchanged):"
+      printf '%s\n' "$why" | sed 's/^/        /'
+    fi
+  fi
+  # 2. the name on the network
+  if [ $DRY = 0 ] && [ -z "$name_url" ]; then
+    :
+  elif [ "$(hostname 2>/dev/null)" = "$STUDIO_NAME" ]; then
+    ok "this host is already called $STUDIO_NAME, so $STUDIO_NAME.local is its own name - nothing to announce"
+  elif ! command -v avahi-publish >/dev/null || [ ! -e "$AVAHI_SOCK" ]; then
+    name_url=""
+    note "no avahi on this host, so nothing announces $STUDIO_NAME.local yet. Once, over SSH:"
+    note "  sudo apt install avahi-daemon avahi-utils      then run this install again"
+  else
+    [ -f "$NUNIT" ] && do_ cp "$NUNIT" "$BACKUP/_rhino_install/old-rhino-studio-name.service"
+    tmp="$(mktemp)"
+    sed "s#@USER@#$USER#g; s#@SCRIPT@#$CFG/scripts/rhino_studio_name.sh#g; s#@NAME@#$STUDIO_NAME#g" "$SRC/service/rhino-studio-name.service" > "$tmp"
+    do_ sudo install -m 644 "$tmp" "$NUNIT"
+    rm -f "$tmp"
+    do_ sudo systemctl daemon-reload
+    do_ sudo systemctl enable rhino-studio-name
+    do_ sudo systemctl restart rhino-studio-name
+    if [ $DRY = 0 ]; then
+      found=""
+      for i in 1 2 3 4 5; do
+        sleep 1
+        command -v avahi-resolve >/dev/null && found=$(avahi-resolve -4 -n "$STUDIO_NAME.local" 2>/dev/null | awk '{print $2}') && [ -n "$found" ] && break
+      done
+      if [ -n "$found" ]; then ok "$STUDIO_NAME.local announced ($found)"
+      else note "the name service is running, but $STUDIO_NAME.local didn't resolve here yet. See:  journalctl -u rhino-studio-name -n 20"; fi
+    fi
+  fi
+fi
+
 # ------------------------------------------------------------------ done
 ip=$(hostname -I 2>/dev/null | awk '{print $1}')
 url="http://${ip:-YOUR-PI-ADDRESS}:5000"
@@ -362,6 +465,7 @@ cat <<EOF
 
 Portal:  $url
 ${studio_url:+Studio:  $studio_url   (on a phone or tablet too)
+}${name_url:+         http://$STUDIO_NAME.local   (the same Studio by name; some Android phones do not resolve .local names: use the address above on those)
 }Backup:  $BACKUP   (undo: menu option 4, or  bash $SRC/uninstall.sh)
 
 Next, in Mainsail:

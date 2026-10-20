@@ -1,0 +1,17 @@
+# Rhino Tool Manager 1.5.3: announces @NAME@.local for Rhino Studio. install.sh fills in the @...@ values
+# and installs this as /etc/systemd/system/rhino-studio-name.service. Runs as your login, not root.
+[Unit]
+Description=Rhino Studio at @NAME@.local (mDNS name through avahi)
+After=avahi-daemon.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=@USER@
+ExecStart=/bin/bash @SCRIPT@ @NAME@
+Restart=always
+RestartSec=10
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=multi-user.target

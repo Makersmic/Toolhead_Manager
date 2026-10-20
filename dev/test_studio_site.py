@@ -92,11 +92,24 @@ open(os.path.join(WWW, "kiri", "wasm", "slicer.wasm"), "wb").write(b"\0asm\1\0\0
 
 MOON = free_port()
 PORT = free_port()
+PORT80 = free_port()   # stands in for port 80, shared with "Mainsail"
 servers = [upstream("moonraker", MOON), upstream("portal", 5000), upstream("webcam", 8080)]
 site = open(os.path.join(REPO, "service", "rhino-studio.nginx")).read()
-site = site.replace("@PORT@", str(PORT)).replace("@ROOT@", WWW).replace("@MOONRAKER@", str(MOON))
+tpl = site
+site = tpl.replace("@PORT@", str(PORT)).replace("@NAME@", "_").replace("@ROOT@", WWW).replace("@MOONRAKER@", str(MOON))
 site = site.replace("/var/log/nginx/rhino-studio-error.log", os.path.join(ROOT, "error.log"))
 open(os.path.join(ROOT, "rhino-studio.conf"), "w").write(site)
+# 1.5.3, filled in as install.sh does it: port 80's stand-in, only for rhinostudio.local
+named = tpl.replace("@PORT@", str(PORT80)).replace("@NAME@", "rhinostudio.local").replace("@ROOT@", WWW).replace("@MOONRAKER@", str(MOON))
+named = named.replace("/var/log/nginx/rhino-studio-error.log", os.path.join(ROOT, "error.log"))
+directives = "\n".join(l.split("#", 1)[0] for l in named.splitlines())
+ok("default_server" not in directives and "@" not in named.split("server {", 1)[1], "the name site never claims default_server")
+# Mainsail's site as KIAUH / MainsailOS write it: default_server on port 80
+os.makedirs(os.path.join(ROOT, "mainsail"))
+open(os.path.join(ROOT, "mainsail", "index.html"), "w").write("<!doctype html><title>Mainsail</title>")
+mainsail = f"server {{ listen {PORT80} default_server; root {ROOT}/mainsail; index index.html; server_name _; }}\n"
+# sites-enabled is read in name order: "mainsail" before "rhino-studio-name"
+open(os.path.join(ROOT, "rhino-studio.conf"), "a").write("\n" + mainsail + named)
 mime = "/etc/nginx/mime.types"
 conf = f"""{"user root;" if os.geteuid() == 0 else ""}
 worker_processes 1;
@@ -185,6 +198,29 @@ try:
 
     st, h, b = req("GET", "/webcam/?action=snapshot")
     ok(st == 200 and SEEN.get("webcam", {}).get("path") == "/?action=snapshot", "/webcam/ goes to crowsnest's first camera (port 8080), prefix removed")
+
+    # 1.5.3: by name on the shared port
+    def req80(path, name, method="GET", body=None, headers=None):
+        c = http.client.HTTPConnection("127.0.0.1", PORT80, timeout=30)
+        c.request(method, path, body=body, headers={"Host": name, **(headers or {})})
+        r = c.getresponse()
+        data = r.read()
+        c.close()
+        return r.status, data
+    st, b = req80("/", "rhinostudio.local")
+    ok(st == 200 and b"Rhino Studio" in b, "http://rhinostudio.local gets Studio")
+    for other in ("127.0.0.1", "192.168.1.50", "mainsailos.local", "rhino.local", "anything.example"):
+        st, b = req80("/", other)
+        ok(st == 200 and b"Mainsail" in b, f"...{other} still gets Mainsail (its default_server is untouched)")
+    st, b = req80("/server/info", "rhinostudio.local")
+    s = SEEN["moonraker"]
+    ok(s["path"] == "/server/info" and s["headers"].get("host") == "rhinostudio.local", "by name, Moonraker gets the name as Host (its same-origin check passes)")
+    req80("/websocket", "rhinostudio.local", headers={"Upgrade": "websocket", "Connection": "Upgrade", "Origin": "http://rhinostudio.local"})
+    ok(SEEN["moonraker"]["path"] == "/websocket" and SEEN["moonraker"]["headers"].get("upgrade") == "websocket", "by name, the websocket reaches Moonraker")
+    req80("/portal/api/tools/x", "rhinostudio.local", method="POST", body=b"{}", headers={"Origin": "http://rhinostudio.local", "Content-Type": "application/json"})
+    s = SEEN["portal"]
+    ok(s["headers"].get("host") == "rhinostudio.local" and urlparse(s["headers"].get("origin", "")).netloc == "rhinostudio.local",
+       "by name, the Portal sees Origin and Host agree (rhinostudio.local), so Studio's changes go through")
 finally:
     proc.terminate()
     try:

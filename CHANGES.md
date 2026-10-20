@@ -1,6 +1,6 @@
 # What changed
 
-## 1.5.3 - 2 GB boards, updates from Studio
+## 1.5.3 - 2 GB boards, updates from Studio, rhinostudio.local
 
 - **2 GB boards are offered PrusaSlicer.** A "2 GB" board reports about 1850-1950 MB to Linux, so 1.5.2's 2048 MB
   line refused them. The line is now 1800 MB (`SMALL_HOST_MB`); a Pi 3B (~906 MB) is still not offered it.
@@ -10,8 +10,30 @@
   have it, installs with `install.sh --unattended` (backup first, as always), records the version and sends
   FIRMWARE_RESTART. The Portal never gets sudo (its service keeps `NoNewPrivileges`). The zip installed and the one
   before are kept, so Studio offers **Go back**. Set up by this install, so 1.5.3 itself goes in once by hand.
+- **Open Studio at `http://rhinostudio.local`**, no port to remember (`:5001` keeps working). Two pieces, both put in
+  by the install and both taken out by Undo:
+  - a second copy of Studio's nginx site on port 80 that answers **only** that name
+    (`/etc/nginx/sites-available/rhino-studio-name`). It never claims `default_server`, so Mainsail keeps the bare
+    address and every other name. As in 1.5.1, nginx is only reloaded after `nginx -t`; on top of that the install
+    compares the page the host's bare address shows before and after, and takes the name site out again if it
+    changed. Port 80 held by something other than nginx: skipped with a note.
+  - `rhino-studio-name.service` (runs as your login, not root) asks avahi to announce `rhinostudio.local` for the
+    host's address, and follows the address if DHCP changes it. The host's own name (`rhino.local`, `mainsailos.local`)
+    is untouched. A host already named `rhinostudio` needs no service. No avahi-daemon (Ubuntu Server out of the
+    box): the install says the one line to run (`sudo apt install avahi-daemon avahi-utils`); it never installs the
+    daemon itself. If avahi-daemon runs but its tools are missing, `avahi-utils` is installed with the other helpers.
+  - The Portal needed no change: nginx passes the browser's Host, so its cross-site check sees `rhinostudio.local` on
+    both sides. Moonraker's own same-origin check passes the same way.
+  - Some Android phones don't resolve `.local` names; use the address with `:5001` there.
 - **Slicing during a job needs 4 GB** (`PRINT_SLICE_MB` = 3000 MB): a 2 GB board waits for the job to end, as the
   Pi 3B did, and a slice running when a job starts is stopped. 4 GB and up slice alongside a job, niced and watched.
+
+Tests: `dev/test_studio_site.py` runs the name site in real nginx next to a Mainsail stand-in holding
+`default_server` (only `rhinostudio.local` reaches Studio; the bare address and other names still get Mainsail; the
+Portal and Moonraker see the name as Host). `dev/test_install.py`: the name site and service filled in, port 80 held
+by something else, the bare address's page changing (site taken out), no avahi, host already named, bad name, undo.
+Fixed on the way: looking for nginx on port 80 now follows `sites-enabled` links (`grep -R`). Check on the machine:
+**S8-S12** and **U1-U6** (`docs/testing.md`).
 
 ## 1.5.2 - PrusaSlicer comes from Flathub
 

@@ -12,6 +12,7 @@ CFG="${RHINO_CONFIG_DIR:-$HOME/printer_data/config}"
 SERVICE="${RHINO_SERVICE_FILE:-/etc/systemd/system/rhino-portal.service}"   # only dev/test_install.py sets this
 NGX="${RHINO_NGINX_DIR:-/etc/nginx}"; NGINX_BIN="${RHINO_NGINX_BIN:-/usr/sbin/nginx}"
 STUDIO_DIR="${RHINO_STUDIO_DIR:-$HOME/rhino-studio}"
+UNITS="${RHINO_UNIT_DIR:-/etc/systemd/system}"
 DRY=0; B=""
 for a in "$@"; do [ "$a" = "--dry-run" ] && DRY=1 || B="$a"; done
 [ -z "$B" ] && [ -f "$HOME/.rhino-last-backup" ] && B="$(cat "$HOME/.rhino-last-backup")"
@@ -58,6 +59,32 @@ if [ -f "$B/_rhino_install/old-rhino-studio.nginx" ] || [ -e "$SITE" ] || [ -d "
     if sudo "$NGINX_BIN" -t >/dev/null 2>&1; then sudo systemctl reload nginx
     else echo "nginx -t found a problem - not reloading nginx. See:  sudo nginx -t"; fi
   fi
+fi
+# 1.5.3+: Studio by name (rhinostudio.local) - its nginx site and its name service, as they were before that install
+NSITE="$NGX/sites-available/rhino-studio-name"; NUNIT="$UNITS/rhino-studio-name.service"
+if [ -f "$B/_rhino_install/old-rhino-studio-name.nginx" ] || [ -e "$NSITE" ]; then
+  echo "Putting Rhino Studio's name site back as it was"
+  if [ -f "$B/_rhino_install/old-rhino-studio-name.nginx" ]; then
+    do_ sudo install -m 644 "$B/_rhino_install/old-rhino-studio-name.nginx" "$NSITE"
+    do_ sudo ln -sfn "$NSITE" "$NGX/sites-enabled/rhino-studio-name"
+  else
+    do_ sudo rm -f "$NGX/sites-enabled/rhino-studio-name" "$NSITE"
+  fi
+  if [ $DRY = 1 ]; then echo "   would run: sudo $NGINX_BIN -t, then reload nginx"
+  elif [ -x "$NGINX_BIN" ]; then
+    if sudo "$NGINX_BIN" -t >/dev/null 2>&1; then sudo systemctl reload nginx
+    else echo "nginx -t found a problem - not reloading nginx. See:  sudo nginx -t"; fi
+  fi
+fi
+if [ -f "$B/_rhino_install/old-rhino-studio-name.service" ]; then
+  do_ sudo install -m 644 "$B/_rhino_install/old-rhino-studio-name.service" "$NUNIT"
+  do_ sudo systemctl daemon-reload
+  do_ sudo systemctl restart rhino-studio-name
+elif [ -f "$NUNIT" ]; then
+  echo "Taking away the rhinostudio.local name"
+  do_ sudo systemctl disable --now rhino-studio-name
+  do_ sudo rm -f "$NUNIT"
+  do_ sudo systemctl daemon-reload
 fi
 echo
 [ $DRY = 1 ] && echo "Dry run finished - nothing was changed." || echo "Restored. In Mainsail run FIRMWARE_RESTART."

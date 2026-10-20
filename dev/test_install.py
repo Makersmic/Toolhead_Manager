@@ -79,7 +79,10 @@ STUBS = {
     # nginx: only "nginx -t" is used; NGINX_T_FAIL=1 makes it refuse the config
     "nginx": 'echo "nginx $*" >> "$CALLS"; [ "${NGINX_T_FAIL:-0}" = 1 ] && { echo "nginx: [emerg] unknown directive (fake)" >&2; exit 1; }; exit 0',
     "apt-get": 'echo "apt-get $*" >> "$CALLS"; exit 0',
-    "hostname": 'echo 127.0.0.1',
+    "hostname": '[ "${1:-}" = "-I" ] && { echo 127.0.0.1; exit 0; }; echo "${FAKE_HOSTNAME:-127.0.0.1}"',
+    # avahi (1.5.3): the name service is only installed, never run here; avahi-resolve answers for it
+    "avahi-publish": 'echo "avahi-publish $*" >> "$CALLS"; exit 0',
+    "avahi-resolve": 'echo "rhinostudio.local	127.0.0.1"',
     "journalctl": 'echo "(fake journal)"',
     "clear": 'exit 0',
     # systemctl: is-active / stop / disable --now / enable --now / restart / daemon-reload, using the installed
@@ -97,6 +100,7 @@ start_() {
   for _ in 1 2 3 4 5 6 7 8 9 10; do sleep 0.3; alive || break; python3 -c "import socket;s=socket.socket();exit(s.connect_ex(('127.0.0.1',5000)))" && break; done
 }
 case "$*" in
+  *rhino-studio-name*) exit 0 ;;
   *is-active*) alive ;;
   *disable*) stop_ ;;
   stop*) stop_ ;;
@@ -120,6 +124,16 @@ LINK = os.path.join(NGX, "sites-enabled", "rhino-studio")
 with socket.socket() as s_:
     s_.bind(("127.0.0.1", 0))
     STUDIO_PORT = s_.getsockname()[1]
+with socket.socket() as s_:
+    s_.bind(("127.0.0.1", 0))
+    NAME_PORT = s_.getsockname()[1]   # stands in for port 80 (1.5.3)
+NSITE = os.path.join(NGX, "sites-available", "rhino-studio-name")
+NLINK = os.path.join(NGX, "sites-enabled", "rhino-studio-name")
+UNITS0 = os.path.join(ROOT, "units-default")
+os.makedirs(UNITS0)
+NUNIT = os.path.join(UNITS0, "rhino-studio-name.service")
+AVAHI_SOCK = os.path.join(ROOT, "avahi-socket")   # avahi-daemon "running"
+open(AVAHI_SOCK, "w").close()
 
 
 def env(**extra):
@@ -127,7 +141,7 @@ def env(**extra):
          "RHINO_SERVICE_FILE": SERVICE, "RHINO_MOONRAKER": f"http://127.0.0.1:{moon.server_port}",
          "PORTAL_LOG": os.path.join(ROOT, "portal.log"), "TERM": "dumb", "LANG": "C.UTF-8",
          "RHINO_NGINX_DIR": NGX, "RHINO_NGINX_BIN": os.path.join(BIN, "nginx"), "RHINO_STUDIO_DIR": STUDIO,
-         "RHINO_STUDIO_PORT": str(STUDIO_PORT)}
+         "RHINO_STUDIO_PORT": str(STUDIO_PORT), "RHINO_STUDIO_NAME_PORT": str(NAME_PORT), "RHINO_UNIT_DIR": UNITS0, "RHINO_AVAHI_SOCKET": AVAHI_SOCK}
     e.update(extra)
     return e
 
@@ -256,6 +270,19 @@ try:
     ok(calls.index(f"nginx -t") < calls.index("systemctl reload nginx") and "Studio:  http://127.0.0.1:" in out,
        "nginx -t passes before nginx is reloaded; the finish names Studio's address")
     ok("nginx -t" in calls and "systemctl restart nginx" not in calls, "...a reload, never a restart (Mainsail stays up)")
+    # Studio by name (1.5.3): nothing on "port 80" here, so the site goes in without a Mainsail page to compare
+    nsite = open(NSITE).read() if os.path.exists(NSITE) else ""
+    nd = "\n".join(l.split("#", 1)[0] for l in nsite.splitlines())
+    ok(f"listen {NAME_PORT};" in nd and "server_name rhinostudio.local;" in nd and "default_server" not in nd and f"root {STUDIO};" in nd
+       and "rhino-studio-name-error.log" in nd and "@" not in nsite.split("server {", 1)[1] and os.path.islink(NLINK),
+       "name site: port 80, only rhinostudio.local, never default_server, Studio's folder, its own log; enabled")
+    unit = open(NUNIT).read() if os.path.exists(NUNIT) else ""
+    ok("User=tester" in unit and f"/bin/bash {CFG}/scripts/rhino_studio_name.sh rhinostudio" in unit and "@" not in unit.split("[Unit]", 1)[1],
+       "name service filled in: runs as this login, the script from the config folder, the name")
+    ok("systemctl enable rhino-studio-name" in calls and "rhinostudio.local announced (127.0.0.1)" in out and "http://rhinostudio.local" in out,
+       "...enabled; the install checks the name resolves and the finish names http://rhinostudio.local")
+    lines = calls.splitlines()
+    ok(lines.count("systemctl reload nginx") == 2 and lines.count("nginx -t") == 2, "the name site has its own nginx -t before its reload")
     open(os.path.join(STUDIO, "from-first-install"), "w").write("1")
 
     # ============================================================ update over the top
@@ -299,6 +326,8 @@ try:
        "...Studio's nginx site and folder are gone again (there was none before)")
     ok(any(os.path.isdir(os.path.join(HOME, x, "rhino-studio")) for x in os.listdir(HOME) if x.startswith("rhino-undone-")),
        "...the Studio folder is kept aside too")
+    ok(not os.path.exists(NSITE) and not os.path.lexists(NLINK) and not os.path.exists(NUNIT) and "systemctl disable --now rhino-studio-name" in open(LOG).read(),
+       "...and rhinostudio.local goes too: name site and name service removed")
 
     # ============================================================ the menu: option 3 (new zip), then option 4 back
     print("== menu: install a new zip ==")
@@ -340,6 +369,76 @@ try:
     rc, out = run(f"{PKG}/install.sh")
     ok(rc == 0 and "this zip has no Studio in it" in out and not os.path.exists(STUDIO), "a zip without Studio: skipped, install finishes")
     run(f"{PKG}/uninstall.sh")
+
+    # ============================================================ Studio by name (1.5.3)
+    print("== Studio by name: Mainsail on port 80, its page changes, port 80 not nginx, no avahi, host already named ==")
+    import http.server
+    import threading
+    mode = {"bad": False}
+
+    class Fake80(http.server.BaseHTTPRequestHandler):
+        """Mainsail on "port 80". In bad mode its page changes once the name site is in (what the install must catch)."""
+        def log_message(self, *a):
+            pass
+
+        def do_GET(self):
+            if self.headers.get("Host") == "rhinostudio.local" and os.path.lexists(NLINK):
+                b = b"<title>Rhino Studio</title>"
+            elif mode["bad"] and os.path.lexists(NLINK):
+                b = b"<title>Rhino Studio</title> took the bare address"
+            else:
+                b = b"<title>Mainsail</title>"
+            self.send_response(200)
+            self.send_header("Content-Length", str(len(b)))
+            self.end_headers()
+            self.wfile.write(b)
+    os.makedirs(os.path.join(PKG, "studio"), exist_ok=True)   # the test above took Studio out of the zip
+    open(os.path.join(PKG, "studio", "index.html"), "w").write("<!doctype html><title>Rhino Studio</title>")
+    srv80 = http.server.ThreadingHTTPServer(("127.0.0.1", NAME_PORT), Fake80)
+    threading.Thread(target=srv80.serve_forever, daemon=True).start()
+    try:
+        # port 80 answers but no nginx site listens there: something else owns it
+        rc, out = run(f"{PKG}/install.sh")
+        ok(rc == 0 and "Install finished." in out and f"port {NAME_PORT} is used by something other than nginx" in out and not os.path.exists(NSITE),
+           "port 80 taken by something that isn't nginx: name skipped with how to find it, install finishes")
+        run(f"{PKG}/uninstall.sh")
+        # Mainsail's site, as KIAUH / MainsailOS write it
+        ms = os.path.join(NGX, "sites-available", "mainsail")
+        open(ms, "w").write(f"server {{\n    listen {NAME_PORT} default_server;\n    root /home/tester/mainsail;\n}}\n")
+        os.symlink(ms, os.path.join(NGX, "sites-enabled", "mainsail"))
+        rc, out = run(f"{PKG}/install.sh")
+        ok(rc == 0 and "serves Studio for rhinostudio.local" in out and "the bare address is unchanged" in out and os.path.lexists(NLINK),
+           "next to Mainsail on port 80: the name site goes in, Studio answers its name, Mainsail still answers the bare address")
+        ok(open(ms).read().count("default_server") == 1, "...Mainsail's site is not touched")
+        run(f"{PKG}/uninstall.sh")
+        mode["bad"] = True
+        open(LOG, "w").close()
+        rc, out = run(f"{PKG}/install.sh")
+        ok(rc == 0 and "Install finished." in out and "bare address changed with the name site in, so it was taken out again" in out
+           and not os.path.exists(NSITE) and not os.path.lexists(NLINK), "the bare address's page changes: the name site is taken out again, install finishes")
+        ok(open(LOG).read().splitlines().count("systemctl reload nginx") == 3 and not os.path.exists(NUNIT) and "http://rhinostudio.local" not in out.split("Install finished.")[1],
+           "...nginx reloaded without it, no name service, the finish doesn't offer the name")
+        run(f"{PKG}/uninstall.sh")
+        mode["bad"] = False
+        # no avahi on the host (Ubuntu Server out of the box)
+        rc, out = run(f"{PKG}/install.sh", RHINO_AVAHI_SOCKET=os.path.join(ROOT, "no-avahi"))
+        ok(rc == 0 and "sudo apt install avahi-daemon avahi-utils" in out and not os.path.exists(NUNIT) and os.path.lexists(NLINK)
+           and "apt-get install -y avahi" not in open(LOG).read(), "no avahi-daemon: the install says the one apt line to run and never installs the daemon itself")
+        run(f"{PKG}/uninstall.sh")
+        # the host is already called rhinostudio
+        rc, out = run(f"{PKG}/install.sh", FAKE_HOSTNAME="rhinostudio")
+        ok(rc == 0 and "already called rhinostudio" in out and not os.path.exists(NUNIT) and os.path.lexists(NLINK),
+           "host already named rhinostudio: the name site goes in, no name service (avahi announces its own name)")
+        run(f"{PKG}/uninstall.sh")
+        # a bad name
+        rc, out = run(f"{PKG}/install.sh", RHINO_STUDIO_NAME="Rhino Studio!")
+        ok(rc == 0 and "must be letters, digits and dashes" in out and not os.path.exists(NSITE), "a bad RHINO_STUDIO_NAME is refused, install finishes")
+        run(f"{PKG}/uninstall.sh")
+        os.remove(os.path.join(NGX, "sites-enabled", "mainsail"))
+        os.remove(ms)
+    finally:
+        srv80.shutdown()
+        srv80.server_close()
 
     # ============================================================ the updater (1.5.3)
     print("== updater: set up by the install ==")

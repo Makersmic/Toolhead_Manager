@@ -1,6 +1,9 @@
 # Rhino Studio, served by the Pi's nginx (Rhino Tool Manager 1.5.1+).
-# install.sh fills in the @...@ values and installs this as /etc/nginx/sites-available/rhino-studio.
-# It is a server of its own on its own port: Mainsail's site is not touched.
+# install.sh fills in the @...@ values and installs this twice (1.5.3):
+#   /etc/nginx/sites-available/rhino-studio        port 5001, any name (server_name _)
+#   /etc/nginx/sites-available/rhino-studio-name   port 80, only for rhinostudio.local (never default_server,
+#                                                  so Mainsail keeps answering every other name and the bare address)
+# Mainsail's own site is not touched.
 #
 #   /               Studio's files (@ROOT@)
 #   /websocket, /printer/ /server/ /machine/ /access/ /api/    Moonraker (port @MOONRAKER@), as Mainsail does it
@@ -11,7 +14,7 @@ server {
 
     root @ROOT@;
     index index.html;
-    server_name _;
+    server_name @NAME@;
     access_log off;
     error_log /var/log/nginx/rhino-studio-error.log;
 
