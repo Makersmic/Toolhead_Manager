@@ -1,5 +1,18 @@
 # What changed
 
+## 1.5.6 - Packages that vanished from Debian (bullseye after its end of life)
+
+- Debian 11 "bullseye" left long-term support on 31 August 2026. A Pi's package lists can still name a version that
+  security.debian.org no longer serves (avahi-utils 0.8-5+deb11u3: "404 Not Found"), and avahi's packages must all be
+  the same version, so neither `apt update` nor an older avahi-utils helps.
+- **The install now fetches such a package from snapshot.debian.org** (`scripts/rhino_snapshot_deb.py`), which keeps
+  every file Debian ever published. The version and its SHA256 come from the Pi's own package lists, which apt has
+  already checked against Debian's keys; the file is used only if its SHA256 matches. Anything else: not installed.
+- If even that fails, the note links `docs/install-avahi-by-hand.md` (the same steps by hand) instead of advice that
+  doesn't help. avahi-utils still never stops an install.
+- New tests: `dev/test_snapshot.py` (6) and three installer cases.
+- Longer term: move the Pi to Debian 12 "bookworm" (security support until June 2028).
+
 ## 1.5.5 - Notes from the first day on 1.5.4
 
 - **Studio 0.6.4** in the zip: scrolling install and update logs, a status bar under the install log, camera previews

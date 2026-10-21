@@ -162,7 +162,16 @@ apt_try() {
     note "refreshing the package lists (apt-get update) and trying again"
     apt_run sudo apt-get update -qq || note "apt-get update reported a problem (often a retired package source) - trying anyway"
   fi
-  apt_run sudo apt-get install -y "$@"
+  apt_run sudo apt-get install -y "$@" && return 0
+  # Still missing: Debian dropped that exact version (bullseye after its end of life, Aug 2026). Fetch it from
+  # snapshot.debian.org, accepted only if its SHA256 matches this Pi's own signed package lists (1.5.5).
+  local p debs="" d
+  for p in "$@"; do
+    d=$(python3 "$SRC/scripts/rhino_snapshot_deb.py" "$p" "${TMPDIR:-/tmp}/rhino-debs" 2>/dev/null) || { note "$p isn't on Debian's servers or its snapshot archive"; return 1; }
+    debs="$debs $d"
+  done
+  note "using Debian's snapshot archive (checked against this Pi's package lists):$debs"
+  apt_run sudo apt-get install -y $debs
 }
 if [ -n "${NEED_APT:-}" ]; then
   say "Installing:${NEED_APT}"
@@ -172,7 +181,7 @@ fi
 if [ -n "${WANT_APT:-}" ]; then
   say "Installing (optional):  ${WANT_APT}"
   APT_QUIET=1 apt_try ${WANT_APT} && ok "${WANT_APT} installed" \
-    || note "${WANT_APT} could not be installed, so the rhinostudio.local name is skipped (Studio still opens at the host's address with :${STUDIO_PORT:-5001}). Later, over SSH:  sudo apt update && sudo apt install ${WANT_APT}   then install again"
+    || note "${WANT_APT} could not be installed, so the rhinostudio.local name is skipped (Studio still opens at the host's address with :${STUDIO_PORT:-5001}). To add it later: https://github.com/Makersmic/Toolhead_Manager/blob/main/docs/install-avahi-by-hand.md then install again"
 fi
 
 # ------------------------------------------------------------------ copy

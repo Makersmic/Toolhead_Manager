@@ -74,13 +74,16 @@ threading.Thread(target=moon.serve_forever, daemon=True).start()
 
 # ---------------------------------------------------------------- stand-ins for the Pi's system commands
 STUBS = {
+    # 1.5.5 snapshot fallback: what this Pi's package lists say about avahi-utils
+    "dpkg": '[ "${1:-}" = --print-architecture ] && { echo arm64; exit 0; }; exit 1',
+    "apt-cache": 'case "$1" in policy) echo "  Candidate: 0.8-5+deb11u3" ;; show) echo "SHA256: $SNAP_SHA256" ;; esac',
     "id": '[ "${1:-}" = "-u" ] && { echo "${FAKE_UID:-1000}"; exit 0; }; exec /usr/bin/id "$@"',
     "sudo": 'echo "sudo $*" >> "$CALLS"; [ "${1:-}" = "-v" ] && exit 0; [ "${1:-}" = "-u" ] && shift 2; exec "$@"',
     # nginx: only "nginx -t" is used; NGINX_T_FAIL=1 makes it refuse the config
     "nginx": 'echo "nginx $*" >> "$CALLS"; [ "${NGINX_T_FAIL:-0}" = 1 ] && { echo "nginx: [emerg] unknown directive (fake)" >&2; exit 1; }; exit 0',
     # APT_404=1: "install" fails with 404 until "update" has run (stale package lists); APT_404=always: never works
     # APT_UPDATE_ERR=1: "update" refreshes but exits 100 (a retired source), as on older bullseye Pis
-    "apt-get": 'echo "apt-get $*" >> "$CALLS"; [ "${1:-}" = update ] && { touch "$CALLS.updated"; [ "${APT_UPDATE_ERR:-}" = 1 ] && exit 100; exit 0; }; case "${APT_404:-}" in always) echo "E: 404  Not Found"; exit 100 ;; 1) [ -f "$CALLS.updated" ] || { echo "E: 404  Not Found"; exit 100; } ;; esac; exit 0',
+    "apt-get": 'echo "apt-get $*" >> "$CALLS"; [ "${1:-}" = update ] && { touch "$CALLS.updated"; [ "${APT_UPDATE_ERR:-}" = 1 ] && exit 100; exit 0; }; case "${APT_404:-}" in always) echo "E: 404  Not Found"; exit 100 ;; vanished) case "$*" in *.deb*) exit 0 ;; esac; echo "E: 404  Not Found"; exit 100 ;; 1) [ -f "$CALLS.updated" ] || { echo "E: 404  Not Found"; exit 100; } ;; esac; exit 0',
     "hostname": '[ "${1:-}" = "-I" ] && { echo 127.0.0.1; exit 0; }; echo "${FAKE_HOSTNAME:-127.0.0.1}"',
     # avahi (1.5.3): the name service is only installed, never run here; avahi-resolve answers for it
     "avahi-publish": 'echo "avahi-publish $*" >> "$CALLS"; exit 0',
@@ -138,12 +141,27 @@ AVAHI_SOCK = os.path.join(ROOT, "avahi-socket")   # avahi-daemon "running"
 open(AVAHI_SOCK, "w").close()
 
 
+import hashlib as _hl
+_SNAP_DEB = b"!<arch>\nfake avahi-utils"
+class _Snap(http.server.BaseHTTPRequestHandler):
+    def log_message(self, *a): pass
+    def do_GET(self):
+        h = _hl.sha1(_SNAP_DEB).hexdigest()
+        if "/mr/binary/avahi-utils/" in self.path: b = ('{"result":[{"architecture":"arm64","hash":"%s"}]}' % h).encode()
+        elif self.path == "/file/" + h: b = _SNAP_DEB
+        else: self.send_response(404); self.end_headers(); return
+        self.send_response(200); self.send_header("Content-Length", str(len(b))); self.end_headers(); self.wfile.write(b)
+_snap = http.server.ThreadingHTTPServer(("127.0.0.1", 0), _Snap)
+threading.Thread(target=_snap.serve_forever, daemon=True).start()
+
+
 def env(**extra):
     e = {"HOME": HOME, "USER": "tester", "PATH": BIN + os.pathsep + os.environ["PATH"], "CALLS": LOG, "PIDF": PIDF, "RHINO_SKIP_NET": "1", "RHINO_SKIP_UPDATER": "1",
          "RHINO_SERVICE_FILE": SERVICE, "RHINO_MOONRAKER": f"http://127.0.0.1:{moon.server_port}",
          "PORTAL_LOG": os.path.join(ROOT, "portal.log"), "TERM": "dumb", "LANG": "C.UTF-8",
          "RHINO_NGINX_DIR": NGX, "RHINO_NGINX_BIN": os.path.join(BIN, "nginx"), "RHINO_STUDIO_DIR": STUDIO,
-         "RHINO_STUDIO_PORT": str(STUDIO_PORT), "RHINO_STUDIO_NAME_PORT": str(NAME_PORT), "RHINO_UNIT_DIR": UNITS0, "RHINO_AVAHI_SOCKET": AVAHI_SOCK}
+         "RHINO_STUDIO_PORT": str(STUDIO_PORT), "RHINO_STUDIO_NAME_PORT": str(NAME_PORT), "RHINO_UNIT_DIR": UNITS0, "RHINO_AVAHI_SOCKET": AVAHI_SOCK,
+         "RHINO_SNAPSHOT_URL": f"http://127.0.0.1:{_snap.server_port}", "SNAP_SHA256": _hl.sha256(_SNAP_DEB).hexdigest(), "TMPDIR": ROOT}
     e.update(extra)
     return e
 
@@ -435,7 +453,16 @@ try:
         ok(rc == 0 and "refreshing the package lists" in out and "reported a problem" in out and calls.count("apt-get install -y avahi-utils") >= 2
            and "avahi-utils installed" in out, "stale lists + apt-get update error: refreshes, tries again anyway, avahi-utils goes in")
         run(f"{PKG}/uninstall.sh")
-        rc, out = run(f"{PKG}/install.sh", APT_404="always")
+        rc, out = run(f"{PKG}/install.sh", APT_404="vanished")
+        calls = open(LOG).read()
+        ok(rc == 0 and "using Debian's snapshot archive" in out and "rhino-debs/avahi-utils_0.8-5+deb11u3_arm64.deb" in calls
+           and "avahi-utils installed" in out, "avahi-utils gone from Debian's servers (bullseye EOL): fetched from the snapshot archive, checked, installed")
+        run(f"{PKG}/uninstall.sh")
+        rc, out = run(f"{PKG}/install.sh", APT_404="vanished", SNAP_SHA256="0" * 64)
+        ok(rc == 0 and "isn't on Debian's servers or its snapshot archive" in out and ".deb" not in open(LOG).read().split("apt-get update")[-1].replace("rhino-debs", "")
+           and "name is skipped" in out, "snapshot file doesn't match the Pi's package lists: not installed, the name is skipped")
+        run(f"{PKG}/uninstall.sh")
+        rc, out = run(f"{PKG}/install.sh", APT_404="always", SNAP_SHA256="")
         ok(rc == 0 and "Install finished." in out and "could not be installed, so the rhinostudio.local name is skipped" in out
            and "STOPPED" not in out, "avahi-utils can't be fetched at all: the install still finishes, only the name is skipped")
         run(f"{PKG}/uninstall.sh")
