@@ -70,6 +70,29 @@ class Moonraker:
             self._estimates[filename] = est
         return est
 
+    def trusts(self, client_ip):
+        """Does Moonraker trust this address (trusted_clients), as it would for Mainsail? (1.5.4)
+        -> "off"      no [authorization] in moonraker.conf: everyone, as before
+           "trusted"  yes
+           "refused"  no (not in trusted_clients, or force_logins is on)
+           "offline"  Moonraker isn't answering
+        Asks /access/user with the address in X-Real-IP, which Moonraker reads with its default use_xheaders."""
+        req = urllib.request.Request(self.url + "/access/user", headers={"X-Real-IP": client_ip})
+        try:
+            urllib.request.urlopen(req, timeout=self.timeout).close()
+            return "trusted"
+        except urllib.error.HTTPError as e:
+            return "off" if e.code == 404 else "refused"
+        except (urllib.error.URLError, OSError, ValueError):
+            return "offline"
+
+    def restart_moonraker(self):
+        """Moonraker's own restart (POST /server/restart): no sudo. It may drop the connection while it goes."""
+        try:
+            self._call("POST", "/server/restart")
+        except Fail:
+            pass
+
     def history(self, since=None, limit=50):
         """Finished and in-progress jobs, newest first: [{job_id, filename, status, start_time, end_time,
         print_duration, total_duration, filament_used}]. [] if the history component is off."""

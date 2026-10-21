@@ -455,6 +455,20 @@ else
   fi
 fi
 
+# ------------------------------------------------------------------ Moonraker trusted_clients (1.5.4)
+# Studio works like Mainsail: no login, Moonraker's trusted_clients decides. Add what this Rhino needs if it isn't
+# covered yet: 127.0.0.0/8 (the Portal's own reads), this Rhino's LAN, and 100.64.0.0/10 when Tailscale is up. Only
+# when [authorization] exists (without it Moonraker trusts everyone). Backup first; Moonraker restarts through its own
+# API and the old file goes back if it doesn't answer. Nothing else in moonraker.conf is touched. The copy goes to
+# rhino_data/config_backups, never into the install backup (that one already holds the file as it was).
+say "Moonraker trusted_clients"
+trust_out=$(python3 "$SRC/scripts/rhino_trust.py" ensure --conf "$CFG/moonraker.conf" --backup-dir "$(dirname "$CFG")/rhino_data/config_backups" \
+  --moonraker "$MOONRAKER" $([ $DRY = 1 ] && echo --dry) 2>&1) || trust_fail=1
+printf '%s\n' "$trust_out" | while IFS= read -r l; do
+  case "$l" in ok*) ok "${l#ok   }" ;; FAIL*) note "${l#FAIL }" ;; *) note "$l" ;; esac
+done
+[ -n "${trust_fail:-}" ] && note "trusted_clients unchanged - add your network by hand (Studio: Settings > Trusted addresses)"
+
 # ------------------------------------------------------------------ done
 ip=$(hostname -I 2>/dev/null | awk '{print $1}')
 url="http://${ip:-YOUR-PI-ADDRESS}:5000"

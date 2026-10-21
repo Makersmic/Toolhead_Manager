@@ -348,3 +348,17 @@ after a restart: send klippy.log's last lines.
 - [ ] **U5 A bad zip.** Drop any other zip: refused with a reason, nothing kept in `incoming/`.
 - [ ] **U6 Ubuntu (OptiPlex).** Same as U3 on the OptiPlex, where your login needs a password for sudo: the install still
   finishes (the updater doesn't use your sudo).
+
+## 1.5.4: the Portal follows trusted_clients
+
+Run Rhino Studio 0.6.3's checks **TC1-TC4**. Also:
+- [ ] **AC1 Moonraker down.** `sudo systemctl stop moonraker`; a change from Studio or :5000 says "Moonraker isn't
+  answering"; start it and it works. *Stop if:* a change goes through while Moonraker is stopped (and trusted_clients
+  is set).
+- [ ] **AC2 The Portal's own reads.** During a job the Care meters still move. They need 127.0.0.1 in
+  `trusted_clients` (KIAUH's default has `127.0.0.0/8`). *Stop if:* `journalctl -u rhino-portal` shows HTTP 401 from Moonraker.
+- [ ] **AC3 Install step.** Run the 1.5.4 install by hand: the "Moonraker trusted_clients" step says either "already
+  covers this Rhino's networks" or which ranges it added; if it added any, `grep -A12 '\[authorization\]'
+  ~/printer_data/config/moonraker.conf` shows them and nothing else changed (`diff` against the copy in the install
+  backup). *Stop if:* Moonraker doesn't come back after the install.
+- Studio checks **TC5-TC9** cover Settings › Trusted addresses and Tailscale.

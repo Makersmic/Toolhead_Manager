@@ -10,7 +10,8 @@ from ..net import Network
 from ..prusa import PrusaService
 from ..paths import resolve
 from ..service import ToolService
-from . import maint_routes, net_routes, routes, security, slicer_routes, update_routes
+from . import maint_routes, net_routes, routes, security, slicer_routes, trust_routes, update_routes
+from .access import Access
 
 
 def create_app(config_dir=None, moonraker_url=None, start_monitor=False):
@@ -25,6 +26,7 @@ def create_app(config_dir=None, moonraker_url=None, start_monitor=False):
     maint = MaintService(paths, svc)
     mon.listeners.append(maint.collector(mr))
     app.config.update(PATHS=paths, SERVICE=svc, MOONRAKER=mr, MONITOR=mon, MAINT=maint, NETWORK=Network(),
+                      ACCESS=Access(mr, paths.state_dir),
                       MAX_CONTENT_LENGTH=210 * 1024 * 1024, JSON_SORT_KEYS=False)
     app.config["PRUSA"] = PrusaService(os.path.join(paths.state_dir, "prusaslicer"), slicer_routes.printer_state_from(mr))
     if start_monitor:
@@ -34,6 +36,8 @@ def create_app(config_dir=None, moonraker_url=None, start_monitor=False):
     app.register_blueprint(net_routes.bp)
     app.register_blueprint(slicer_routes.bp)
     app.register_blueprint(update_routes.bp)
+    app.register_blueprint(trust_routes.bp)
+    app.before_request(app.config["ACCESS"].gate)      # Moonraker's trusted_clients decides who may use /api (1.5.4)
     app.before_request(security.limit_upload)
     app.after_request(security.add_headers)
     return app

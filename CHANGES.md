@@ -1,5 +1,31 @@
 # What changed
 
+## 1.5.4 - trusted_clients, as Mainsail: the Portal follows it, the install and Studio can add to it
+
+Rhino Studio 0.6.3 works like Mainsail: no login, Moonraker's `[authorization] trusted_clients` decides who may
+connect. The Portal now follows the same list, so port 5000 is never a way around it.
+
+- **Every `/api` request asks Moonraker about the same address** (`rhino/portal/access.py`, Moonraker's `/access/user`
+  with the address in `X-Real-IP`). From nginx the address is the browser's; straight to port 5000 it is the peer's own,
+  so nobody on the LAN can claim a trusted address with a header. Untrusted: 401 naming the address and saying to add
+  it to `trusted_clients`. Answers kept 60 s (refusals 5 s).
+- **No `[authorization]` in moonraker.conf: nothing changes.**
+- **Moonraker down:** if it has ever refused someone (`rhino_data/moonraker_trust_seen`), the Portal refuses with 503
+  rather than guess; otherwise it works as before.
+- The Portal's own reads (job state, meters, restart) still need 127.0.0.1 trusted, as KIAUH sets it up.
+- Pages, photos and static files aren't checked; they change nothing.
+- **The install adds what this Rhino needs to `trusted_clients`** (`scripts/rhino_trust.py ensure`), only when
+  `[authorization]` exists (without it Moonraker trusts everyone, and adding the section would lock screens out) and only
+  what isn't covered yet: `127.0.0.0/8` (the Portal's own reads), this Rhino's LAN range, and `100.64.0.0/10` when
+  Tailscale is up. KIAUH's default list already covers the first two, so most installs add nothing.
+- **Settings › Trusted addresses in Studio** (`/api/moonraker-trust`): see the list, add an address or range (Tailscale's
+  `100.64.0.0/10` is offered), remove one. Only from a screen that's already trusted, never during a job, never the entry
+  that lets the screen itself or the Portal in, never wider than /8, never a name.
+- Both edit `trusted_clients` and nothing else in moonraker.conf (`rhino/trust.py`): the new text must read back with
+  the new list before it's written; backup first (`rhino_data/config_backups`, or the install's backup); same owner and
+  mode; Moonraker restarts through its own API (no sudo) and if it doesn't answer within 45 s the old file goes back.
+- New tests: `dev/test_access.py` (12 checks) and `dev/test_trust.py` (33), in `dev/run_all.sh`.
+
 ## 1.5.3 - 2 GB boards, updates from Studio, rhinostudio.local, pin labels
 
 - **2 GB boards are offered PrusaSlicer.** A "2 GB" board reports about 1850-1950 MB to Linux, so 1.5.2's 2048 MB
