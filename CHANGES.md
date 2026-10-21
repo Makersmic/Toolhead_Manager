@@ -1,5 +1,15 @@
 # What changed
 
+## 1.5.5 - Notes from the first day on 1.5.4
+
+- **Studio 0.6.4** in the zip: scrolling install and update logs, a status bar under the install log, camera previews
+  about 2.5x larger.
+- **The install log keeps 400 lines** for Studio to scroll through (was 60). The whole run is still in
+  `rhino_data/update/install-<version>.log`.
+- **Settings › Network on a bullseye Pi** no longer says "NetworkManager isn't running" as if something were wrong. It
+  says the network is run by dhcpcd (the normal setup on Raspberry Pi OS and MainsailOS before bookworm), that Studio
+  can show it but not change it, and to use `sudo raspi-config` for Wi-Fi or the address.
+
 ## 1.5.4 - trusted_clients, as Mainsail: the Portal follows it, the install and Studio can add to it
 
 Rhino Studio 0.6.3 works like Mainsail: no login, Moonraker's `[authorization] trusted_clients` decides who may

@@ -139,7 +139,14 @@ ok(w["ip"] == "192.168.1.50" and w["prefix"] == 24 and w["gateway"] == "192.168.
    and w["method"] == "auto" and w["ssid"] == "ShopNet" and w["signal"] == 58 and w["powersave"] is False, "state: Wi-Fi address, signal and power saving read")
 ok(N(FakeRun()).wifi_scan()[1] == {"ssid": "HouseNet-5G", "signal": 81, "security": "WPA2", "in_use": False}, "scan: one row per network, strongest kept")
 ok(not N(FakeRun(), which=lambda x: None).state()["supported"], "no nmcli: read-only, says why")
-ok("isn't running" in N(FakeRun(running="stopped")).support()[1], "NetworkManager stopped: says so")
+ok("run by another network service" in N(FakeRun(running="stopped")).support()[1], "NetworkManager stopped: says what runs the network instead")
+_dh = FakeRun(running="stopped"); _orig = _dh.__call__
+class _Dh(FakeRun):
+    def __call__(self, cmd, stdin=None, timeout=20):
+        if cmd[:3] == ["systemctl", "is-active", "--quiet"]: return 0, "", ""
+        return super().__call__(cmd, stdin, timeout)
+_r = N(_Dh(running="stopped")).support()[1]
+ok("run by dhcpcd" in _r and "Nothing is wrong" in _r and "raspi-config" in _r, "bullseye (dhcpcd): says it's normal and where to change the network")
 ok("reinstall" in N(FakeRun(), h=tmp + "/missing").support()[1], "helper missing: says to reinstall")
 r = FakeRun(); N(r).join_wifi("HouseNet-5G", "correct horse battery")
 c = next(x for x in r.calls if x[0][:2] == ["sudo", "-n"])

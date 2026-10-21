@@ -46,12 +46,21 @@ class Network:
         self.which = which
 
     # ---------------------------------------------------------------- reads
+    # Said when NetworkManager isn't what runs the network: normal on Raspberry Pi OS / MainsailOS bullseye (dhcpcd).
+    OTHER_MANAGER = ("This Pi's network is run by {who}, the usual setup on Raspberry Pi OS and MainsailOS before "
+                     "bookworm. Nothing is wrong: Studio shows the network but can only change it on systems that use "
+                     "NetworkManager. Change Wi-Fi or the address with  sudo raspi-config  (System Options) instead.")
+
+    def _other_manager(self):
+        rc, _, _ = self.run(["systemctl", "is-active", "--quiet", "dhcpcd"])
+        return "dhcpcd" if rc == 0 else "another network service"
+
     def support(self):
         if not self.which("nmcli"):
-            return False, "This Pi doesn't use NetworkManager (no nmcli), so its network can't be changed from here."
+            return False, self.OTHER_MANAGER.format(who=self._other_manager())
         rc, out, _ = self.run(["nmcli", "-t", "-f", "RUNNING", "general"])
         if rc != 0 or out.strip() != "running":
-            return False, "NetworkManager isn't running on this Pi."
+            return False, self.OTHER_MANAGER.format(who=self._other_manager())
         if not os.path.exists(self.helper):
             return False, "The network helper isn't installed: reinstall the Rhino config with rhino.sh (option 3)."
         return True, None

@@ -115,7 +115,7 @@ class Run:
     # -- status.json: temp file + rename, owned by the login so the Portal can read and clean it
     def save(self, **kw):
         self.status.update(kw)
-        self.status["log"] = self.log[-60:]
+        self.status["log"] = self.log[-400:]   # Studio scrolls through it (1.5.4)
         self.status["updated"] = time.time()
         fd, tmp = tempfile.mkstemp(dir=self.drop, prefix=".status-")
         with os.fdopen(fd, "w") as f:
