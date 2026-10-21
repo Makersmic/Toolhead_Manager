@@ -72,6 +72,12 @@ NO_FLATPAK = ("PrusaSlicer comes from Flathub, so the Rhino's host needs Flatpak
 SMALL_MSG = ("PrusaSlicer needs a host with 2 GB of memory or more. Kiri:Moto in the browser still slices on this one.")
 
 
+# Automatic updates (1.5.8): only while PrusaSlicer is actually being used, never during a job or a slice.
+AUTO_EVERY_S = 6 * 3600          # look at Flathub this often
+AUTO_FIRST_S = 10 * 60           # first look this long after the Portal starts
+AUTO_USED_DAYS = 30              # "being used": sliced with it within this many days
+
+
 def _meminfo():
     try:
         with open("/proc/meminfo") as f:
@@ -202,6 +208,8 @@ class PrusaService:
         self.installing = False
         self.install_phase = None
         self.install_error = None
+        self._auto_checked = time.time() - AUTO_EVERY_S + AUTO_FIRST_S   # first look a few minutes after start
+        self._auto_thread = None
         os.makedirs(os.path.join(self.base, "jobs"), exist_ok=True)
         os.makedirs(os.path.join(self.base, "cache"), exist_ok=True)
 
@@ -391,6 +399,7 @@ class PrusaService:
                        "install_error": self.install_error or lat["error"],
                        "can_install": not why, "blocked": why, "arch": self.arch,
                        "previous": prev["version"] if prev and inst and prev["commit"] != inf["commit"] else None},
+            "auto": self.auto_state(),
             "host": {"mem_total_mb": self.mem_mb, "cpus": self.cpus, "small": self.small},
             "busy": next((j.id for j in self.jobs.values() if j.state == "running"), None),
             "refuse": self.refuse(),
@@ -425,7 +434,7 @@ class PrusaService:
         lines = [l for l in (out or "").strip().splitlines() if l.strip()]
         return f"{what} (flatpak exit {rc}): " + (" / ".join(lines[-2:])[:300] or "no output")
 
-    def _install(self):
+    def _install(self, on_done=None):
         try:
             self.install_phase = "Adding Flathub"
             rc, out = self._fp(["--user", "remote-add", "--if-not-exists", REMOTE, REMOTE_URL], timeout=300, low=True)
@@ -469,6 +478,8 @@ class PrusaService:
             try:                                   # settle the state before saying it's done
                 self.info(fresh=True)
                 self.latest(force=True)            # Flathub may have only just been added
+                if on_done:
+                    on_done()                      # e.g. the automatic updater's note, before anyone sees "done"
             finally:
                 self.installing, self.install_phase = False, None
 
@@ -487,6 +498,8 @@ class PrusaService:
                 raise Fail(f"{prev['version']} is back but failed its test slice: {err}")
             with open(os.path.join(self.base, "previous.json"), "w") as f:   # going back again = forward
                 json.dump({"version": cur["version"], "commit": cur["commit"]}, f)
+            # you went back from it on purpose: automatic updates wait for something newer than that
+            self._auto_save(skip=cur["commit"])
         except Exception as e:
             self.install_error = str(e)
         finally:
@@ -524,12 +537,110 @@ class PrusaService:
         finally:
             shutil.rmtree(d, ignore_errors=True)
 
+    # ------------------------------------------------------------ automatic updates (1.5.8)
+    def _auto_file(self):
+        return os.path.join(self.base, "auto.json")
+
+    def _auto_load(self):
+        try:
+            with open(self._auto_file()) as f:
+                a = json.load(f)
+            return a if isinstance(a, dict) else {}
+        except (OSError, ValueError):
+            return {}
+
+    def _auto_save(self, **kw):
+        a = self._auto_load()
+        a.update(kw)
+        tmp = self._auto_file() + ".tmp"
+        with open(tmp, "w") as f:
+            json.dump(a, f)
+        os.replace(tmp, self._auto_file())
+
+    def mark_used(self, now=None):
+        try:
+            with open(os.path.join(self.base, "last_used"), "w") as f:
+                f.write(str(now or time.time()))
+        except OSError:
+            pass
+
+    def last_used(self):
+        try:
+            with open(os.path.join(self.base, "last_used")) as f:
+                return float(f.read().strip())
+        except (OSError, ValueError):
+            return None
+
+    def auto_state(self, now=None):
+        a = self._auto_load()
+        used = self.last_used()
+        return {"on": a.get("on", True), "last_used": used,
+                "in_use": bool(used and (now or time.time()) - used < AUTO_USED_DAYS * 86400),
+                "used_days": AUTO_USED_DAYS, "skip": a.get("skip"), "last": a.get("last")}
+
+    def set_auto(self, on):
+        self._auto_save(on=bool(on))
+        return self.auto_state()
+
+    def auto_why_not(self, now=None):
+        """Why an automatic update wouldn't run now, or None if it would. Asks Flathub only through latest()."""
+        now = now or time.time()
+        a = self.auto_state(now)
+        if not a["on"]:
+            return "off"
+        if self.installing:
+            return "installing"
+        if not self.info()["commit"]:
+            return "not installed"
+        if not a["in_use"]:
+            return "not used lately"
+        if self.blocked():
+            return "blocked"
+        if self.printer_state() in ("printing", "paused"):
+            return "job"
+        if any(j.state in ("queued", "running") for j in self.jobs.values()):
+            return "slicing"
+        lat, inf = self._latest, self.info()
+        if not lat["commit"] or lat["commit"] == inf["commit"]:
+            return "up to date"
+        if a["skip"] and lat["commit"] == a["skip"]:
+            return "went back from it"
+        return None
+
+    def auto_tick(self, now=None):
+        """Called by the Portal's monitor every few seconds; looks at Flathub every AUTO_EVERY_S in the background."""
+        now = now or time.time()
+        if now - self._auto_checked < AUTO_EVERY_S or (self._auto_thread and self._auto_thread.is_alive()):
+            return
+        self._auto_checked = now
+        if not self.auto_state(now)["on"] or not self.info()["commit"]:
+            return
+        self._auto_thread = threading.Thread(target=self._auto_check, daemon=True)
+        self._auto_thread.start()
+
+    def _auto_check(self):
+        self.latest(force=True)
+        if self.auto_why_not():
+            return
+        before = self.info()["version"]
+        try:
+            self._start(self._auto_install, before)
+        except Fail:
+            pass                                   # a job started meanwhile: next time
+
+    def _auto_install(self, before):
+        def note():
+            self._auto_save(last={"from": before, "to": self.info()["version"], "at": time.time(),
+                                  "ok": not self.install_error, "error": self.install_error})
+        self._install(on_done=note)
+
     # ------------------------------------------------------------ slicing
     def submit(self, model, ini, name, center):
         why = self.refuse()
         if why:
             raise Fail(why)
         self.binary()                      # says to install first if there's no engine
+        self.mark_used()
         if not model or len(model) > MAX_MODEL or len(model) < 84:
             raise Fail("The part is empty or too big")
         try:

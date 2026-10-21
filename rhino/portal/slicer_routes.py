@@ -73,6 +73,25 @@ def rollback():
     return jsonify(_svc().roll_back())
 
 
+@bp.post("/api/slicer/engine/auto")
+def auto():
+    """{"on": true|false}: keep PrusaSlicer up to date by itself while it's being used (1.5.8)."""
+    security.check_write()
+    return jsonify({"ok": True, "auto": _svc().set_auto(bool(security.json_body().get("on")))})
+
+
+class AutoUpdater:
+    """Monitor listener: lets the engine look for updates now and then (it does the waiting itself)."""
+    def __init__(self, svc):
+        self.svc = svc
+
+    def objects(self):
+        return []
+
+    def on_tick(self, snap, prev):
+        self.svc.auto_tick()
+
+
 def printer_state_from(moonraker, every=2.0):
     """print_state from Moonraker, asked at most every `every` seconds (the watchdog asks twice a second)."""
     memo = {"at": 0.0, "v": "standby"}

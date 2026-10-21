@@ -29,6 +29,7 @@ def create_app(config_dir=None, moonraker_url=None, start_monitor=False):
                       ACCESS=Access(mr, paths.state_dir),
                       MAX_CONTENT_LENGTH=210 * 1024 * 1024, JSON_SORT_KEYS=False)
     app.config["PRUSA"] = PrusaService(os.path.join(paths.state_dir, "prusaslicer"), slicer_routes.printer_state_from(mr))
+    mon.listeners.append(slicer_routes.AutoUpdater(app.config["PRUSA"]))   # PrusaSlicer updates itself while in use (1.5.8)
     if start_monitor:
         mon.start()
     app.register_blueprint(routes.bp)

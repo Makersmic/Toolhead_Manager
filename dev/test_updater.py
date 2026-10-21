@@ -91,6 +91,61 @@ st = json.load(open(os.path.join(DROP, "status.json"))); st["updated"] = time.ti
 json.dump(st, open(os.path.join(DROP, "status.json"), "w")); os.unlink(os.path.join(DROP, "request.json"))
 ok(c.get("/api/update").get_json()["status"]["state"] == "failed", "a run that went silent shows as failed")
 
+print("== from GitHub (1.5.8) ==")
+import hashlib, http.server, threading
+GH = {"zip": open(make_zip(os.path.join(TMP, "gh.zip"), version="1.5.9"), "rb").read(), "sha": None, "tag": "v1.5.9", "status": 200, "assets": True}
+GH["sha"] = hashlib.sha256(GH["zip"]).hexdigest()
+class GHH(http.server.BaseHTTPRequestHandler):
+    def log_message(self, *a): pass
+    def _send(self, code, body, ct="application/octet-stream"):
+        self.send_response(code); self.send_header("Content-Type", ct); self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body)
+    def do_GET(self):
+        base = f"http://127.0.0.1:{self.server.server_port}"
+        if self.path == "/releases/latest":
+            if GH["status"] != 200: return self._send(GH["status"], b"{}")
+            assets = [{"name": "rhino-config-1.5.9.zip", "browser_download_url": base + "/dl/zip"},
+                      {"name": "rhino-config-1.5.9.zip.sha256", "browser_download_url": base + "/dl/sha"}] if GH["assets"] else []
+            return self._send(200, json.dumps({"tag_name": GH["tag"], "published_at": "2026-10-21T16:00:00Z", "html_url": base + "/rel", "assets": assets}).encode(), "application/json")
+        if self.path == "/dl/zip": return self._send(200, GH["zip"])
+        if self.path == "/dl/sha": return self._send(200, (GH["sha"] + "  rhino-config-1.5.9.zip\n").encode())
+        self._send(404, b"")
+ghs = http.server.ThreadingHTTPServer(("127.0.0.1", 0), GHH); threading.Thread(target=ghs.serve_forever, daemon=True).start()
+update_routes.RELEASES = f"http://127.0.0.1:{ghs.server_port}/releases/latest"
+def fresh_latest(): update_routes._latest.update(at=0, value=None)
+os.unlink(os.path.join(DROP, "status.json"))
+fresh_latest()
+s = c.get("/api/update").get_json()
+ok(s["latest"]["version"] == "1.5.9" and s["latest"]["sha256_url"].endswith("/dl/sha"), "GH1 GET /api/update names GitHub's newest release")
+ok(c.post("/api/update/github", json={"version": "1.5.9"}).status_code >= 400, "GH2 without the token: refused")
+r = c.post("/api/update/github", headers=HDR, json={"version": "1.5.8"})
+ok(r.status_code >= 400 and "now 1.5.9" in r.get_json()["error"], "GH3 asking for a version that isn't the newest: refused")
+GH["zip"] += b"tampered"
+r = c.post("/api/update/github", headers=HDR, json={"version": "1.5.9"})
+ok(r.status_code >= 400 and "doesn't match its .sha256" in r.get_json()["error"] and "rhino-config-1.5.9.zip" not in os.listdir(os.path.join(DROP, "incoming")),
+   "GH4 a download that doesn't match the release's SHA256: not kept, not installed")
+GH["zip"] = GH["zip"][: -len(b"tampered")]
+r = c.post("/api/update/github", headers=HDR, json={"version": "1.5.9"})
+req = json.load(open(os.path.join(DROP, "request.json")))
+ok(r.get_json()["ok"] and req["zip"] == "rhino-config-1.5.9.zip" and os.path.isfile(os.path.join(DROP, "incoming", "rhino-config-1.5.9.zip")),
+   "GH5 the newest release: downloaded, checked, handed to the updater like an upload")
+ok(c.post("/api/update/github", headers=HDR, json={"version": "1.5.9"}).status_code >= 400, "GH6 while that install runs: refused")
+os.unlink(os.path.join(DROP, "request.json")); os.unlink(os.path.join(DROP, "status.json"))
+GH["assets"] = False; fresh_latest()
+ok("no rhino-config zip" in c.get("/api/update").get_json()["latest"]["error"], "GH7 a release without the zip: says so")
+GH["status"] = 404; fresh_latest()
+ok(c.get("/api/update").get_json()["latest"]["error"] == "No releases on GitHub yet.", "GH8 no releases yet: says so")
+update_routes.RELEASES = "http://127.0.0.1:9/releases/latest"; fresh_latest()
+ok("Can't reach GitHub" in c.get("/api/update").get_json()["latest"]["error"], "GH9 GitHub unreachable: says so, the page still works")
+GH["status"] = 200; GH["assets"] = True
+update_routes.RELEASES = f"http://127.0.0.1:{ghs.server_port}/releases/latest"; fresh_latest(); c.get("/api/update")
+calls = []
+orig = update_routes._get
+update_routes._get = lambda *a, **k: (calls.append(1), orig(*a, **k))[1]
+c.get("/api/update"); c.get("/api/update")
+update_routes._get = orig
+ok(calls == [], "GH10 asked GitHub at most once an hour")
+ghs.shutdown()
+
 print("== a whole updater run ==")
 if os.geteuid() != 0:
     print("SKIP updater run (needs root)")

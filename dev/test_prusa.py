@@ -261,6 +261,35 @@ ok(c.post("/api/slicer/engine/rollback", json={}).status_code == 400, "go back w
 r = c.post("/api/slicer/engine/rollback", headers=HDR, json={}).get_json()
 ok(r["ok"] and wait(lambda: not s.installing) and fresh(s).installed() == "2.9.6", "POST engine/rollback")
 
+# ---------------------------------------------------------------- automatic updates (1.5.8)
+fp_state(remote=True, installed=V1, latest=V2)
+a = svc(); a.latest(force=True)
+ok(a.auto_state()["on"] and a.auto_why_not() == "not used lately", "AU1 on by default, but not while PrusaSlicer isn't being used")
+a._auto_checked = 0; a.auto_tick(); wait(lambda: not (a._auto_thread and a._auto_thread.is_alive()))
+ok(fresh(a).installed() == V1["version"], "AU2 never used: the monitor's look at Flathub installs nothing")
+a.mark_used()
+STATE["p"] = "printing"; ok(a.auto_why_not() == "job", "AU3 not during a job"); STATE["p"] = "standby"
+a.set_auto(False); ok(a.auto_why_not() == "off" and not a.state()["auto"]["on"], "AU4 can be switched off")
+a.set_auto(True)
+ok(a.auto_why_not() is None, "AU5 used lately, update waiting, no job: it would update")
+a._auto_checked = 0; a.auto_tick(); wait(lambda: not (a._auto_thread and a._auto_thread.is_alive())); wait(lambda: not a.installing)
+last = a.auto_state()["last"]
+ok(fresh(a).installed() == V2["version"] and last["ok"] and last["from"] == V1["version"] and last["to"] == V2["version"],
+   "AU6 updates itself, test-sliced as usual, and says from what to what")
+ok(a.auto_why_not() == "up to date", "AU7 then nothing to do")
+before_calls = fp_log().count("remote-info")
+a._auto_checked = __import__("time").time(); a.auto_tick()
+ok(fp_log().count("remote-info") == before_calls, "AU8 within 6 hours of the last look: Flathub isn't asked again")
+a.roll_back(); wait(lambda: not a.installing); fresh(a)
+ok(a.installed() == V1["version"] and a.auto_state()["skip"] == V2["commit"] and a.auto_why_not() == "went back from it",
+   "AU9 after Go back, it doesn't reinstall the version you left")
+fp_state(remote=True, installed=V1, latest=V3); a.latest(force=True)
+ok(a.auto_why_not() is None, "AU10 ... but it does take the next newer one")
+c2 = app.test_client()
+r = c2.post("/api/slicer/engine/auto", headers=HDR, json={"on": False}).get_json()
+ok(r["ok"] and r["auto"]["on"] is False and c2.get("/api/slicer").get_json()["auto"]["on"] is False, "AU11 POST engine/auto switches it; GET /api/slicer shows it")
+ok(c2.post("/api/slicer/engine/auto", json={"on": True}).status_code == 400, "AU12 switching without the token: refused")
+
 shutil.rmtree(TMP, ignore_errors=True); shutil.rmtree(ROOT, ignore_errors=True)
 print("\nFAILED:" if fails else "\nALL PASSED", fails or "")
 sys.exit(1 if fails else 0)

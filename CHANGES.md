@@ -1,5 +1,23 @@
 # What changed
 
+## 1.5.8 - Update from GitHub; PrusaSlicer keeps itself up to date
+
+- **Update from GitHub.** Studio's Settings › Software › Rhino Tool Manager › Update now downloads the newest release from
+  GitHub on the Rhino (`POST /api/update/github`) and installs it with the same root-owned updater as Install from zip.
+  The zip must match the `.sha256` published next to it and pass the same zip check as an upload; only the version
+  GitHub names as newest is accepted. GitHub is asked at most once an hour (`GET /api/update` → `latest`).
+  **Install from zip stays** for a downloaded zip or a Rhino without internet.
+- **Releases are built by GitHub** (`.github/workflows/release.yml`): push a tag `v<VERSION>` and Actions builds Rhino
+  Studio, makes `rhino-config-<VERSION>.zip` with Studio inside, its `.sha256`, and the release with this file's notes.
+- **Rhino Studio isn't listed separately** any more when it's served by the Rhino: it comes in the Tool Manager's zip,
+  so the Tool Manager row names the Studio inside.
+- **PrusaSlicer keeps itself up to date while you use it** (on by default, a tick box on its row). Every 6 hours the
+  Portal looks at Flathub; it updates only if PrusaSlicer is installed, you've sliced with it in the last 30 days, no
+  job is printing and nothing is slicing. The update is the normal one: test slice, and the old version put back if it
+  fails. After you press Go back it won't reinstall the version you left, only a newer one. The last automatic update
+  is shown on the row.
+- New tests: GH1-GH10 (test_updater), AU1-AU12 (test_prusa).
+
 ## 1.5.7 - Studio 0.6.5
 
 - Studio 0.6.5 in the zip: every page fits a browser snapped to half a screen (Board pins and outputs and Tool
