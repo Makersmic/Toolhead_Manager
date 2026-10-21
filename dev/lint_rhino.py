@@ -107,6 +107,9 @@ def main():
     pins = {s[len("output_pin "):].strip().upper() for s in cfg if s.startswith("output_pin ")}
     renamed = {v["rename_existing"].strip().upper() for v in macros.values() if "rename_existing" in v}
     defined = set(macros) | STUB_MACROS | KLIPPER_CMDS | renamed
+    # Klipper's bed_mesh commands exist only with a [bed_mesh] section
+    if "bed_mesh" in cfg:
+        defined |= {"BED_MESH_CALIBRATE", "BED_MESH_PROFILE", "BED_MESH_CLEAR", "BED_MESH_OUTPUT", "BED_MESH_MAP", "BED_MESH_OFFSET"}
 
     env = jinja2.Environment('{%', '%}', '{', '}', extensions=['jinja2.ext.do'])  # Klipper's delimiters
     print("== Jinja syntax ==")
@@ -165,6 +168,18 @@ def main():
                     if k not in ok and not (prefix == "gcode_macro " and k.startswith("variable_")):
                         print(f"  [{s}] option '{k}' is not valid in this section")
                         problems += 1
+
+    # [bed_mesh] options Klipper knows (rectangular bed); anything else stops Klipper at start-up
+    BED_MESH_OPTS = {"probe_count", "mesh_min", "mesh_max", "speed", "horizontal_move_z", "mesh_radius", "mesh_origin",
+                     "round_probe_count", "fade_start", "fade_end", "fade_target", "split_delta_z", "move_check_distance",
+                     "mesh_pps", "algorithm", "bicubic_tension", "zero_reference_position", "scan_overshoot",
+                     "adaptive_margin"}
+    for s, d in sorted(cfg.items()):
+        if s == "bed_mesh":
+            for k in d:
+                if k not in BED_MESH_OPTS and not re.fullmatch(r"faulty_region_\d+_(min|max)", k):
+                    print(f"  [bed_mesh] option '{k}' is not valid in this section")
+                    problems += 1
 
     print("== options Klipper refuses at start-up ==")
     allowed = {"delayed_gcode ": {"gcode", "initial_duration"},

@@ -44,7 +44,7 @@ def ok(cond, msg):
         fails.append(msg)
 
 
-BASE = Sim(ROOT, motion=True).load()
+BASE = Sim(ROOT, motion=True).load().seed_meshes()   # saved meshes: job starts run on as before 1.6.0
 LIM_MIN, LIM_MAX = BASE.objects["toolhead"]["axis_minimum"], BASE.objects["toolhead"]["axis_maximum"]
 TOOLS = {1: ("BlockOne", "PLA"), 2: ("SwitchFly", "PLA"), 3: ("LightSaber", "PLYWOOD"),
          4: ("HotJoe", "SOFT_WOOD"), 5: ("DragKnife", "VINYL")}
@@ -350,7 +350,7 @@ def edited_config(positions=None, printer_cfg=None):
             txt, n = _re.subn(rf"^{_re.escape(key)}:.*$", f"{key}: {val}", txt, flags=_re.M)
             assert n == 1, key
         open(f"{d}/c/{f}", "w").write(txt)
-    sm = Sim(d + "/c", motion=True).load()
+    sm = Sim(d + "/c", motion=True).load().seed_meshes()
     _sh.rmtree(d, ignore_errors=True)
     return sm
 def esim(base, slot, x=288.0, y=203.0, z=20.0, homed="xyz", job="standby", **save):

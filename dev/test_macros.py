@@ -15,8 +15,10 @@ def raises(fn, contains=None):
     try: fn()
     except KlipperError as e: return contains is None or contains.lower() in str(e).lower()
     return False
-def fresh(slot, root=FIXED):
-    s = Sim(root).load(); s.macro_vars["SWAP_TOOL"]["current_tool"] = slot; return s
+def fresh(slot, root=FIXED, mesh=True):
+    # mesh: saved meshes at every bed temperature, so job starts run as they did before 1.6.0
+    s = Sim(root).load(); s.macro_vars["SWAP_TOOL"]["current_tool"] = slot
+    return s.seed_meshes() if mesh else s
 
 # ---------------------------------------------------------------- the 10 original bugs
 s = fresh(4)

@@ -362,3 +362,27 @@ Run Rhino Studio 0.6.3's checks **TC1-TC4**. Also:
   ~/printer_data/config/moonraker.conf` shows them and nothing else changed (`diff` against the copy in the install
   backup). *Stop if:* Moonraker doesn't come back after the install.
 - Studio checks **TC5-TC9** cover Settings › Trusted addresses and Tailscale.
+
+## 1.6.0: bed mesh
+
+Before you start: BACKUP_CFG and check the commit has files. BlockOne mounted and confirmed, bed clear, hand near Stop.
+The simulator is not real Klipper: probing is only modelled.
+
+- [ ] **BM1 Probe area.** `G28`, then `BED_MESH_CALIBRATE PROFILE=test` with the bed cold and watch the first row slowly.
+  Every probe point lands on the bed, clear of edges, clips and magnets. *Stop if:* the probe goes off the bed or near a
+  clip - E-stop, then tell me the corner; mesh_min/max in printer.cfg need changing.
+- [ ] **BM2 Make a mesh from Studio** (Bed mesh › Make a mesh, 60°C): homes if needed, heats, soaks, Z_TILT_ADJUST, probes.
+  `RHINO_MESH` then lists bed-60 "made at 60°C with BlockOne". *Stop if:* anything moves before you confirm.
+- [ ] **BM3 Refused with another tool.** Mount the laser: `RHINO_MESH_CALIBRATE PROFILE=x` is refused and nothing moves.
+- [ ] **BM4 Save.** Save in Studio (or SAVE_CONFIG). printer.cfg ends with a `#*# [bed_mesh bed-60]` section; after the
+  restart `RHINO_MESH` still lists it. *Stop if:* SAVE_CONFIG says the autosave is corrupted (send me printer.cfg).
+- [ ] **BM5 A print at 60°C** (BlockOne, PETG or PLA with the bed heated, bed-60 saved): the start loads bed-60 by itself
+  ("Bed mesh bed-60 (made at 60°C)" notice), no question, then primes and prints. The first layer is even across the bed.
+- [ ] **BM6 A print with no mesh for its temperature** (e.g. PETG at 90°C with only bed-60): after the preheat, "No bed
+  mesh for 90°C" with the file held. Try Cancel job once (cancels, nothing probed), then again with Probe a new mesh now:
+  probes, then primes and prints. *Stop if:* it probes or primes before you press a button.
+- [ ] **BM7 PLA, bed bypassed** with no bed-cold mesh: asks "No bed mesh for a cold bed". Print without a mesh: prints.
+- [ ] **BM8 Spindle.** Load a mesh, swap to HotJoe, CNC_JOB_SETUP: at Set Z zero the console says the mesh was switched
+  off. Then load a mesh again by hand and press the final start: the job stops, spindle off, "Run SET_Z_ZERO again".
+  *Stop if:* the spindle runs on, or a cut starts with a mesh loaded.
+- [ ] **BM9 Laser keeps it.** With a mesh loaded, LASER_JOB_SETUP and SET_Z_ZERO: the mesh stays in use (`RHINO_MESH`).

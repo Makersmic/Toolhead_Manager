@@ -148,6 +148,9 @@ class Sim:
                   "CANCEL_PRINT_BASE", "SDCARD_PRINT_FILE", "TURN_OFF_HEATERS"):
             self.macros.setdefault(n, {"gcode": ""})
             self.macro_vars.setdefault(n, {})
+        if "bed_mesh" in self.config_sections:
+            self.objects["bed_mesh"] = {"profile_name": "", "mesh_min": [0.0, 0.0], "mesh_max": [0.0, 0.0],
+                                        "probed_matrix": [[]], "profiles": {}}
         self._load_kinematics()
         return self
 
@@ -524,6 +527,62 @@ class Sim:
         self.objects["print_stats"]["state"] = "cancelled"
         self.objects["pause_resume"]["is_paused"] = False
 
+    # ---------------- bed_mesh (1.6.0) ----------------
+    # Klipper's bed_mesh as the Rhino macros see it: printer.bed_mesh.profile_name / profiles, and the
+    # commands. mesh_min/max are PROBE positions; the nozzle goes to them minus the [probe] offsets.
+    # sim.mesh_points: the matrix the next calibrate "measures" (rows front to back).
+    def _mesh(self):
+        if "bed_mesh" not in self.objects:
+            raise KlipperError("Unknown command (no [bed_mesh] section)")
+        return self.objects["bed_mesh"]
+
+    def cmd_BED_MESH_CALIBRATE(self, p, rest):
+        bm = self._mesh()
+        if self.objects["toolhead"]["homed_axes"] != "xyz":
+            raise KlipperError("Must home axis first")
+        cfg = self.config_sections["bed_mesh"]
+        mn = [float(v) for v in cfg["mesh_min"].split(",")]
+        mx = [float(v) for v in cfg["mesh_max"].split(",")]
+        cnt = [int(v) for v in cfg.get("probe_count", "3,3").split(",")]
+        if len(cnt) == 1:
+            cnt = cnt * 2
+        pr = self.config_sections.get("probe", {})
+        ox, oy = float(pr.get("x_offset", "0").split()[0]), float(pr.get("y_offset", "0").split()[0])
+        hz = float(cfg.get("horizontal_move_z", "5").split()[0])
+        if self.motion:
+            pos = self.objects["toolhead"]["position"]
+            for j in range(cnt[1]):
+                for i in range(cnt[0]):
+                    x = mn[0] + (mx[0] - mn[0]) * i / max(cnt[0] - 1, 1) - ox
+                    y = mn[1] + (mx[1] - mn[1]) * j / max(cnt[1] - 1, 1) - oy
+                    self._do_move(dict(pos, z=max(pos["z"], hz)), "BED_MESH_CALIBRATE", "bed_mesh")
+                    self._do_move(dict(pos, x=x, y=y), "BED_MESH_CALIBRATE", "bed_mesh")
+        pts = getattr(self, "mesh_points", None) or [[0.0] * cnt[0] for _ in range(cnt[1])]
+        name = p.get("PROFILE", "default")
+        bm["profiles"][name] = {"points": copy.deepcopy(pts),
+                                "mesh_params": {"min_x": mn[0], "max_x": mx[0], "min_y": mn[1], "max_y": mx[1],
+                                                "x_count": cnt[0], "y_count": cnt[1]}}
+        bm.update(profile_name=name, mesh_min=mn, mesh_max=mx, probed_matrix=copy.deepcopy(pts))
+        self.log.append(("bed_mesh", "calibrate " + name))
+
+    def cmd_BED_MESH_PROFILE(self, p, rest):
+        bm = self._mesh()
+        if "LOAD" in p:
+            if p["LOAD"] not in bm["profiles"]:
+                raise KlipperError("bed_mesh: Unknown profile [%s]" % p["LOAD"])
+            bm["profile_name"] = p["LOAD"]
+        elif "SAVE" in p:
+            if not bm["profile_name"]:
+                raise KlipperError("bed_mesh: no mesh loaded to save")
+            bm["profiles"][p["SAVE"]] = copy.deepcopy(bm["profiles"][bm["profile_name"]])
+        elif "REMOVE" in p:
+            bm["profiles"].pop(p["REMOVE"], None)
+        self.log.append(("bed_mesh", rest))
+
+    def cmd_BED_MESH_CLEAR(self, p, rest):
+        self._mesh()["profile_name"] = ""
+        self.log.append(("bed_mesh", "clear"))
+
     def cmd_SAVE_VARIABLE(self, p, rest):
         self.save_vars[p["VARIABLE"].lower()] = ast.literal_eval(p["VALUE"])
 
@@ -572,6 +631,19 @@ class Sim:
             self.run_line(line)
 
     # ---------------- helpers for tests ----------------
+    def seed_meshes(self, temps=range(0, 131, 10), tool="BlockOne"):
+        """Saved meshes (with their mesh_meta) at these bed temperatures, so a job start finds one and runs on
+        as it did before 1.6.0. Tests of the no-mesh question start without them."""
+        if "bed_mesh" not in self.objects:
+            return self
+        meta = dict(self.save_vars.get("mesh_meta", {}))
+        for t in temps:
+            name = "bed-cold" if t < 40 else "bed-%d" % t
+            self.objects["bed_mesh"]["profiles"][name] = {"points": [[0.0]], "mesh_params": {}}
+            meta[name] = {"bed": float(t), "tool": tool, "when": 1}
+        self.save_vars["mesh_meta"] = meta
+        return self
+
     def press(self, label_contains):
         """Simulate clicking a button in the currently shown prompt."""
         if not self.prompt:

@@ -1,5 +1,30 @@
 # What changed
 
+## 1.6.0 - Bed mesh
+
+- **Bed mesh is on** (`[bed_mesh]` in printer.cfg): probe area X40 Y40 to X500 Y300, 5 × 3 points (the old example's
+  values, well inside the bed and every point reachable with the probe's 20, 5 offset). **Check it on the machine (BM1)**
+  before relying on it. Studio 0.7.0's Bed mesh page shows and makes meshes.
+- **`RHINO_MESH_CALIBRATE PROFILE= BED= SOAK= TILT=`** makes a mesh the way it should be made: print heads only (the
+  probe is on them), never during a job; homes if needed, heats the bed and lets it soak (default 5 min), levels the
+  gantry (Z_TILT_ADJUST), probes. Bad names, adaptive- names, a bed over its max_temp and soaks over an hour are refused
+  before anything moves.
+- **Each mesh is recorded** in variables.save (`mesh_meta`: bed temperature, head, time), because Klipper keeps none of
+  that and the bed changes shape as it heats.
+- **A print loads the mesh made at its bed temperature** (within 5°C; `variable_match_c` in RHINO_MESH). Klipper stopped
+  loading a mesh at start-up a while ago, which quietly gives uncompensated first layers. With no mesh for that
+  temperature the start asks, with the file held: probe one now, use the closest, print without, or cancel. Nothing is
+  probed before you answer. A mesh made this way is saved as `bed-<temp>`; it stays until Klipper restarts unless you
+  save it (Studio, or SAVE_CONFIG) after the job.
+- **The spindle never cuts with a bed mesh**: its Z zero is set on the material, so a mesh would change the cut depth.
+  SET_Z_ZERO switches the mesh off for a CNC tool, and a spindle job with a mesh loaded again since stops (spindle off
+  first). Laser and drag knife keep the mesh.
+- `RHINO_MESH_REMOVE PROFILE=` removes a mesh and its record; `RHINO_MESH` lists the meshes with their temperatures.
+- The simulator (dev/klippersim.py) models bed_mesh; the lint knows the bed_mesh commands and options. Older job-start
+  tests run with saved meshes so they test what they always did.
+- New tests: `dev/test_mesh.py` (57). On the machine: BM1-BM9.
+- Studio 0.7.0 in the zip.
+
 ## 1.5.8 - Update from GitHub; PrusaSlicer keeps itself up to date
 
 - **Update from GitHub.** Studio's Settings › Software › Rhino Tool Manager › Update now downloads the newest release from
