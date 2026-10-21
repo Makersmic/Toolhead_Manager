@@ -1,5 +1,11 @@
 # What changed
 
+## 1.5.7 - Studio 0.6.5
+
+- Studio 0.6.5 in the zip: every page fits a browser snapped to half a screen (Board pins and outputs and Tool
+  connector ran off their panels), and the top bar's Stop button stays whole at every window width.
+- Nothing else changed since 1.5.6.
+
 ## 1.5.6 - Packages that vanished from Debian (bullseye after its end of life)
 
 - Debian 11 "bullseye" left long-term support on 31 August 2026. A Pi's package lists can still name a version that
