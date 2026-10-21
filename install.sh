@@ -152,7 +152,10 @@ do_ mkdir -p "$BACKUP/_rhino_install"
 # ------------------------------------------------------------------ helper programs
 if [ -n "${NEED_APT:-}" ]; then
   say "Installing:${NEED_APT}"
-  do_ sudo apt-get install -y ${NEED_APT} || fail "apt could not install${NEED_APT}." "Try:  sudo apt update   then run this again."
+  # Stale package lists give "404 Not Found" (Debian moved to a newer version): refresh them once and try again (1.5.4)
+  do_ sudo apt-get install -y ${NEED_APT} || { note "refreshing the package lists (sudo apt-get update) and trying again"; \
+    do_ sudo apt-get update -qq && do_ sudo apt-get install -y ${NEED_APT}; } \
+    || fail "apt could not install${NEED_APT}." "Check the internet connection, then:  sudo apt update   and run this again."
 fi
 
 # ------------------------------------------------------------------ copy

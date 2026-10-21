@@ -24,6 +24,9 @@ connect. The Portal now follows the same list, so port 5000 is never a way aroun
 - Both edit `trusted_clients` and nothing else in moonraker.conf (`rhino/trust.py`): the new text must read back with
   the new list before it's written; backup first (`rhino_data/config_backups`, or the install's backup); same owner and
   mode; Moonraker restarts through its own API (no sudo) and if it doesn't answer within 45 s the old file goes back.
+- **Stale package lists no longer stop the install.** When apt can't fetch a helper (a "404 Not Found" because Debian
+  moved to a newer version, as avahi-utils did on bullseye), the install runs `apt-get update` once and tries again;
+  only if that fails too does it stop, before anything is changed. Installs from Studio needed PuTTY for this before.
 - New tests: `dev/test_access.py` (12 checks) and `dev/test_trust.py` (33), in `dev/run_all.sh`.
 
 ## 1.5.3 - 2 GB boards, updates from Studio, rhinostudio.local, pin labels
