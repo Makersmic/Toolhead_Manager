@@ -79,7 +79,8 @@ STUBS = {
     # nginx: only "nginx -t" is used; NGINX_T_FAIL=1 makes it refuse the config
     "nginx": 'echo "nginx $*" >> "$CALLS"; [ "${NGINX_T_FAIL:-0}" = 1 ] && { echo "nginx: [emerg] unknown directive (fake)" >&2; exit 1; }; exit 0',
     # APT_404=1: "install" fails with 404 until "update" has run (stale package lists); APT_404=always: never works
-    "apt-get": 'echo "apt-get $*" >> "$CALLS"; [ "${1:-}" = update ] && { touch "$CALLS.updated"; exit 0; }; case "${APT_404:-}" in always) echo "E: 404  Not Found"; exit 100 ;; 1) [ -f "$CALLS.updated" ] || { echo "E: 404  Not Found"; exit 100; } ;; esac; exit 0',
+    # APT_UPDATE_ERR=1: "update" refreshes but exits 100 (a retired source), as on older bullseye Pis
+    "apt-get": 'echo "apt-get $*" >> "$CALLS"; [ "${1:-}" = update ] && { touch "$CALLS.updated"; [ "${APT_UPDATE_ERR:-}" = 1 ] && exit 100; exit 0; }; case "${APT_404:-}" in always) echo "E: 404  Not Found"; exit 100 ;; 1) [ -f "$CALLS.updated" ] || { echo "E: 404  Not Found"; exit 100; } ;; esac; exit 0',
     "hostname": '[ "${1:-}" = "-I" ] && { echo 127.0.0.1; exit 0; }; echo "${FAKE_HOSTNAME:-127.0.0.1}"',
     # avahi (1.5.3): the name service is only installed, never run here; avahi-resolve answers for it
     "avahi-publish": 'echo "avahi-publish $*" >> "$CALLS"; exit 0',
@@ -426,19 +427,18 @@ try:
         ok(rc == 0 and "sudo apt install avahi-daemon avahi-utils" in out and not os.path.exists(NUNIT) and os.path.lexists(NLINK)
            and "apt-get install -y avahi" not in open(LOG).read(), "no avahi-daemon: the install says the one apt line to run and never installs the daemon itself")
         run(f"{PKG}/uninstall.sh")
-        # 1.5.4: stale package lists (avahi-utils 404 on a Pi): refresh once and try again, then go on
+        # 1.5.4: avahi-utils 404 on a Pi with stale lists (and an apt-get update that complains about a retired source)
         pub = os.path.join(BIN, "avahi-publish"); os.rename(pub, pub + ".off")
-        for f in (LOG + ".updated",):
-            if os.path.exists(f): os.remove(f)
-        tree0 = tree(CFG)
-        rc, out = run(f"{PKG}/install.sh", APT_404="1")
+        if os.path.exists(LOG + ".updated"): os.remove(LOG + ".updated")
+        rc, out = run(f"{PKG}/install.sh", APT_404="1", APT_UPDATE_ERR="1")
         calls = open(LOG).read()
-        ok(rc == 0 and "refreshing the package lists" in out and "apt-get update -qq" in calls
-           and calls.count("apt-get install -y avahi-utils") >= 2, "stale package lists (404): the install runs apt-get update and tries again, then finishes")
+        ok(rc == 0 and "refreshing the package lists" in out and "reported a problem" in out and calls.count("apt-get install -y avahi-utils") >= 2
+           and "avahi-utils installed" in out, "stale lists + apt-get update error: refreshes, tries again anyway, avahi-utils goes in")
         run(f"{PKG}/uninstall.sh")
         rc, out = run(f"{PKG}/install.sh", APT_404="always")
-        ok(rc == 1 and "apt could not install avahi-utils" in out and "Nothing after this point was changed" in out and tree(CFG) == tree0,
-           "apt still fails after the refresh: STOPPED, config folder unchanged")
+        ok(rc == 0 and "Install finished." in out and "could not be installed, so the rhinostudio.local name is skipped" in out
+           and "STOPPED" not in out, "avahi-utils can't be fetched at all: the install still finishes, only the name is skipped")
+        run(f"{PKG}/uninstall.sh")
         os.rename(pub + ".off", pub)
         # the host is already called rhinostudio
         rc, out = run(f"{PKG}/install.sh", FAKE_HOSTNAME="rhinostudio")

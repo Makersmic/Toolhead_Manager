@@ -131,7 +131,7 @@ done
 # avahi's command-line tools announce rhinostudio.local (1.5.3). Only the tools: avahi-daemon itself is never
 # installed by this script (it changes what the host announces on the network), see the Studio-by-name step.
 if [ -e "$AVAHI_SOCK" ] && ! command -v avahi-publish >/dev/null; then
-  note "avahi-utils is missing - it will be installed (announces $STUDIO_NAME.local)"; NEED_APT="${NEED_APT:-} avahi-utils"
+  note "avahi-utils is missing - it will be installed (announces $STUDIO_NAME.local)"; WANT_APT="avahi-utils"
 fi
 
 # ------------------------------------------------------------------ sudo once, up front
@@ -150,12 +150,29 @@ do_ mkdir -p "$BACKUP/_rhino_install"
 [ $DRY = 0 ] && ok "backup: $BACKUP"
 
 # ------------------------------------------------------------------ helper programs
+# Stale package lists give "404 Not Found" (Debian moved to a newer build): refresh them once and try again (1.5.4).
+# The retry happens even if "apt-get update" complains: on older systems one retired source makes it fail while the
+# lists that matter still refresh.
+# APT_QUIET=1 keeps apt's own output out of the log (the optional step), never the notes.
+apt_run() { if [ -n "${APT_QUIET:-}" ]; then do_ "$@" >/dev/null 2>&1; else do_ "$@"; fi; }
+apt_try() {
+  apt_run sudo apt-get install -y "$@" && return 0
+  if [ -z "${APT_REFRESHED:-}" ]; then
+    APT_REFRESHED=1
+    note "refreshing the package lists (apt-get update) and trying again"
+    apt_run sudo apt-get update -qq || note "apt-get update reported a problem (often a retired package source) - trying anyway"
+  fi
+  apt_run sudo apt-get install -y "$@"
+}
 if [ -n "${NEED_APT:-}" ]; then
   say "Installing:${NEED_APT}"
-  # Stale package lists give "404 Not Found" (Debian moved to a newer version): refresh them once and try again (1.5.4)
-  do_ sudo apt-get install -y ${NEED_APT} || { note "refreshing the package lists (sudo apt-get update) and trying again"; \
-    do_ sudo apt-get update -qq && do_ sudo apt-get install -y ${NEED_APT}; } \
-    || fail "apt could not install${NEED_APT}." "Check the internet connection, then:  sudo apt update   and run this again."
+  apt_try ${NEED_APT} || fail "apt could not install${NEED_APT}." "Check the internet connection, then:  sudo apt update   and run this again."
+fi
+# Only for the rhinostudio.local name: never stops the install (1.5.4). Without it Studio still opens at :5001.
+if [ -n "${WANT_APT:-}" ]; then
+  say "Installing (optional):  ${WANT_APT}"
+  APT_QUIET=1 apt_try ${WANT_APT} && ok "${WANT_APT} installed" \
+    || note "${WANT_APT} could not be installed, so the rhinostudio.local name is skipped (Studio still opens at the host's address with :${STUDIO_PORT:-5001}). Later, over SSH:  sudo apt update && sudo apt install ${WANT_APT}   then install again"
 fi
 
 # ------------------------------------------------------------------ copy
