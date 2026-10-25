@@ -1,5 +1,18 @@
 # What changed
 
+## 1.6.1 - Lists that fit a snapped window
+
+- **Rhino Studio 0.7.1.** Files and Job history no longer squeeze the file name down to a letter when the window is
+  snapped to half the screen. The date, size and last run now sit in small type under the name instead of in their own
+  columns. On Files, **the toolhead pill is the Start button**: ▶ starts the file (with the same check and confirm as
+  before), ⇄ starts the tool swap when the file needs another tool, and "No toolhead ▶" covers files that don't say which
+  tool they need. Sorting (Name · Modified · Size) is in the header. On a narrow list, the toolhead moves under the name.
+  Job history shows how each job ended, when it started, the printing time and the filament under the file name, with a
+  Reprint button.
+- New design notes (not shipped in the zip): docs/decisions.md, docs/parked.md, docs/invariants.md and
+  docs/phase0-spine.md (the backup inventory and the plan for slice profiles).
+- Nothing changed in the Klipper config or the macros.
+
 ## 1.6.0 - Bed mesh
 
 - **Bed mesh is on** (`[bed_mesh]` in printer.cfg): probe area X40 Y40 to X500 Y300, 5 × 3 points (the old example's
