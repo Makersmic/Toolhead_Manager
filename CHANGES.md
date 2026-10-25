@@ -1,5 +1,15 @@
 # What changed
 
+## 1.6.2 - Update from GitHub works
+
+- **Releases now publish themselves.** No release had ever been published on GitHub, so Studio's Update button had
+  nothing to download and told you to fetch the zip by hand. Now, when a new version reaches main, GitHub builds the zip
+  (with Studio inside) and its .sha256 and publishes the release a few minutes later. There's nothing to run by hand.
+  Update in Studio › Settings › Software then installs it, the same way Install from zip does.
+- **Rhino Studio 0.7.2.** If main has a newer version whose release isn't published yet, Update says so and doesn't tell
+  you to download a zip.
+- Nothing changed in the Klipper config or the macros.
+
 ## 1.6.1 - Lists that fit a snapped window
 
 - **Rhino Studio 0.7.1.** Files and Job history no longer squeeze the file name down to a letter when the window is

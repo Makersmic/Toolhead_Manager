@@ -1,15 +1,18 @@
 # Build a release: rhino-config-<VERSION>.zip with Rhino Studio inside, and its SHA256, attached to a GitHub release.
 # Studio's Settings > Software > Update installs the newest release from here (Tool Manager 1.5.8+).
 #
-# How to release:  set VERSION (and rhino/__init__.py), commit, push, then
-#     git tag v1.5.8 && git push origin v1.5.8
-# or run this workflow by hand (Actions > Release > Run workflow).
+# How to release (1.6.2+): set VERSION (and rhino/__init__.py), commit, push to main. That's all: a push to main
+# that changes VERSION publishes v<VERSION> here (tag, zip, .sha256) unless that release already exists.
+# A tag push (git tag v1.5.8 && git push origin v1.5.8) or Actions > Release > Run workflow also still work,
+# and those rebuild the release's zip if it exists.
 # STUDIO_REF says which Rhino Studio to build in (a branch or tag of Makersmic/rhino-studio; main by default).
 name: Release
 
 on:
   push:
     tags: ["v*"]
+    branches: [main]
+    paths: [VERSION, .github/workflows/release.yml]
   workflow_dispatch:
     inputs:
       studio_ref:
@@ -32,6 +35,7 @@ jobs:
           ref: ${{ github.event.inputs.studio_ref || 'main' }}
           path: rhino-studio
       - uses: actions/setup-node@v4
+        if: env.SKIP != '1'
         with:
           node-version: 22
           cache: npm
@@ -42,7 +46,17 @@ jobs:
           grep -q "__version__ = \"$V\"" tm/rhino/__init__.py || { echo "rhino/__init__.py doesn't say $V"; exit 1; }
           if [ "${GITHUB_REF_TYPE}" = tag ] && [ "${GITHUB_REF_NAME}" != "v$V" ]; then echo "tag ${GITHUB_REF_NAME} but VERSION is $V"; exit 1; fi
           echo "VERSION=$V" >> "$GITHUB_ENV"
+      - name: Already released?
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # A push to main only publishes a version that isn't released yet; tags and Run workflow rebuild it.
+          if [ "${GITHUB_EVENT_NAME}" = push ] && [ "${GITHUB_REF_TYPE}" = branch ] \
+             && gh release view "v$VERSION" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "v$VERSION is already released - nothing to do"; echo "SKIP=1" >> "$GITHUB_ENV"
+          fi
       - name: Build Studio and the zip
+        if: env.SKIP != '1'
         run: |
           (cd rhino-studio && npm ci)
           sudo apt-get install -y zip >/dev/null
@@ -51,11 +65,12 @@ jobs:
           cat "rhino-config-$VERSION.zip.sha256"
           echo "STUDIO=$(cat tm/studio/VERSION)" >> "$GITHUB_ENV"
       - name: Publish the release
+        if: env.SKIP != '1'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           notes=$(awk -v v="## $VERSION" 'index($0, v) == 1 {on=1; next} on && /^## / {exit} on' tm/CHANGES.md)
           printf '%s\n\nRhino Studio %s is inside. Install: Studio > Settings > Software > Update, or drop the zip on Install from zip.\n' "$notes" "$STUDIO" > notes.md
           gh release create "v$VERSION" "rhino-config-$VERSION.zip" "rhino-config-$VERSION.zip.sha256" \
-            --repo "$GITHUB_REPOSITORY" --title "Rhino Tool Manager $VERSION (Studio $STUDIO)" --notes-file notes.md \
+            --target "$GITHUB_SHA" --latest --repo "$GITHUB_REPOSITORY" --title "Rhino Tool Manager $VERSION (Studio $STUDIO)" --notes-file notes.md \
             || gh release upload "v$VERSION" "rhino-config-$VERSION.zip" "rhino-config-$VERSION.zip.sha256" --repo "$GITHUB_REPOSITORY" --clobber
