@@ -64,7 +64,7 @@ DOC_ROWS = {
     "moonraker.conf": "config",
     "**Job history**": "moonraker_db",
     "**Studio settings, `mesh_seen`**": "namespaces",
-    "**Slice settings per file**": "config",       # Phase 1 puts them in config/myrhino/slice_profiles.json
+    "**Slice settings per file**": "config",       # Phase 1: profiles in config/myrhino, per-file jobs in prepare/
     "Toolhead photos": "images",
 }
 
@@ -87,6 +87,9 @@ ITEMS = {
                         "config/myrhino/portal_lists.json", "config/myrhino/umbilical.json"]},
     "studio": {"label": "Rhino Studio settings", "namespace": "rhino_studio"},
     "images": {"label": "Toolhead photos", "prefix": "images/"},
+    "profiles": {"label": "Slice profiles and saved Prepare jobs",
+                 "files": ["config/myrhino/slice_profiles.json", "config/myrhino/slice_profiles.history.json",
+                           "prepare/prepare_jobs.json"]},
 }
 
 
@@ -229,6 +232,9 @@ class BackupService:
                         put(f"moonraker/namespaces/{ns}.json", json.dumps(self.mr.db_get(ns), indent=1).encode())
                 for full, arc in self._images():
                     put_file(full, arc)
+                jobs = os.path.join(self.paths.state_dir, "prepare_jobs.json")    # Phase 1: saved Prepare jobs
+                if os.path.exists(jobs):
+                    put_file(jobs, "prepare/prepare_jobs.json")
                 manifest = {"format": 1, "tool_manager": __version__, "studio": self._studio_version(),
                             "host": socket.gethostname(), "time": self.now(), "reason": str(reason)[:60],
                             "inventory": sorted(INVENTORY), "files": files}
@@ -349,6 +355,9 @@ class BackupService:
         elif arc.startswith("images/"):
             rel = arc[len("images/"):]
             base = self.paths.images_dir
+        elif arc == "prepare/prepare_jobs.json":
+            rel = "prepare_jobs.json"
+            base = self.paths.state_dir
         else:
             raise Fail(f"{arc} has no place to go")
         full = os.path.normpath(os.path.join(base, rel))
@@ -401,7 +410,7 @@ class BackupService:
         return out
 
     def _all_files(self, z):
-        return [n for n in z.namelist() if n.startswith(("config/", "images/")) and not n.endswith("/") and not is_program(n)]
+        return [n for n in z.namelist() if (n.startswith(("config/", "images/")) or n == "prepare/prepare_jobs.json") and not n.endswith("/") and not is_program(n)]
 
     def _missing_serial(self, z):
         """[mcu ...] serial: paths in the archive's config that don't exist here (another machine's)."""
