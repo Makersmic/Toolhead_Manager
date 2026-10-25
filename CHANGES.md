@@ -7,7 +7,7 @@
   itself), job history and every settings namespace as readable files, the toolhead photos, and a manifest with a
   checksum for every file. **It's complete or it's refused:** if anything that should go in can't be read, nothing is
   kept and the message names what was missing.
-- **Back up now** is in Studio › Settings › Host › Backups (Studio 0.8.0). That panel also shows the age of the last
+- **Back up now** is in Studio › Settings › Host › Backups (Rhino Studio 0.8.0, inside this zip). That panel also shows the age of the last
   backup and whether klipper-backup's GitHub copy really worked; it never says "pushed" when it didn't. You can
   download any backup from there.
 - **BACKUP_CFG** now makes that backup first, then runs klipper-backup as before. After a long job, END_PRINT's
