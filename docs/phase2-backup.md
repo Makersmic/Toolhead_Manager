@@ -1,6 +1,6 @@
 # Phase 2: Back up now (design)
 
-Draft, Oct 25 2026, for Mike to review. No code yet.
+Oct 25 2026. Built in Tool Manager 1.7.0 / Studio 0.8.0; the sections below say where it differs from the first draft.
 
 - **Spec:** INV-B3, B4 and B5 in docs/invariants.md.
 - **What it covers:** the § Backup inventory table in docs/phase0-spine.md, and only that table.
@@ -111,3 +111,17 @@ The welcome-back summary (Phase 3) reads the same list.
 - `/server/database/item` with no `key` returns the whole namespace.
 - Job history lives in its own SQLite table (`job_history`). **There is no API to add or import jobs.** `/server/history/list` defaults to `limit=50`.
 - **So "merge history" can't go through Moonraker.** It would mean the Portal writing rows straight into `moonraker-sql.db` with Moonraker stopped. For the 7050 move a merge isn't needed, because the target is empty and a full restore keeps every job. Merge is parked until there's a case for it (Mike chose merge on Oct 25 before this was known; that's his call).
+
+## As built (1.7.0), where it differs from the draft
+
+- **Not during a print.** Moonraker refuses its database backup while printing, so a backup that leaves out the database
+  would be partial, and INV-B4 says refuse. Back up now is off during a job. BACKUP_CFG at the end of a long job hands
+  off: the archive is made as soon as the job is over (`scripts/rhino_backup_cfg.py --wait`).
+- **History merge is out.** A full restore replaces Moonraker's database with the backup's (Mike, Oct 25).
+- **Tool Manager's program files aren't restored.** `rhino/`, `scripts/`, `dev/`, `service/`, `studio/`, `manual/` and the
+  top-level program files are in every backup (a full record), but a full restore leaves them as installed, so an old
+  backup can't roll the program back. Install the same version first when moving hosts.
+- **Pruning never removes the archive just made, or the one being restored from,** even if the clock went backwards.
+- Routes: `GET /api/backup`, `POST /api/backup`, `GET /api/backup/file/<name>`, `POST /api/backup/upload`,
+  `POST /api/restore/plan`, `POST /api/restore`. Studio allowlist kinds: `backup-now`, `backup-upload`,
+  `restore-plan`, `restore` (PORTAL_BACKUP).

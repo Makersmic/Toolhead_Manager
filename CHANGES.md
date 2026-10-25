@@ -1,5 +1,26 @@
 # What changed
 
+## 1.7.0 - Back up now, and restore
+
+- **One complete backup of the Rhino**, kept on the Rhino in `~/rhino-backups` (the last 10). It holds the config
+  folder, Moonraker's whole database (job history and totals, Studio and Mainsail settings, made by Moonraker
+  itself), job history and every settings namespace as readable files, the toolhead photos, and a manifest with a
+  checksum for every file. **It's complete or it's refused:** if anything that should go in can't be read, nothing is
+  kept and the message names what was missing.
+- **Back up now** is in Studio › Settings › Host › Backups (Studio 0.8.0). That panel also shows the age of the last
+  backup and whether klipper-backup's GitHub copy really worked; it never says "pushed" when it didn't. You can
+  download any backup from there.
+- **BACKUP_CFG** now makes that backup first, then runs klipper-backup as before. After a long job, END_PRINT's
+  BACKUP_CFG makes the backup as soon as the job is over (Moonraker won't copy its database mid-print).
+- **Restore** one thing (maintenance, the tool registry and lists, Studio settings, or photos) or everything. You see
+  what changes before anything does, and a backup of how things are now is always made first.
+  - A full restore needs the machine's name typed and only runs when idle.
+  - It stops before changing anything if the backup's board isn't connected to this host.
+  - It leaves Tool Manager's own program files as installed.
+- **Moving to a new host:** add the old host's backup ("Add a backup from another Rhino"), then restore everything.
+  The backup is checked file by file before it's listed.
+- New tests: `dev/test_backup.py` (47). On the machine: B1-B6.
+
 ## 1.6.2 - Update from GitHub works
 
 - **Releases now publish themselves.** No release had ever been published on GitHub, so Studio's Update button had

@@ -386,3 +386,22 @@ The simulator is not real Klipper: probing is only modelled.
   off. Then load a mesh again by hand and press the final start: the job stops, spindle off, "Run SET_Z_ZERO again".
   *Stop if:* the spindle runs on, or a cut starts with a mesh loaded.
 - [ ] **BM9 Laser keeps it.** With a mesh loaded, LASER_JOB_SETUP and SET_Z_ZERO: the mesh stays in use (`RHINO_MESH`).
+
+## 1.7.0: backups (Back up now and restore)
+
+Needs Rhino Studio 0.8.0 for the Settings › Host › Backups panel. The Portal page works too (`/api/backup`).
+
+- [ ] **B1 Back up now.** Studio › Settings › Host › Backups › Back up now. A new `rhino-<host>-<date>.zip` appears in
+  the list and in `~/rhino-backups`. Download it and open it: `config/`, `moonraker/moonraker-sql.db`,
+  `moonraker/history.json` (every job), `moonraker/namespaces/`, `images/`, `manifest.json`.
+- [ ] **B2 GitHub line.** With klipper-backup set up, the GitHub line says "pushed just now" within a minute. Break it
+  on purpose (rename `~/klipper-backup/.env`), back up again: it says "isn't set up", never "pushed". Put `.env` back.
+- [ ] **B3 BACKUP_CFG.** Type `BACKUP_CFG` in the console: "backup rhino-... made", then the klipper-backup result.
+  During a print, `BACKUP_CFG` says the backup will be made when the job is finished; after the job it's in the list.
+  *Stop if:* the print stutters or klippy.log shows "Timer too close" while it runs.
+- [ ] **B4 Restore one item.** Log a maintenance task, then Restore… › Maintenance from the backup before it ›
+  Show what changes (one file goes back) › Restore. The task log is as it was, and a "before restore" backup is listed.
+- [ ] **B5 Full restore (do this on the 7050, not the Pi).** Install the same Tool Manager version, Add a backup from
+  another Rhino (the Pi's zip), Restore… › Everything. The board's serial path must exist on the 7050 or it stops before
+  changing anything. Type the 7050's name; Klipper and Moonraker restart; job history and Studio settings are back.
+- [ ] **B6 Keep 10.** After eleven backups, the oldest is gone.
