@@ -44,7 +44,7 @@ Material *values* (temps, power, feed) live in `variables.cfg`. There is **no ex
 | Tool registry, lists, umbilical | config/myrhino/*.json | ✅ | ✅ |
 | Maintenance tasks/history/meters | config/myrhino/maintenance/ | ✅ | ✅ |
 | Saved bed meshes | printer.cfg autosave block | ✅ | ✅ |
-| Mesh records, tool state | config/variables.save | ✅ (verify it isn't in klipper-backup's .gitignore) | ✅ |
+| Mesh records, tool state | config/variables.save | ✅ (checked Oct 25: not excluded) | ✅ |
 | moonraker.conf | config/ | ✅ | ✅ |
 | **Job history** | Moonraker DB (`printer_data/database`) | ❌ | ✅ export to JSON |
 | **Studio settings, `mesh_seen`** | Moonraker DB `rhino_studio` namespace | ❌ | ✅ export to JSON |
