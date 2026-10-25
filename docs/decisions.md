@@ -25,3 +25,7 @@ Append-only. Each entry is dated and gives its reason. An entry is never edited;
   - whether PrusaSlicer has a saved profile on the Pi
   
   *Reason:* a backup promise is only as good as its inventory.
+- **2026-10-25: Phase 2 gates, answered on the Pi.**
+  - (1) klipper-backup `backupPaths` is `printer_data/config/*` only, so it covers the whole config folder and nothing outside it. This confirms the inventory: Moonraker data and `rhino_data` aren't covered today.
+  - (3) There are no saved PrusaSlicer profiles on the Pi; `rhino_data/prusaslicer/` holds only `cache` and `jobs`, which are re-derivable and not backed up.
+  - (2) No `.gitignore` entry for `variables.save`. The `exclude` array in `.env` is still to be checked.

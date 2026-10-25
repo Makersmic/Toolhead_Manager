@@ -11,7 +11,7 @@ Draft, Oct 23 2026. Design only, no code. Found by reading the repos at TM `e703
 
 ## Answers to the five questions
 
-**a. What BACKUP_CFG grabs.** `BACKUP_CFG` runs `/home/pi/klipper-backup/script.sh` (third-party klipper-backup), which commits to GitHub whatever its `.env` `backupPaths` lists. Default is `printer_data/config/*` (verify). `END_PRINT` runs it after jobs > 2 h; the updater runs it best-effort. `install.sh` separately copies the config folder to `~/rhino-backup-<stamp>` on every install.
+**a. What BACKUP_CFG grabs.** `BACKUP_CFG` runs `/home/pi/klipper-backup/script.sh` (third-party klipper-backup), which commits to GitHub whatever its `.env` `backupPaths` lists. On Mike's Pi it is `printer_data/config/*` (checked Oct 25). `END_PRINT` runs it after jobs > 2 h; the updater runs it best-effort. `install.sh` separately copies the config folder to `~/rhino-backup-<stamp>` on every install.
 
 **b. Kiri:Moto settings.** Not on the Pi. Per-file Prepare jobs (process, device, material, tool) live in **browser localStorage** `rs.prepare.jobs`. PrusaPanel UI state is also in localStorage. Clearing the browser or switching from PC to phone loses them. Defaults come from `src/slicer/profiles.ts` (code) and materials from `variables.cfg` (backed up).
 
