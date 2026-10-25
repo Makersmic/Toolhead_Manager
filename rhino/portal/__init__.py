@@ -3,6 +3,7 @@ import os
 
 from flask import Flask
 
+from ..backup import BackupService
 from ..maint import MaintService
 from ..monitor import Monitor
 from ..moonraker import Moonraker
@@ -10,7 +11,7 @@ from ..net import Network
 from ..prusa import PrusaService
 from ..paths import resolve
 from ..service import ToolService
-from . import maint_routes, net_routes, routes, security, slicer_routes, trust_routes, update_routes
+from . import backup_routes, maint_routes, net_routes, routes, security, slicer_routes, trust_routes, update_routes
 from .access import Access
 
 
@@ -28,6 +29,7 @@ def create_app(config_dir=None, moonraker_url=None, start_monitor=False):
     app.config.update(PATHS=paths, SERVICE=svc, MOONRAKER=mr, MONITOR=mon, MAINT=maint, NETWORK=Network(),
                       ACCESS=Access(mr, paths.state_dir),
                       MAX_CONTENT_LENGTH=210 * 1024 * 1024, JSON_SORT_KEYS=False)
+    app.config["BACKUP"] = BackupService(paths, mr, backup_dir=os.environ.get("RHINO_BACKUP_DIR") or None)
     app.config["PRUSA"] = PrusaService(os.path.join(paths.state_dir, "prusaslicer"), slicer_routes.printer_state_from(mr))
     mon.listeners.append(slicer_routes.AutoUpdater(app.config["PRUSA"]))   # PrusaSlicer updates itself while in use (1.5.8)
     if start_monitor:
@@ -38,6 +40,7 @@ def create_app(config_dir=None, moonraker_url=None, start_monitor=False):
     app.register_blueprint(slicer_routes.bp)
     app.register_blueprint(update_routes.bp)
     app.register_blueprint(trust_routes.bp)
+    app.register_blueprint(backup_routes.bp)
     app.before_request(app.config["ACCESS"].gate)      # Moonraker's trusted_clients decides who may use /api (1.5.4)
     app.before_request(security.limit_upload)
     app.after_request(security.add_headers)

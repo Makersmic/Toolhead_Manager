@@ -19,11 +19,14 @@ class Moonraker:
         self._estimates = {}             # filename -> slicer estimated_time (or None); files rarely change
         self._lock = threading.Lock()
 
-    def _call(self, method, path, query=None):
+    def _call(self, method, path, query=None, body=None, timeout=None):
         full = self.url + path + ("?" + urllib.parse.urlencode(query) if query else "")
-        req = urllib.request.Request(full, method=method, data=b"" if method == "POST" else None)
+        data = json.dumps(body).encode() if body is not None else (b"" if method == "POST" else None)
+        req = urllib.request.Request(full, method=method, data=data)
+        if body is not None:
+            req.add_header("Content-Type", "application/json")
         try:
-            with urllib.request.urlopen(req, timeout=self.timeout) as r:
+            with urllib.request.urlopen(req, timeout=timeout or self.timeout) as r:
                 return json.loads(r.read().decode() or "{}")
         except urllib.error.HTTPError as e:
             if e.code == 503:        # klippy is not ready - the caller decides what that means
@@ -101,6 +104,57 @@ class Moonraker:
             q["since"] = since
         r = self._call("GET", "/server/history/list", q)
         return list((r.get("result") or {}).get("jobs") or [])
+
+    # ------------------------------------------------------------------ backup (1.7)
+    def history_all(self, page=50):
+        """Every job in Moonraker's history, oldest first (paged; /server/history/list has no import twin)."""
+        out, start = [], 0
+        while True:
+            r = self._call("GET", "/server/history/list", {"limit": page, "start": start, "order": "asc"}, timeout=15)
+            if r.get("error"):
+                raise Fail("Moonraker's job history is not available")
+            jobs = list((r.get("result") or {}).get("jobs") or [])
+            out += jobs
+            if len(jobs) < page:
+                return out
+            start += page
+
+    def db_namespaces(self):
+        r = self._call("GET", "/server/database/list", timeout=15)
+        if r.get("error"):
+            raise Fail("Moonraker's database is not available")
+        return sorted((r.get("result") or {}).get("namespaces") or [])
+
+    def db_get(self, namespace):
+        """The whole namespace as a dict (no key = every key)."""
+        r = self._call("GET", "/server/database/item", {"namespace": namespace}, timeout=15)
+        if r.get("error"):
+            raise Fail(f"Could not read Moonraker database namespace {namespace}")
+        return (r.get("result") or {}).get("value")
+
+    def db_post(self, namespace, key, value):
+        self._call("POST", "/server/database/item", body={"namespace": namespace, "key": key, "value": value}, timeout=15)
+
+    def db_backup(self, filename):
+        """Moonraker's own copy of its database, written to <printer_data>/backup/database/<filename>.
+        Moonraker refuses while Klipper is printing. -> the path Moonraker wrote."""
+        r = self._call("POST", "/server/database/backup", {"filename": filename}, timeout=60)
+        if r.get("error"):
+            raise Fail("This Moonraker has no database backup (update Moonraker)")
+        return (r.get("result") or {}).get("backup_path") or ""
+
+    def db_backup_delete(self, filename):
+        try:
+            self._call("DELETE", "/server/database/backup", {"filename": filename}, timeout=15)
+        except Fail:
+            pass
+
+    def db_restore(self, filename):
+        """Replace Moonraker's whole database with backup/database/<filename>. Moonraker restarts itself."""
+        r = self._call("POST", "/server/database/restore", {"filename": filename}, timeout=60)
+        if r.get("error"):
+            raise Fail("Moonraker could not restore its database")
+        return r.get("result") or {}
 
     def ui_theme(self):
         """Mainsail's appearance settings (Moonraker database, namespace "mainsail", key uiSettings):

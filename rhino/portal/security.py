@@ -53,11 +53,12 @@ def error(message, status=400):
 UPLOAD_LIMIT = 8 * 1024 * 1024
 SLICER_LIMIT = 210 * 1024 * 1024
 UPDATE_LIMIT = 100 * 1024 * 1024  # a release zip (1.5.3), a few MB in practice
+BACKUP_LIMIT = 200 * 1024 * 1024  # a backup from another machine (1.7)
 
 
 def limit_upload():
     n = request.content_length or 0
-    limit = {"/api/slicer/slice": SLICER_LIMIT, "/api/update/upload": UPDATE_LIMIT}.get(request.path, UPLOAD_LIMIT)
+    limit = {"/api/slicer/slice": SLICER_LIMIT, "/api/update/upload": UPDATE_LIMIT, "/api/backup/upload": BACKUP_LIMIT}.get(request.path, UPLOAD_LIMIT)
     if n > limit:
         return error(f"Too big: {n // (1024 * 1024)} MB (at most {limit // (1024 * 1024)} MB)", 413)
     return None
