@@ -21,8 +21,8 @@ Draft, Oct 25 2026, for Mike to review. No code yet.
 | Inside | From |
 |---|---|
 | `config/` | all of `printer_data/config` except `.git/` |
-| `moonraker/history.json` | job history (Moonraker `server.history.list`, all pages) |
-| `moonraker/rhino_studio.json` | the Studio namespace (`server.database.get_item` for every key in `rhino_studio`) |
+| `moonraker/moonraker-sql.db` | Moonraker's whole database, made by Moonraker itself (`POST /server/database/backup`), then copied in. This covers job history and totals, the `rhino_studio` namespace, `mesh_seen` and Mainsail's settings |
+| `moonraker/rhino_studio.json` | the Studio namespace as readable JSON (`GET /server/database/item?namespace=rhino_studio`, no key gives the whole namespace), used for partial restore |
 | `images/` | `rhino_data/images` |
 | `manifest.json` | TM and Studio versions, host, time, and for each file its path, size and sha256. Also lists the expected items that were found. |
 
@@ -55,7 +55,7 @@ It reads the push result from the script's exit code and saves it in `rhino_data
    1. Stop the Portal's writers.
    2. Unpack `config/` over the config folder; files not in the archive are kept and listed.
    3. Re-post the Moonraker namespace.
-   4. Import history only if the target's history is empty (no merging).
+   4. Restore Moonraker's database with `POST /server/database/restore`. This replaces the whole database, and Moonraker refuses it while printing. On the 7050 nothing is lost, because its database starts empty.
    5. Restart Klipper.
    
    **This is the 7050 path:** install TM 1.7 on the 7050, open the Portal, choose Restore from file, upload the zip.
@@ -101,6 +101,13 @@ The welcome-back summary (Phase 3) reads the same list.
 
 ## Open questions for Mike
 
-1. Keep 10 archives, or a different number?
-2. Should the history import merge, or only fill an empty target? (Lean: only empty.)
+1. ~~Keep 10~~ (Mike: 10).
+2. ~~History merge~~ (see below).
 3. Should the archive also copy to a USB stick or network share if one is set? (Lean: later.)
+
+## Checked against Moonraker's source (Oct 25, `Arksine/moonraker@b559b9a`)
+
+- `/server/database/backup`, `/server/database/restore` and `/server/database/list` exist. Restore refuses while Klipper is printing, and it replaces the whole database.
+- `/server/database/item` with no `key` returns the whole namespace.
+- Job history lives in its own SQLite table (`job_history`). **There is no API to add or import jobs.** `/server/history/list` defaults to `limit=50`.
+- **So "merge history" can't go through Moonraker.** It would mean the Portal writing rows straight into `moonraker-sql.db` with Moonraker stopped. For the 7050 move a merge isn't needed, because the target is empty and a full restore keeps every job. Merge is parked until there's a case for it (Mike chose merge on Oct 25 before this was known; that's his call).
