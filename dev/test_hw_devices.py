@@ -169,8 +169,20 @@ code, r = save({"device": "exhaust", "name": "exhaust3", "pins": {"pin": pick("p
 sec = section("fan_generic exhaust3")
 ok(code == 200 and f"tachometer_pin: ^{t3}" in sec and "tachometer_ppr" not in sec, "3-wire: tachometer_pin with the pull-up (ppr 2 is Klipper's default)")
 ok(any("only right at full speed" in w for w in r["warnings"]), "3-wire: says the reading is only right at full speed")
-code, r = save({"device": "controller_fan", "name": "bad4", "pins": {"pin": pick("pwm_out", mosfet=True)}, "wires": "4"}, preview=True)
-ok(code == 400 and "logic pin" in r["error"], "4-wire: the PWM signal on a MOSFET header is refused")
+hdr = pick("pwm_out", mosfet=True)
+code, r = save({"device": "controller_fan", "name": "hdr4", "pins": {"pin": hdr}, "wires": "4"}, preview=True)
+ok(code == 200 and any("Tick it" in w for w in r["warnings"]), "4-wire on a fan header: allowed (like the part fan), warns to invert")
+code, r = save({"device": "controller_fan", "name": "hdr4", "pins": {"pin": hdr}, "wires": "4", "signal_inverted": True, "cycle": 0.00004}, preview=True)
+ok(code == 200 and f"pin: !{hdr}" in r["text"] and "cycle_time: 4e-05" not in r["text"] and "cycle_time: 0.00004" in r["text"],
+   "4-wire on a fan header, inverted at 25 kHz: pin: !<header>, cycle_time: 0.00004 (as tools/3dp.cfg's part fan)")
+ok(not any("Tick it" in w or "switches supply voltage" in w for w in r["warnings"]), "inverted: no 'tick it' and no load-voltage note")
+# the older System hardware form (role "fan") takes 0.00004 too, written as in the part fan
+r2 = c.post("/api/preview/hardware", json={"item": {"name": "drv25k", "category": "cooling", "role": "fan", "pin": pick("pwm_out", mosfet=True),
+            "invert": True, "cycle": 0.00004, "max_power": 1, "kick_start": 0.1, "purpose": "x"}}, headers=H)
+ok(r2.status_code == 200 and "cycle_time: 0.00004" in J(r2).get("text", "") and "4e-05" not in J(r2).get("text", ""),
+   f"System hardware form: a fan at 0.00004 is accepted and written plainly {J(r2).get('error', '')}")
+code, r = save({"device": "fan", "name": "toofast", "pins": {"pin": pick("pwm_out", mosfet=True)}, "cycle": 0.000001}, preview=True)
+ok(code == 400 and "0.00001 to 0.5" in r["error"], f"the limit message reads 0.00001, not 1e-05 ({r.get('error')})")
 sig, tach4, pwr = pick("pwm_out", mosfet=False), pick("tach"), pick("digital_out", mosfet=True)
 code, r = save({"device": "controller_fan", "name": "drivers4", "pins": {"pin": sig, "tach": tach4, "power": pwr},
                 "wires": "4", "tach_ppr": 1, "signal_inverted": True})
@@ -184,7 +196,7 @@ ok(code == 200 and any("keep turning slowly" in w for w in r["warnings"]), "4-wi
 code, r = save({"device": "fan", "name": "fan2i", "pins": {"pin": pick("pwm_out", mosfet=True)}, "wires": "2", "signal_inverted": True}, preview=True)
 ok(code == 400 and "4-wire" in r["error"], "only a 4-wire signal can be inverted")
 code, r = save({"device": "fan", "name": "fastfan", "pins": {"pin": pick("pwm_out", mosfet=True)}, "cycle": 0.0001}, preview=True)
-ok(code == 200 and "cycle_time: 0.0001" in r["text"] and any("10 ms" in w for w in r["warnings"]), "a PWM cycle under 10 ms is written, with Klipper's advice")
+ok(code == 200 and "cycle_time: 0.0001" in r["text"] and any("10 ms" in w for w in r["warnings"]), "a 2-wire PWM cycle under 10 ms is written, with Klipper's advice")
 code, r = save({"device": "hotend_fan", "name": "hotend_cool", "pins": {"pin": pick("pwm_out", mosfet=True)}, "heater": "extruder", "heater_temp": 50})
 ok(code == 200 and "heater: extruder" in section("heater_fan hotend_cool"), "hotend fan follows the extruder")
 code, r = save({"device": "hotend_fan", "name": "hf2", "pins": {"pin": pick("pwm_out", mosfet=True)}, "heater": "nope"}, preview=True)

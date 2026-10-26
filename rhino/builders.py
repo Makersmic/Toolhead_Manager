@@ -47,6 +47,11 @@ def _blank(v):
     return v is None or (isinstance(v, str) and v.strip() == "")
 
 
+def _plain(v):
+    """0.00004 in messages, never 4e-05."""
+    return f"{v:.6f}".rstrip("0").rstrip(".") if v and abs(v) < 0.001 else f"{v:g}"
+
+
 def num(f, key, lo, hi, default=None, integer=False, label=None):
     label = label or key
     v = f.get(key)
@@ -59,7 +64,7 @@ def num(f, key, lo, hi, default=None, integer=False, label=None):
     except (TypeError, ValueError):
         raise Fail(f"{label} {v!r} is not a number")
     if x != x or x in (float("inf"), float("-inf")) or not (lo <= x <= hi):
-        raise Fail(f"{label} {x:g} is out of range {lo:g} to {hi:g}")
+        raise Fail(f"{label} {_plain(x)} is out of range {_plain(lo)} to {_plain(hi)}")
     return int(round(x)) if integer else x
 
 

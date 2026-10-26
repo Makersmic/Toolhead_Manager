@@ -1,5 +1,14 @@
 # What changed
 
+## 1.9.2 - 4-wire fans at 25 kHz
+
+- **A PWM cycle of 0.00004 (25 kHz) is accepted.** Both the Add hardware wizard and the System hardware form had a
+  0.00005 minimum, so a 4-wire fan couldn't be set the way the Rhino's own part fan runs (`pin: !PA8`,
+  `cycle_time: 0.00004`). The minimum is now 0.00001, and the value is written as `0.00004`, not `4e-05`.
+- **A 4-wire fan's speed input can be on a fan header**, as the part fan is: only the header's − pin goes to the blue
+  wire, + stays unconnected, and the signal is inverted. The wizard used to refuse this; it now warns until
+  "inverted" is ticked.
+
 ## 1.9.1 - Fans: 2, 3 and 4 wires
 
 - **Every fan the wizard adds asks how many wires it has.** 3 and 4 wires can read the fan's speed back (its yellow

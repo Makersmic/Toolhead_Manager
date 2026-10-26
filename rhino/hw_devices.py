@@ -32,7 +32,7 @@ def _n(default, lo, hi):
 
 
 # Every fan: how many wires, the speed-signal pulses per turn, the PWM cycle and (4-wire) an inverted signal.
-FAN_WIRING = {"wires": ("choice", "2", ["2", "3", "4"]), "tach_ppr": _n(2, 1, 12), "cycle": _n(0.01, 0.00005, 0.5),
+FAN_WIRING = {"wires": ("choice", "2", ["2", "3", "4"]), "tach_ppr": _n(2, 1, 12), "cycle": _n(0.01, 0.00001, 0.5),
               "signal_inverted": ("bool", False)}
 FAN_DEVICES = {"fan", "hotend_fan", "controller_fan", "temperature_fan", "exhaust"}
 
@@ -99,7 +99,7 @@ def _clean_settings(did, raw, ctx):
             except (TypeError, ValueError):
                 raise Fail(f"{key.replace('_', ' ')}: a number")
             if not s[2] <= v <= s[3]:
-                raise Fail(f"{key.replace('_', ' ')}: {s[2]:g} to {s[3]:g}")
+                raise Fail(f"{key.replace('_', ' ')}: {builders._plain(s[2])} to {builders._plain(s[3])}")
             if isinstance(s[1], int) and float(v).is_integer():
                 v = int(v)
         elif s[0] == "choice":
@@ -236,8 +236,8 @@ def clean(ctx, raw, held):
         if pname in pins and settings.get(key):
             flags[pname] = "!"
     if did in FAN_DEVICES:
-        if settings["wires"] == "4" and "pin" in pins:   # its speed input is meant to be a logic pin
-            warnings = [w for w in warnings if "3.3 V logic pin" not in w]
+        if settings["wires"] == "4" and "pin" in pins:   # its speed input is a signal: the generic load notes don't apply
+            warnings = [w for w in warnings if "3.3 V logic pin" not in w and "switches supply voltage" not in w]
         warnings += _fan_rules(ctx, settings, pins, flags)
 
     follows = raw.get("follows") or next((f for f in cat["follows"] if f in FOLLOWS_BUILT), cat["follows"][0])
@@ -301,13 +301,17 @@ def _fan_rules(ctx, s, pins, flags):
     if wires == "4":
         c = hw_boards.caps(pins["pin"], ctx.boards)
         if c["mosfet"]:
-            raise Fail(f"{c['header'] or pins['pin']} is a MOSFET power output. A 4-wire fan's PWM wire needs a logic pin; "
-                       f"its power comes from an always-on fan port, or from a MOSFET header chosen as its power pin.")
+            # The common way (the Rhino's own part fan: pin: !PA8, cycle_time: 0.00004): the header's MOSFET pulls the
+            # blue wire to ground. Only its - pin is used, and the signal is inverted.
+            w.append(f"{c['header'] or pins['pin']} is a fan header: connect only its - pin to the fan's blue wire and leave "
+                     f"+ unconnected (the fan's power comes from elsewhere). The header pulls the signal to ground, so it "
+                     f"needs 'inverted'." + ("" if s["signal_inverted"] else " Tick it, or the fan runs backwards: full "
+                     f"speed at 0 %."))
         if s["signal_inverted"]:
             flags["pin"] = "!"
         w.append("4-wire: power on the fan's red and black wires (an always-on port, or the power pin here), the "
-                 "speed signal on its blue wire. Most fans read the PWM fine at Klipper's 10 ms; some run at full speed "
-                 "until the signal is inverted (a transistor in between).")
+                 "speed signal on its blue wire. The fan's own spec is 25 kHz (PWM cycle 0.00004); many fans also "
+                 "follow Klipper's 10 ms default. If it only runs flat out or in steps, try 0.00004.")
         if "power" not in pins:
             w.append("With no power pin, many 4-wire fans keep turning slowly at 0% speed.")
     elif s["signal_inverted"]:
@@ -315,16 +319,21 @@ def _fan_rules(ctx, s, pins, flags):
     if wires == "3" and "tach" in pins:
         w.append("3-wire: the speed reading is only right at full speed. Below that the PWM cuts the fan's own power, "
                  "and its speed signal with it.")
-    if s["cycle"] < 0.01:
-        w.append("Klipper recommends a PWM cycle of 10 ms or more for fans (software PWM).")
+    if s["cycle"] < 0.01 and wires != "4":
+        w.append("Klipper recommends a PWM cycle of 10 ms or more for a fan whose power is switched (software PWM).")
     return w
+
+
+def _dec(v):
+    """0.00004, never 4e-05: the way it's written in the Rhino's own config."""
+    return f"{v:.6f}".rstrip("0").rstrip(".")
 
 
 def _fan_lines(d):
     """The options every fan section shares: cycle, speed signal, power (enable) pin."""
     s, out = d["settings"], []
     if s["cycle"] != 0.01:
-        out.append(f"cycle_time: {s['cycle']:g}")
+        out.append(f"cycle_time: {_dec(s['cycle'])}")
     if d["pins"].get("tach"):
         out.append(f"tachometer_pin: {_p(d, 'tach')}")
         if s["tach_ppr"] != 2:

@@ -24,6 +24,11 @@ def macro_section(name, purpose, body, guard_slot=None, guard_tool="", owner="")
     return lines
 
 
+def _dec(v):
+    """0.00004, never 4e-05."""
+    return f"{v:.6f}".rstrip("0").rstrip(".")
+
+
 def pin_spec(c):
     """'^!PC1' - Klipper wants the pull-up mark before the invert mark."""
     return ("^" if c.get("pullup") else "") + ("!" if c.get("invert") else "") + (c.get("pin_label") or c["pin"])
@@ -37,13 +42,13 @@ def control_section(tool_name, c, owner=None):
         keep_on = c.get("on_shutdown") == "on"
         lines = [f"[output_pin {n}]", head, f"pin: {pin_spec(c)}"]
         if role == "level":
-            lines += ["pwm: True", f"cycle_time: {c['cycle']:g}"]
+            lines += ["pwm: True", f"cycle_time: {_dec(c['cycle'])}"]
         lines += [f"value: {1 if role == 'switch' and c.get('start_on') else 0}",
                   f"shutdown_value: {1 if keep_on else 0}"]
         return lines
     if role == "fan":
         return [f"[fan_generic {n}]", head, f"pin: {pin_spec(c)}", f"max_power: {c['max_power']:g}",
-                f"cycle_time: {c['cycle']:g}", f"kick_start_time: {c['kick_start']:g}",
+                f"cycle_time: {_dec(c['cycle'])}", f"kick_start_time: {c['kick_start']:g}",
                 f"shutdown_speed: {1 if c.get('on_shutdown') == 'on' else 0}"]
     if role == "heater_fan":
         return [f"[heater_fan {n}]", head, f"pin: {pin_spec(c)}", f"heater: {c['heater']}",

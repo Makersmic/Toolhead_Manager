@@ -122,7 +122,7 @@ CONTROL_ROLES = {
 INPUT_ACTIONS = {"none": "Do nothing", "message": "Show a message", "pause": "Pause the job",
                  "estop": "Emergency stop (M112)", "command": "Run a command or macro"}
 CONTROL_CYCLE = {"switch": None, "level": 0.01, "fan": 0.01}
-CONTROL_LIMITS = {"cycle": (0.00005, 0.5), "max_power": (0.05, 1.0), "heater_temp": (20.0, 300.0),
+CONTROL_LIMITS = {"cycle": (0.00001, 0.5), "max_power": (0.05, 1.0), "heater_temp": (20.0, 300.0),
                   "min_pulse": (0.0001, 0.003), "max_pulse": (0.0005, 0.004), "max_angle": (10.0, 360.0),
                   "kick_start": (0.0, 5.0)}
 COMMAND_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*( [A-Za-z0-9_]+=[A-Za-z0-9_.-]+)*$")
