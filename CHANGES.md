@@ -1,5 +1,31 @@
 # What changed
 
+## 1.9.0 - Add hardware, job hooks, interlocks
+
+- **Add hardware wizard (Portal side).** Rhino Studio's new wizard asks five questions: what it is, where it's
+  wired, which tools it's for, what turns it on and off, where it shows. 24 kinds of hardware so far: driver and
+  temperature fans, a chamber heater (capped at 120 C, always switched off at the end of a job, on cancel and on a
+  swap), temperature readouts, door / flame / pressure / VFD-fault inputs, spindles (relay or PWM), coolant, air
+  assist, dust collection, vacuum tables, exhaust fans, LEDs and strips, filament runout and jam sensors, an extra
+  motor. Coolant and air can follow M7 / M8 / M9.
+- **Pins that can do the job.** The pin picker only offers free pins that suit the hardware: MOSFET headers for
+  loads, analog pins for thermistors, never a MOSFET for an input, never a PNP sensor straight to a pin. Header names
+  and analog pins come from Klipper's own board configs.
+- **A second control board** (`[mcu name]`, USB or CAN): BTT EBB36/42, EBB SB, SKR Mini E3 v3, SKR Pico, Pi Pico, an
+  Octopus, or "other board". Its pins appear in every picker as `name:PIN`. Klipper won't start while it's unplugged.
+- **Job hooks.** Lines that run before or after the Rhino's start and end, on cancel, pause and resume, for the
+  whole machine, a tool category or one tool. Saved in `myrhino/job_hooks.json` (with history, in the backup).
+  Nothing moves before homing, every command must exist, heater targets stay within limits, and cancel turns off
+  anything a hook turned on.
+- **Interlocks: must be closed to start.** A door or lid interlock stops a laser or spindle job (and the laser test
+  fire) from starting while it's open, and resume waits until it's closed. A flame sensor and a pressure switch can be
+  required too.
+- **Filament sensors only with a print head**, so a laser or CNC job never pauses for "runout".
+- **The macro change** (approved, `docs/proposal-macro-hooks.md`): calls only, in START_JOB, the four *_JOB_SETUP
+  macros, the laser test fire, _START_JOB_FILE, END_PRINT, _RHINO_CANCEL, the pause and resume hooks, and the
+  tool-swap confirm. They call three generated macros in the new `myrhino/job_hooks.cfg`, which always exists and
+  is kept by the installer like custom_tools.cfg.
+
 ## 1.8.2 - Smaller backups
 
 - **Backups leave out zip files in the config folder, and the manual PDF.** The zips are installer uploads

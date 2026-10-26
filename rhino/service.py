@@ -5,6 +5,7 @@ Klipper config, then saves JSON + generated .cfg together. If anything raises, n
 changed. Methods return plain dicts so they serialise straight to JSON for the portal.
 """
 import copy
+import logging
 import os
 import re
 import shutil
@@ -65,7 +66,7 @@ class ToolService:
         ctx.reg["tools"][name] = tool
         self._audit(ctx)
         if not dry_run:
-            registry.save(self.paths, ctx.reg)
+            self._save(ctx.reg)
         return {"ok": True, "name": name, "slot": tool["slot"], "type": tool["type"], "warnings": ctx.warnings,
                 "dry_run": dry_run, "restart_needed": not dry_run}
 
@@ -91,7 +92,7 @@ class ToolService:
         if not changes:
             raise Fail("Nothing to change - no recognised field was given")
         self._audit(ctx)
-        registry.save(self.paths, ctx.reg)
+        self._save(ctx.reg)
         # notes, photos and the pin map are portal-only: Klipper only needs a restart if its file changed
         return {"ok": True, "name": name, "changes": changes, "warnings": ctx.warnings,
                 "restart_needed": registry.render_cfg(ctx.reg) != before_cfg}
@@ -105,7 +106,7 @@ class ToolService:
         if new_name.lower() in {n.lower() for n in ctx.all_tools if n != name}:
             raise Fail(f"A toolhead named {new_name} already exists")
         ctx.reg["tools"] = {(new_name if n == name else n): t for n, t in ctx.reg["tools"].items()}
-        registry.save(self.paths, ctx.reg)
+        self._save(ctx.reg)
         # variables.save may still say set_material_toolhead=<old name>; the restore prompt and
         # SET_TOOLHEAD fail safe (unknown tool) until a material is chosen again.
         return {"ok": True, "name": new_name, "restart_needed": True,
@@ -126,7 +127,7 @@ class ToolService:
         if users:
             raise Fail(f"Cannot remove {name}: {', '.join(users)} use its output pin. Remove or re-wire those first.")
         del ctx.reg["tools"][name]
-        registry.save(self.paths, ctx.reg)
+        self._save(ctx.reg)
         return {"ok": True, "name": name, "restart_needed": True,
                 "images": [i for i in t.get("images", [])]}
 
@@ -134,7 +135,7 @@ class ToolService:
         """Re-validate everything and regenerate custom_tools.cfg (after hand edits or config changes)."""
         ctx, _ = self._ctx()
         self._audit(ctx)
-        registry.save(self.paths, ctx.reg)
+        self._save(ctx.reg)
         return {"ok": True, "tools": len(ctx.reg["tools"]), "missing_includes": self._tree_missing()}
 
     def set_images(self, name, images):
@@ -145,7 +146,7 @@ class ToolService:
         if len(images) > MAX_IMAGES:
             raise Fail(f"At most {MAX_IMAGES} photos per tool")
         t["images"] = list(images)
-        registry.save(self.paths, ctx.reg)   # JSON only changes; generated cfg is identical, no restart needed
+        self._save(ctx.reg)   # JSON only changes; generated cfg is identical, no restart needed
         return {"ok": True, "name": name, "images": t["images"], "restart_needed": False}
 
     # ---------------------------------------------------------------- audit
@@ -439,7 +440,7 @@ class ToolService:
         if dry_run:
             return {"ok": True, "alias": alias, "pin": pin, "warnings": warnings}
         old_cfg = registry.render_cfg(registry.load(self.paths))
-        registry.save(self.paths, reg)
+        self._save(reg)
         used = [u["where"] for u in pin_labels.uses_of(tree, original or alias, ctx.reg)]
         return {"ok": True, "alias": alias, "pin": pin, "previous": before, "warnings": warnings, "used_by": used,
                 "restart_needed": registry.render_cfg(reg) != old_cfg}
@@ -454,7 +455,7 @@ class ToolService:
         if users:
             raise Fail(f"{alias} is used by {', '.join(u['where'] for u in users)} - change those to a pin first")
         del reg["labels"][alias]
-        registry.save(self.paths, reg)
+        self._save(reg)
         return {"ok": True, "alias": alias, "restart_needed": True}
 
     def label_use(self, raw):
@@ -488,7 +489,7 @@ class ToolService:
         new_text = pin_labels.rewrite_pin_line(text, section, key, line["value"], prefix + alias)
         backup = pin_labels.backup_file(self.paths, rel)
         if made:
-            registry.save(self.paths, reg)
+            self._save(reg)
         tmp = full + ".tmp"
         with open(tmp, "w", encoding="utf-8") as f:
             f.write(new_text)
@@ -685,7 +686,7 @@ class ToolService:
         boards[name] = item
         if dry_run:
             return {"ok": True, "name": name, "board": item, "warnings": warnings, "cfg": "\n".join(hw_boards.board_lines({"boards": {name: item}}))}
-        registry.save(self.paths, reg)
+        self._save(reg)
         return {"ok": True, "name": name, "board": item, "warnings": warnings, "restart_needed": True}
 
     # ---------------------------------------------------------------- devices (hardware wizard steps 3 and 5)
@@ -724,7 +725,7 @@ class ToolService:
             text += "".join(f"#   {l}\n" for l in hw_devices.off_lines(name, item))
         if dry_run:
             return {"ok": True, "name": name, "item": item, "warnings": warnings, "text": text}
-        registry.save(self.paths, reg)
+        self._save(reg)
         return {"ok": True, "name": name, "warnings": warnings, "renamed_from": original if original and original != name else "",
                 "restart_needed": registry.render_cfg(reg) != before}
 
@@ -734,7 +735,7 @@ class ToolService:
         if name not in reg["devices"]:
             raise Fail(f"No hardware named {name}")
         del reg["devices"][name]
-        registry.save(self.paths, reg)
+        self._save(reg)
         return {"ok": True, "name": name, "restart_needed": True}
 
     # ---------------------------------------------------------------- job hooks (hardware wizard step 4)
@@ -763,11 +764,63 @@ class ToolService:
                 on_off[n] = hw_devices.off_lines(n, d)
         return job_hooks.Known(macros, tools, heater_max, on_off)
 
+    def _tool_groups(self, ctx):
+        """(laser, spindle, print head) tool names, for the interlock and filament-sensor macros."""
+        laser, spindle, prints = [], [], []
+        for n, t in ctx.all_tools.items():
+            ty, kind = str(t.get("type", "")).upper(), str(t.get("kind", "")).upper()
+            if ty == "LASER" or (ty == "POWERED" and "LASER" in kind):
+                laser.append(n)
+            elif ty == "CNC" or (ty == "POWERED" and any(w in kind for w in ("SPINDLE", "ROUTER", "MILL"))):
+                spindle.append(n)
+            elif ty == "DEPOSITION":
+                prints.append(n)
+        return laser, spindle, prints
+
+    def hooks_cfg_text(self):
+        ctx, _ = self._ctx()
+        known = self._hook_known()
+        try:
+            hooks = job_hooks.JobHooks(self.paths)._load().get("hooks", {})
+        except Fail:
+            hooks = {}                      # an unreadable hooks file: no hooks run, the file itself is kept
+        laser, spindle, prints = self._tool_groups(ctx)
+        return job_hooks.render_file(hooks, known, hw_devices.interlock_macro(ctx.reg, laser, spindle),
+                                     hw_devices.filament_macro(ctx.reg, prints))
+
+    def write_hooks_cfg(self):
+        """Rewrite myrhino/job_hooks.cfg if it changed. -> True when it did (a Klipper restart loads it)."""
+        path = os.path.join(self.paths.cfg, "myrhino", "job_hooks.cfg")
+        text = self.hooks_cfg_text()
+        sections.parse_like_klipper(text)       # never write a file Klipper can't read
+        try:
+            with open(path, encoding="utf-8") as f:
+                if f.read() == text:
+                    return False
+        except OSError:
+            pass
+        tmp = path + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            f.write(text)
+        os.replace(tmp, path)
+        return True
+
+    def _save(self, reg):
+        """registry.save, then the hooks file (interlocks, sensors and tool categories come from the registry)."""
+        registry.save(self.paths, reg)
+        try:
+            self.write_hooks_cfg()
+        except Exception as e:              # the registry is saved; the next save or Portal start writes the file
+            logging.getLogger("rhino").warning("myrhino/job_hooks.cfg not rewritten: %s", e)
+
     def hooks_state(self):
         return job_hooks.JobHooks(self.paths).state(self._hook_known())
 
     def hooks_save(self, raw, dry_run=False):
-        return job_hooks.JobHooks(self.paths).save(raw, self._hook_known(), dry_run=dry_run)
+        r = job_hooks.JobHooks(self.paths).save(raw, self._hook_known(), dry_run=dry_run)
+        if not dry_run:
+            r["restart_needed"] = self.write_hooks_cfg()
+        return r
 
     def hooks_history(self):
         return {"ok": True, "revisions": job_hooks.JobHooks(self.paths).history()}
@@ -782,7 +835,7 @@ class ToolService:
         if users:
             raise Fail(f"{name}'s pins are used by {', '.join(users)} - change those first")
         del reg["boards"][name]
-        registry.save(self.paths, reg)
+        self._save(reg)
         return {"ok": True, "name": name, "restart_needed": True}
 
     def hardware_list(self, ctx=None):
@@ -815,7 +868,7 @@ class ToolService:
         self._audit(ctx)
         if dry_run:
             return {"ok": True, "name": name, "warnings": warnings}
-        registry.save(self.paths, ctx.reg)
+        self._save(ctx.reg)
         return {"ok": True, "name": name, "warnings": warnings, "renamed_from": original if original and original != name else "",
                 "restart_needed": registry.render_cfg(ctx.reg) != before}
 
@@ -833,7 +886,7 @@ class ToolService:
         if users:
             raise Fail(f"{', '.join(users)} switch {name} on with the tool - change those tools first")
         del ctx.reg["hardware"][name]
-        registry.save(self.paths, ctx.reg)
+        self._save(ctx.reg)
         return {"ok": True, "name": name, "restart_needed": True}
 
     # ---------------------------------------------------------------- admin lists

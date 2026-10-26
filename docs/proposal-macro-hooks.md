@@ -1,8 +1,10 @@
 # Proposal: job hooks, interlocks and filament sensors in the macros
 
-**Status: waiting for Mike's review (Oct 26). Nothing here is applied.** The Portal side is built and tested
-(`rhino/job_hooks.py`, `rhino/hw_devices.py`), but no macro calls it, and `job_hooks.LIVE` is `False`, so no new
-macro is written to any `.cfg`. This is the "show the macro diff first" step from `decisions.md` (2026-10-26).
+**Status: approved by Mike and applied (Oct 26, Tool Manager 1.9.0).** The 16 insertions below are in the
+macros, `job_hooks.LIVE` is `True`, and the three macros live in the generated `myrhino/job_hooks.cfg` (a starter copy
+ships with the config, so they always exist; the installer keeps yours). It was the "show the macro diff first" step
+from `decisions.md` (2026-10-26). `dev/test_job_hooks.py` checks every call site is in place exactly once. Running
+`dev/proposal_macro_hooks.py --apply` again would add them twice: don't.
 
 ## What it adds
 

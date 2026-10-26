@@ -89,7 +89,7 @@ ITEMS = {
     "tools": {"label": "Tool registry, lists and umbilical",
               "files": ["config/myrhino/custom_tools.json", "config/myrhino/custom_tools.cfg",
                         "config/myrhino/portal_lists.json", "config/myrhino/umbilical.json",
-                        "config/myrhino/job_hooks.json", "config/myrhino/job_hooks.history.json"]},
+                        "config/myrhino/job_hooks.json", "config/myrhino/job_hooks.history.json", "config/myrhino/job_hooks.cfg"]},
     "studio": {"label": "Rhino Studio settings", "namespace": "rhino_studio"},
     "images": {"label": "Toolhead photos", "prefix": "images/"},
     "profiles": {"label": "Slice profiles and saved Prepare jobs",

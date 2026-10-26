@@ -2,7 +2,8 @@
 """The macro change for job hooks, interlocks and filament sensors (docs/proposal-macro-hooks.md).
 
     python3 dev/proposal_macro_hooks.py            print the unified diff (changes nothing)
-    python3 dev/proposal_macro_hooks.py --apply    write it into the config files (only after Mike's OK)
+    python3 dev/proposal_macro_hooks.py --apply    write it into the config files (DONE in 1.9.0: running it again
+                                                   would add every call twice)
 
 Every insertion names its file, its macro and an anchor line inside that macro; if an anchor isn't found exactly
 once the script stops and changes nothing. Adds calls only: no existing line is edited or removed."""

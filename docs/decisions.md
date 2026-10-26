@@ -46,3 +46,7 @@ Append-only. Each entry is dated and gives its reason. An entry is never edited;
   - **`heater_generic` is capped at 120 °C.**
   - **A second control board (`[mcu name]`) is in this job**, so its pins can be used from the start.
   - The wizard mascot is final: six poses with speech bubbles, used in this wizard only.
+- **2026-10-26: the job-hooks macro change approved and applied** (`docs/proposal-macro-hooks.md`, Mike: "yes").
+  16 call-only insertions, including the laser test fire checking interlocks. The three called macros live in the
+  generated `myrhino/job_hooks.cfg` (starter copy shipped, kept by the installer, rewritten on every hooks or
+  registry save and at Portal start). Released as 1.9.0.

@@ -409,3 +409,29 @@ Needs Rhino Studio 0.8.0 for the Settings › Host › Backups panel. The Portal
 ## 1.8.0: slice profiles
 
 The on-machine checks are Studio's **SP1-SP8** (Rhino Studio docs/testing.md, 0.9.0). Off the machine: `dev/test_slice_profiles.py` (in run_all).
+
+## 1.9.0: add hardware, job hooks, interlocks
+
+Needs Rhino Studio with the Add hardware wizard (Toolheads › System hardware › Add hardware (wizard)). Off the machine:
+`dev/test_hw_boards.py`, `dev/test_hw_devices.py`, `dev/test_job_hooks.py` (in run_all). The macro change is
+`docs/proposal-macro-hooks.md` (approved 2026-10-26). Back up first. Try new power hardware on a current-limited
+supply before the real load: the simulator is not real Klipper.
+
+- [ ] **HW1 Nothing changed by the upgrade.** After installing, before adding anything: FIRMWARE_RESTART, the console
+  shows no errors, `myrhino/job_hooks.cfg` exists, and a normal BlockOne print starts, runs and ends as before.
+  *Stop if:* "Unknown command _RHINO_HOOKS" (or _RHINO_INTERLOCKS / _RHINO_FILAMENT_SENSORS) anywhere: reinstall the zip.
+- [ ] **HW2 The pin picker.** Add hardware › Chamber heater › Wiring. The pin list offers only free MOSFET headers and
+  logic pins, never a pin your config or the umbilical uses; the sensor list offers only analog pins (T and TB headers,
+  PB0-1, PC0-5).
+- [ ] **HW3 Interlock refuses an open lid.** Add a Door or lid interlock (normally closed) on a spare endstop header,
+  restart. With LightSaber mounted and the lid open, LASER_JOB_SETUP stops with "lid is open"; the test fire refuses
+  too. Close it: setup runs. Open it mid-job: the job pauses; TOOL_RESUME refuses until it's closed.
+  *Stop if:* the laser fires with the lid open.
+- [ ] **HW4 Interlock wiring fails safe.** Unplug the interlock's wire: it reads open (the job won't start).
+- [ ] **HW5 A hook runs and cancel turns it off.** Job hooks: Subtractive › before start `DUST_ON` (any switch you
+  added), after end `DUST_OFF`. Start a short CNC air job: it switches on before homing. Cancel: it's off when the
+  cancel finishes. *Stop if:* anything moves before homing.
+- [ ] **HW6 Filament sensor off without a print head.** With a runout sensor added: mount LightSaber, run a laser
+  job with no filament: no runout pause. Mount BlockOne: the sensor is on again (QUERY_FILAMENT_SENSOR).
+- [ ] **HW7 Second board.** If you add one: unplug it and restart: Klipper refuses to start (expected); plug it back
+  or remove it in the wizard's board list.

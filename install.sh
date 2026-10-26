@@ -190,10 +190,10 @@ had_positions=0; [ -f "$CFG/myrhino/positions.cfg" ] && had_positions=1
 # Never copied: your saved state, git files, the test folder, zips and the installers themselves.
 EXCL=(--exclude .git/ --exclude .gitignore --exclude variables.cfg --exclude variables.save --exclude dev/ --exclude '*.zip'
       --exclude install.sh --exclude uninstall.sh --exclude rhino.sh --exclude VERSION --exclude /studio/
-      --exclude myrhino/custom_tools.cfg --exclude myrhino/maintenance_status.cfg --exclude myrhino/positions.cfg)
+      --exclude myrhino/custom_tools.cfg --exclude myrhino/job_hooks.cfg --exclude myrhino/maintenance_status.cfg --exclude myrhino/positions.cfg)
 do_ rsync -a "${EXCL[@]}" "$SRC/" "$CFG/" || fail "Copy failed." "Your backup is in $BACKUP."
 # Generated files and your positions: only put the starter copy in place if you do not have one yet.
-for f in myrhino/custom_tools.cfg myrhino/maintenance_status.cfg myrhino/positions.cfg; do
+for f in myrhino/custom_tools.cfg myrhino/job_hooks.cfg myrhino/maintenance_status.cfg myrhino/positions.cfg; do
   [ -f "$CFG/$f" ] || do_ cp "$SRC/$f" "$CFG/$f"
 done
 if [ $DRY = 0 ]; then

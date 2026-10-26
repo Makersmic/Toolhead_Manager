@@ -1,7 +1,8 @@
 """Job hooks (Add hardware wizard, step 4). Run: python3 dev/test_job_hooks.py   (needs flask)
 
 Storage, validation and the generated _RHINO_HOOKS text. The macros don't call it yet (job_hooks.LIVE is False):
-that change waits for review (docs/proposal-macro-hooks.md), so these tests also check nothing reaches a .cfg."""
+the macros call it since Mike approved the change (2026-10-26, docs/proposal-macro-hooks.md), so these tests also
+check myrhino/job_hooks.cfg: always there, rewritten on hooks and hardware saves, every call site in place."""
 import os, sys
 sys.dont_write_bytecode = True
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -32,7 +33,7 @@ r = c.post("/api/hardware/devices", json={"device": "heater", "name": "chamber",
 ok(r.status_code == 200, f"chamber heater added {J(r).get('error', '')}")
 
 st = J(c.get("/api/hooks"))
-ok(st["ok"] and st["rev"] == 0 and st["hooks"] == {} and st["live"] is False, "empty to start; not live")
+ok(st["ok"] and st["rev"] == 0 and st["hooks"] == {} and st["live"] is True, "empty to start; live")
 ids = [s["id"] for s in st["scopes"]]
 ok(ids[0] == "machine" and "category:subtractive" in ids and "tool:LightSaber" in ids, "scopes: machine, categories, each tool")
 ok(st["slots"] == ["before_start", "after_start", "before_end", "after_end", "on_cancel", "on_pause", "on_resume"], "the seven slots")
@@ -80,8 +81,11 @@ try:
 except Exception:
     parsed = False
 ok(parsed, "_RHINO_HOOKS parses the way Klipper reads config")
-ok("_RHINO_HOOKS" not in open(GEN).read(), "nothing reaches a .cfg while hooks aren't live")
-ok(not r.get("restart_needed"), "no restart while hooks aren't live")
+HCFG = os.path.join(CFG, "myrhino", "job_hooks.cfg")
+hc = open(HCFG).read()
+ok("DUST_ON" in hc.split("slot == 'before_start'")[1].split("{% elif")[0] and "SET_PIN PIN=dust VALUE=0" in hc, "myrhino/job_hooks.cfg has the saved hooks")
+ok("_RHINO_HOOKS" not in open(GEN).read(), "hooks live in their own file, not custom_tools.cfg")
+ok(r.get("restart_needed") is True, "a hooks save that changes the file asks for a Klipper restart")
 
 code, r = save({"machine": {"after_start": ["M117 hi"]}}, 0)
 ok(code == 400 and "another device" in r["error"], "a stale revision is refused")
@@ -97,20 +101,42 @@ with open(os.path.join(CFG, "myrhino", "job_hooks.json"), "w") as f:
 r = c.post("/api/hooks", json={"rev": 2, "hooks": {}}, headers=H)
 ok(r.status_code == 400 and "can't be read" in J(r)["error"], "an unreadable hooks file is never overwritten")
 
-# ---------------------------------------------------------------- the proposed macro change still applies, and only adds
-import io, contextlib, proposal_macro_hooks as P
-buf = io.StringIO()
-try:
-    with contextlib.redirect_stdout(buf):
-        P.main(apply=False)
-    applied = True
-except SystemExit as e:
-    applied = False; print("   ", e)
-d = buf.getvalue().splitlines()
-ok(applied, "docs/proposal-macro-hooks.md: every anchor is found once (the macros haven't drifted)")
-ok(d and not [l for l in d if l.startswith("-") and not l.startswith("---")], "the proposed change only adds lines")
-ok(sum(1 for l in d if l.strip() in ("+  _RHINO_HOOKS SLOT=before_start", "+  _RHINO_HOOKS SLOT=before_start TOOL={requested_toolhead}")) == 5,
-   "before_start: START_JOB and the four *_JOB_SETUP macros")
+# ---------------------------------------------------------------- the approved macro change is in place
+import re
+cfg_text = ""
+for root, _dirs, files in os.walk(CFG):
+    for f in files:
+        if f.endswith(".cfg") and "job_hooks" not in f:
+            cfg_text += open(os.path.join(root, f), encoding="utf-8").read()
+calls = re.findall(r"^\s*(_RHINO_HOOKS SLOT=\w+|_RHINO_INTERLOCKS|_RHINO_FILAMENT_SENSORS)\b", cfg_text, re.M)
+count = {k: calls.count(k) for k in set(calls)}
+want = {"_RHINO_HOOKS SLOT=before_start": 5, "_RHINO_HOOKS SLOT=after_start": 2, "_RHINO_HOOKS SLOT=before_end": 1,
+        "_RHINO_HOOKS SLOT=after_end": 1, "_RHINO_HOOKS SLOT=on_cancel": 1, "_RHINO_HOOKS SLOT=on_pause": 1,
+        "_RHINO_HOOKS SLOT=on_resume": 2, "_RHINO_INTERLOCKS": 10, "_RHINO_FILAMENT_SENSORS": 2}
+ok(count == want, f"every call site is in place exactly once ({count})")
+for macro in ("_RHINO_HOOKS", "_RHINO_INTERLOCKS", "_RHINO_FILAMENT_SENSORS"):
+    ok(f"[gcode_macro {macro}]" in open(HCFG).read(), f"{macro} is defined")
+
+# the shipped starter copy is exactly what an empty machine generates (so a fresh install has the macros)
+REPO = os.path.dirname(HERE)
+k = job_hooks.Known(set(), {}, {}, {})
+from rhino import hw_devices
+ok(open(os.path.join(REPO, "myrhino", "job_hooks.cfg")).read() ==
+   job_hooks.render_file({}, k, hw_devices.interlock_macro({}, [], []), hw_devices.filament_macro({}, [])),
+   "the repo's starter job_hooks.cfg matches an empty render")
+ok("[include myrhino/job_hooks.cfg]" in open(os.path.join(REPO, "printer.cfg")).read(), "printer.cfg includes it")
+
+# a hardware save rewrites the file: an interlock appears in _RHINO_INTERLOCKS at once
+os.remove(os.path.join(CFG, "myrhino", "job_hooks.json"))        # (the test above left it unreadable on purpose)
+r = c.post("/api/hardware/devices", json={"device": "interlock", "name": "lid", "pins": {"pin": "aux:PG12"}, "sensor_type": "mech_nc"}, headers=H)
+ok(r.status_code == 200, f"lid interlock added {J(r).get('error', '')}")
+il = open(HCFG).read().split("[gcode_macro _RHINO_INTERLOCKS]")[1].split("[gcode_macro")[0]
+ok('printer["gcode_button lid"].state == "PRESSED"' in il and "'LightSaber'" in il and "'HotJoe'" in il,
+   "the interlock refuses LightSaber and HotJoe jobs while open")
+r = c.post("/api/hardware/devices", json={"device": "runout", "name": "runout", "pins": {"pin": "aux:PG13"}, "sensor_type": "mech_no"}, headers=H)
+fs = open(HCFG).read().split("[gcode_macro _RHINO_FILAMENT_SENSORS]")[1]
+ok("SET_FILAMENT_SENSOR SENSOR=runout ENABLE={on}" in fs and "'BlockOne'" in fs and "'LightSaber'" not in fs,
+   "runout sensor: on only with a print head mounted")
 
 print(f"\n{'ALL PASS' if not fails else str(len(fails)) + ' FAILED'}")
 fake.shutdown()

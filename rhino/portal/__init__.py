@@ -1,4 +1,5 @@
 """Rhino tool portal: a small Flask app on top of rhino.service.ToolService."""
+import logging
 import os
 
 from flask import Flask
@@ -25,6 +26,10 @@ def create_app(config_dir=None, moonraker_url=None, start_monitor=False):
     mr = Moonraker(moonraker_url or os.environ.get("RHINO_MOONRAKER", "http://127.0.0.1:7125"))
     mon = Monitor(paths, mr)
     svc = ToolService(paths)
+    try:                                # a new version's job_hooks.cfg format, or hardware changed by hand: write it now
+        svc.write_hooks_cfg()
+    except Exception as e:
+        logging.getLogger("rhino").warning("myrhino/job_hooks.cfg not rewritten at start: %s", e)
     maint = MaintService(paths, svc)
     mon.listeners.append(maint.collector(mr))
     app.config.update(PATHS=paths, SERVICE=svc, MOONRAKER=mr, MONITOR=mon, MAINT=maint, NETWORK=Network(),
