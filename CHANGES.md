@@ -1,5 +1,12 @@
 # What changed
 
+## 1.9.4 - Check now finds a new release straight away
+
+- **Settings › Software › Check now** re-checks GitHub for a new Tool Manager release, not just Moonraker's
+  software. Before, the Portal answered from its hourly check, so a release published since could take up to an hour
+  to show. Check now asks GitHub at most once a minute (GitHub allows 60 unsigned requests an hour); opening the
+  page still uses the hourly answer.
+
 ## 1.9.3 - Control › Hardware and macro values (Rhino Studio)
 
 No Tool Manager change; this release carries the newer Rhino Studio:

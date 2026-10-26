@@ -108,8 +108,13 @@ def _job_state():
         return "unknown"
 
 
+FORCE_GAP_S = 60     # Studio's "Check now" asks GitHub fresh at most once a minute (60 unsigned requests an hour)
+
+
 @bp.get("/api/update")
 def state():
+    """?refresh=1 (Studio's Check now): ask GitHub again unless the last answer is under a minute old."""
+    fresh = request.args.get("refresh") == "1" and time.time() - _latest["at"] >= FORCE_GAP_S
     return jsonify({
         "ok": True,
         "installed": installed_version(),
@@ -117,7 +122,7 @@ def state():
         "zips": _zips(),
         "busy": _busy(),
         "status": read_status(),
-        "latest": latest_release(),
+        "latest": latest_release(force=fresh),
     })
 
 

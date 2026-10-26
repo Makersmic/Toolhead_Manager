@@ -144,6 +144,15 @@ update_routes._get = lambda *a, **k: (calls.append(1), orig(*a, **k))[1]
 c.get("/api/update"); c.get("/api/update")
 update_routes._get = orig
 ok(calls == [], "GH10 asked GitHub at most once an hour")
+# Studio's Check now: ?refresh=1 asks again (a release published since shows), but at most once a minute
+GH["tag"] = "v1.6.0"
+calls = []
+update_routes._get = lambda *a, **k: (calls.append(1), orig(*a, **k))[1]
+update_routes._latest["at"] -= update_routes.FORCE_GAP_S          # the last answer is a minute old
+c.get("/api/update?refresh=1")
+c.get("/api/update?refresh=1"); c.get("/api/update?refresh=1")  # clicked again straight away
+update_routes._get = orig
+ok(calls == [1], f"GH11 Check now asks GitHub again, once a minute at most ({len(calls)} asks)")
 ghs.shutdown()
 
 print("== a whole updater run ==")
