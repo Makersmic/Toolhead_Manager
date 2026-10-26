@@ -1,6 +1,6 @@
 # Add hardware wizard: any Klipper hardware, any machine (design draft v2)
 
-Status: draft for Mike's OK. No code until approved. Replaces v1 (inventory only).
+Status: **approved Oct 26** (answers in `decisions.md`). Replaces v1 (inventory only).
 
 ## Goal
 
@@ -11,7 +11,7 @@ where it shows. Rhino then writes valid, safe Klipper config.
 Durability filter: whatever this wizard writes must be safe to leave alone for months. That means outputs default
 off at shutdown, heaters are covered by idle timeout, nothing runs unattended, and every job-end path turns it off.
 
-Answers so far: guided forms only, with no raw section box (Mike, Oct 25).
+Answers: guided forms only; job hooks in the macros; interlocks on by default for laser and spindle; heater cap 120 °C; a second board is in this job (Mike, Oct 25–26).
 
 ## The model: five questions
 
@@ -204,11 +204,11 @@ The other looks tried on Oct 25 (anime eyes, work jacket) are in git history.
 ## Build order (once approved)
 
 1. Framework: devices, pin kinds and sensor types as data tables in `presets.py`; one `clean_item` path.
-2. Pin picker filtered by pin kind, with electrical warnings.
+2. Pin picker filtered by pin kind, with electrical warnings. **Second board** here: add a board, then its pins appear in the picker.
 3. Fans + heat + interlocks (most safety weight), with tests. Includes redoing `controller_fan`.
 4. Job hooks: `_RHINO_HOOKS`, `job_hooks.json`, editor, cancel-turns-off guard. Macro diff shown to Mike first.
 5. Spindles, coolant/air/dust, lights, switches and sensors, movement.
-6. Measuring, advanced, second board.
+6. Measuring, advanced.
 7. Studio wizard with mascot; role picker hides `hardware_only` roles for tool controls.
 
 Each step: TM tests + Studio unit tests + one screenshot round. Likely 3–4 sessions.

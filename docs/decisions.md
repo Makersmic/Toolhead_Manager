@@ -39,3 +39,10 @@ Append-only. Each entry is dated and gives its reason. An entry is never edited;
 - **2026-10-25: The old-browser-settings import is a prompt** (RsDialog: Import / Not now), not a red notice (Mike). Red stays for stop/destroy, unlocked-live and the Dashboard's "needs you".
 - **2026-10-25: Backups leave out zips in the config folder and the manual PDF** (Mike). They're re-downloadable, and they made each backup about 133 MB on the Pi.
 - **2026-10-25: The driver cooling fan stays on an always-on Octopus port**, not in Klipper. That's how it has always been wired. A `[controller_fan]` on PD15 is an option for later, as a wiring change plus a config change, written up first.
+- **2026-10-26: Add hardware wizard design approved** (`docs/hardware-coverage.md`, Mike), with these answers:
+  - Guided forms only, no raw "paste a Klipper section" box.
+  - **Job hooks run from the macros** (`START_JOB`, `*_JOB_SETUP`, `END_PRINT`, `_RHINO_CANCEL`, pause/resume hooks) through one `_RHINO_HOOKS` call, not from the sliced file. They work for every slicer, and cancel always turns off whatever a hook turned on. The macro diff is shown to Mike before it's written.
+  - **Interlocks: "must be closed to start" is on by default** for laser and spindle.
+  - **`heater_generic` is capped at 120 °C.**
+  - **A second control board (`[mcu name]`) is in this job**, so its pins can be used from the start.
+  - The wizard mascot is final: six poses with speech bubbles, used in this wizard only.
