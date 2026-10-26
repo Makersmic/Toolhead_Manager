@@ -1,5 +1,11 @@
 # What changed
 
+## 1.8.1 - Back up now's GitHub copy
+
+- **Back up now** passed its note to klipper-backup the wrong way, so klipper-backup refused to run and the
+  GitHub copy showed as failed. It's now sent as `--commit_message`. BACKUP_CFG wasn't affected: its push
+  carries no note.
+
 ## 1.8.0 - Slice profiles, kept on the Rhino
 
 - **Slice profiles** live on the Rhino in `config/myrhino/slice_profiles.json`, so the backup and klipper-backup

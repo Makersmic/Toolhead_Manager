@@ -530,8 +530,8 @@ class BackupService:
         if st["state"] in ("not_installed", "no_env"):
             return st
         cmd = ["bash", os.path.join(self.home, "klipper-backup", "script.sh")]
-        if msg:
-            cmd.append(re.sub(r"[^A-Za-z0-9_.:-]", "_", msg)[:60])
+        if msg:  # klipper-backup takes the message as --commit_message; a bare argument is refused (its usage error)
+            cmd += ["--commit_message", re.sub(r"[^A-Za-z0-9_.:-]", "_", msg)[:60]]
         try:
             r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
             res = {"ok": r.returncode == 0, "code": r.returncode, "time": self.now(),

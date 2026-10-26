@@ -189,8 +189,11 @@ ok(B.github_status(SVC.paths.state_dir, ROOT)["state"] == "no_env", "INV-B8: kli
 open(kb + "/.env", "w").write("x=1\n")
 st = SVC.push_github("t")
 ok(st["state"] == "failed" and st["last"]["code"] == 1, "INV-B8: a failed push is shown as failed")
-open(kb + "/script.sh", "w").write("#!/bin/bash\necho \"ok $1\"\n")
-st = SVC.push_github("t")
+# like the real klipper-backup: only flags; a bare argument gets its usage error and exit 1
+open(kb + "/script.sh", "w").write('#!/bin/bash\nif [ -n "$1" ] && [ "$1" != "--commit_message" ]; then echo "Unknown option: $1"; echo "script.sh --debug"; exit 1; fi\necho "ok $2"\n')
+st = SVC.push_github("rhino_backup_now")
+ok(st["state"] == "ok" and "rhino_backup_now" in " ".join(st["last"]["tail"]), "the message goes to klipper-backup as --commit_message (a bare argument is refused)")
+st = SVC.push_github("")
 ok(st["state"] == "ok", "a push that worked is shown as ok")
 
 # ---------------------------------------------------------------- keep 10
