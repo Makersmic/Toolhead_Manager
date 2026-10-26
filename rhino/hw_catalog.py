@@ -265,7 +265,10 @@ def check():
 
 def for_ui():
     """The whole catalog as JSON-safe data, menu-ordered, for Studio's wizard."""
-    groups = [{"id": g, "label": label, "devices": [dict(d, id=did) for did, d in DEVICES.items() if d["group"] == g]}
+    from .hw_devices import WRITERS          # a device with a writer is ready (steps 3 and 5)
+    groups = [{"id": g, "label": label,
+               "devices": [dict(d, id=did, status="ready" if (d["role"] or did in WRITERS) else "planned")
+                           for did, d in DEVICES.items() if d["group"] == g]}
               for g, label in GROUPS]
     return {"groups": groups, "pin_kinds": PIN_KINDS, "sensor_types": SENSOR_TYPES, "scopes": SCOPES,
             "follows": FOLLOWS, "input_purposes": INPUT_PURPOSES, "expose": EXPOSE, "hook_slots": HOOK_SLOTS,

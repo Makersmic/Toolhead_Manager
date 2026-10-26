@@ -7,6 +7,10 @@
     POST   /api/hardware/boards                add or change a second board ([mcu name]; "original" = its name)
     POST   /api/preview/hardware/boards        check one (writes nothing, returns the .cfg lines)
     DELETE /api/hardware/boards/<name>         remove an added board nothing uses
+    GET    /api/hardware/devices               steps 3/5: hardware added with the wizard
+    POST   /api/hardware/devices               add or replace one {"device", "name", "pins", ...; "original"?}
+    POST   /api/preview/hardware/devices       check one, return the exact .cfg text (writes nothing)
+    DELETE /api/hardware/devices/<name>
 """
 from flask import Blueprint, jsonify, request
 
@@ -52,3 +56,24 @@ def board_preview():
 @bp.delete("/api/hardware/boards/<name>")
 def board_remove(name):
     return _write(lambda: _svc().board_remove(name), lambda r: f"board {r['name']} removed")
+
+
+@bp.get("/api/hardware/devices")
+def devices():
+    return jsonify(_svc().devices_list())
+
+
+@bp.post("/api/hardware/devices")
+def device_save():
+    return _write(lambda: _svc().device_save(security.json_body()), lambda r: f"hardware {r['name']} saved")
+
+
+@bp.post("/api/preview/hardware/devices")
+def device_preview():
+    security.check_write()
+    return jsonify(_svc().device_save(security.json_body(), dry_run=True))
+
+
+@bp.delete("/api/hardware/devices/<name>")
+def device_remove(name):
+    return _write(lambda: _svc().device_remove(name), lambda r: f"hardware {r['name']} removed")

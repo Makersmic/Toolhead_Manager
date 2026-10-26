@@ -121,7 +121,8 @@ def board_pin_any(ctx, raw, label, exclude_hw=None):
                    f"on the umbilical (tool outputs are added with the tool)")
     if pin in ctx.claimed:
         raise Fail(f"{pin} is already used by {ctx.claimed[pin]}")
-    reg = {"tools": ctx.reg["tools"], "hardware": {n: h for n, h in ctx.reg.get("hardware", {}).items() if n != exclude_hw}}
+    reg = {"tools": ctx.reg["tools"], "devices": ctx.reg.get("devices", {}),
+           "hardware": {n: h for n, h in ctx.reg.get("hardware", {}).items() if n != exclude_hw}}
     other = registry.pins_in_use(reg)
     if pin in other:
         raise Fail(f"{pin} is already used by {other[pin]}")

@@ -150,6 +150,10 @@ def safe_off_lines(reg):
     for n, c in sorted(reg.get("hardware", {}).items()):
         if c.get("safe_off"):
             body += [f"# system hardware: {n}"] + control_off_lines(c)
+    from . import hw_devices
+    for n, d in sorted(reg.get("devices", {}).items()):
+        if d.get("safe_off") and hw_devices.off_lines(n, d):
+            body += [f"# hardware: {n}"] + hw_devices.off_lines(n, d)
     body = body or ["{% if false %}{% endif %}"]
     return (["[gcode_macro _RHINO_CONTROLS_OFF]",
              "description: Switch off every tool control marked 'off when made safe' (generated; called by _TOOL_SAFE_OFF)",

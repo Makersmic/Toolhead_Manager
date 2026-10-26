@@ -7,7 +7,7 @@ because Klipper refuses to start on a duplicate macro or object name.
 """
 import re
 
-from . import builders, hw_boards, sections
+from . import builders, hw_boards, hw_devices, sections
 from .errors import Fail
 from .presets import (COMMAND_RE, CONTROL_LIMITS, CONTROL_NAME_RE, CONTROL_ROLES, GCODE_WORD_RE, INPUT_ACTIONS,
                       KLIPPER_COMMANDS, MACRO_NAME_RE, MAX_CONTROLS, MAX_MACRO_LEN, MAX_MACRO_LINES, MAX_MACROS,
@@ -27,7 +27,7 @@ def _flag(v):
 
 
 # ----------------------------------------------------------------------------- who owns which name
-def taken_names(ctx, exclude_tool=None, exclude_hw=None):
+def taken_names(ctx, exclude_tool=None, exclude_hw=None, exclude_device=None):
     """-> (macros {UPPER: owner}, objects {lower: owner}) for everything except `exclude_tool`'s extras
     (or the system hardware item `exclude_hw`)."""
     macros = {n: "your Klipper config" for n in ctx.macro_names}
@@ -40,6 +40,15 @@ def taken_names(ctx, exclude_tool=None, exclude_hw=None):
         objects[n] = "system hardware"
         for mn, *_ in sections.control_macros("", None, hw):
             macros[mn] = f"system hardware {n}"
+    for n, d in ctx.reg.get("devices", {}).items():          # hardware added with the wizard (hw_devices)
+        if n == exclude_device:
+            continue
+        for o in hw_devices.object_names(n, d):
+            objects[o] = f"hardware {n}"
+        for mn, *_ in hw_devices.macros_of(n, d):
+            macros[mn] = f"hardware {n}"
+        if d.get("follows") == "gcode":
+            macros.update({m: f"hardware {n} (coolant G-code)" for m in ("M7", "M8", "M9")})
     for n, t in ctx.reg["tools"].items():
         for o in t.get("new_switch_pins", {}):
             objects[o.lower()] = f"toolhead {n}"

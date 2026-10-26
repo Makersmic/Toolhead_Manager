@@ -9,7 +9,7 @@ import os
 import re
 import shutil
 
-from . import builders, extras, hw_boards, hw_catalog, lists, pin_labels, registry, sections, tooldocs
+from . import builders, extras, hw_boards, hw_catalog, hw_devices, lists, pin_labels, registry, sections, tooldocs
 from .errors import Fail
 from .klipper_cfg import ConfigTree
 from .paths import Paths
@@ -151,6 +151,7 @@ class ToolService:
     # ---------------------------------------------------------------- audit
     def _audit(self, ctx):
         """Fail unless the whole registry is consistent with the live Klipper config."""
+        hw_devices.refresh_scope_slots(ctx)
         problems, slots, pins = [], {}, {}
         builtin_lower = {n.lower() for n in ctx.builtin_tools}
         for n, t in ctx.reg["tools"].items():
@@ -539,7 +540,7 @@ class ToolService:
     # ---------------------------------------------------------------- system hardware
     def _board_pins(self, ctx, exclude_hw=None):
         """Suggested pins for system hardware: known board headers nothing uses and not on the umbilical."""
-        taken = registry.pins_in_use({"tools": ctx.reg["tools"],
+        taken = registry.pins_in_use({"tools": ctx.reg["tools"], "devices": ctx.reg.get("devices", {}),
                                       "hardware": {n: h for n, h in ctx.reg.get("hardware", {}).items() if n != exclude_hw}})
         on_umb = set(ctx.umbilical) | {c["pin"] for c in ctx.contacts if c["pin"]}
         main = [{"pin": p, "header": h} for p, h in BOARD_HEADERS.items()
@@ -562,7 +563,8 @@ class ToolService:
 
     def _held(self, ctx, exclude_hw=None):
         reg = {"tools": ctx.reg["tools"], "labels": ctx.reg.get("labels", {}),
-               "hardware": {n: h for n, h in ctx.reg.get("hardware", {}).items() if n != exclude_hw}}
+               "hardware": {n: h for n, h in ctx.reg.get("hardware", {}).items() if n != exclude_hw},
+               "devices": {n: d for n, d in ctx.reg.get("devices", {}).items() if n != exclude_hw}}
         on_umb = set(ctx.umbilical) | {c["pin"] for c in ctx.contacts if c["pin"]}
         return registry.pins_in_use(reg), on_umb
 
@@ -685,6 +687,55 @@ class ToolService:
             return {"ok": True, "name": name, "board": item, "warnings": warnings, "cfg": "\n".join(hw_boards.board_lines({"boards": {name: item}}))}
         registry.save(self.paths, reg)
         return {"ok": True, "name": name, "board": item, "warnings": warnings, "restart_needed": True}
+
+    # ---------------------------------------------------------------- devices (hardware wizard steps 3 and 5)
+    def devices_list(self):
+        ctx, _ = self._ctx()
+        out = []
+        for n, d in sorted(ctx.reg.get("devices", {}).items()):
+            out.append({**d, "name": n, "headers": {k: hw_boards.caps(p, ctx.boards)["header"] for k, p in d["pins"].items()},
+                        "macros": [m for m, *_ in hw_devices.macros_of(n, d)], "live": hw_catalog.DEVICES[d["device"]]["live"]})
+        return {"ok": True, "devices": out, "max": hw_devices.MAX_DEVICES}
+
+    def device_save(self, raw, dry_run=False):
+        """Add a device from the catalog, or replace one (raw["original"] = its current name)."""
+        reg = copy.deepcopy(registry.load(self.paths))
+        ctx, _ = self._ctx(reg)
+        devs = reg["devices"]
+        original = (raw.get("original") or "").strip().lower() or None
+        if original and original not in devs:
+            raise Fail(f"No hardware named {original}")
+        if not original and len(devs) >= hw_devices.MAX_DEVICES:
+            raise Fail(f"At most {hw_devices.MAX_DEVICES} pieces of hardware")
+        held, _ = self._held(ctx, exclude_hw=original)
+        name, item, warnings = hw_devices.clean(ctx, raw, held)
+        if name in reg.get("hardware", {}) and name != original:
+            raise Fail(f"The name {name} is already used by system hardware")
+        before = registry.render_cfg(registry.load(self.paths))
+        if original:
+            del devs[original]
+        devs[name] = item
+        self._audit(ctx)
+        text = "\n".join(hw_devices.lines(name, item)) + "\n"
+        for mn, desc, body in hw_devices.macros_of(name, item):
+            text += "\n" + "\n".join(sections.macro_section(mn, desc, "\n".join(body), owner=f"made by hardware {name}")) + "\n"
+        if item["safe_off"] and hw_devices.off_lines(name, item):
+            text += "\n# also switched off by _TOOL_SAFE_OFF (end of job, cancel, tool swap, emergency stop):\n"
+            text += "".join(f"#   {l}\n" for l in hw_devices.off_lines(name, item))
+        if dry_run:
+            return {"ok": True, "name": name, "item": item, "warnings": warnings, "text": text}
+        registry.save(self.paths, reg)
+        return {"ok": True, "name": name, "warnings": warnings, "renamed_from": original if original and original != name else "",
+                "restart_needed": registry.render_cfg(reg) != before}
+
+    def device_remove(self, name):
+        reg = copy.deepcopy(registry.load(self.paths))
+        name = str(name or "").strip().lower()
+        if name not in reg["devices"]:
+            raise Fail(f"No hardware named {name}")
+        del reg["devices"][name]
+        registry.save(self.paths, reg)
+        return {"ok": True, "name": name, "restart_needed": True}
 
     def board_remove(self, name):
         reg = copy.deepcopy(registry.load(self.paths))

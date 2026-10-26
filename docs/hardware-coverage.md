@@ -218,6 +218,18 @@ The other looks tried on Oct 25 (anime eyes, work jacket) are in git history.
    - An added board blocks Klipper's start while it's unplugged; the save warns, and removal is refused while anything
      uses its pins. Pin labels stay main-board only for now.
 3. Fans + heat + interlocks (most safety weight), with tests. Includes redoing `controller_fan`.
+   - **Built Oct 26 (with step 5's writers):** `rhino/hw_devices.py`. New devices live in the registry under `devices`;
+     the six role-based items stay under `hardware`, unchanged. One `clean()`, and `lines()` / `off_lines()` /
+     `macros_of()` that only render (preview = what's written). Tests: `dev/test_hw_devices.py`.
+   - Heater: `heater_generic`, watermark control, `max_temp` capped at 120 C, always in `_RHINO_CONTROLS_OFF`.
+     Temperature fan: `max_temp` = target + 10, full speed on shutdown. Controller fan: idle_timeout 30.
+   - Interlock / flame / pressure / VFD fault: `gcode_button`, flags from the sensor type (PNP refused unless
+     isolation is confirmed). "Must be closed to start" is stored (laser and spindle on by default) but the check
+     itself is a START_JOB change: **see `docs/proposal-macro-hooks.md`, not applied.**
+   - Follows: manual, heater, motors, temperature and G-code (M7/M8/M9, only if your config has none) are built.
+     "Another output" and "the job" are refused until job hooks are approved.
+   - Scope: category / named tools are stored; ON macros refuse unless a matching tool is mounted (slots are
+     recomputed on every save).
 4. Job hooks: `_RHINO_HOOKS`, `job_hooks.json`, editor, cancel-turns-off guard. Macro diff shown to Mike first.
 5. Spindles, coolant/air/dust, lights, switches and sensors, movement.
 6. Measuring, advanced.
