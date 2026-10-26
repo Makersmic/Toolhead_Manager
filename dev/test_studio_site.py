@@ -119,6 +119,7 @@ events {{ worker_connections 64; }}
 http {{
     {"include " + mime + ";" if os.path.exists(mime) else ""}
     default_type application/octet-stream;
+    access_log {ROOT}/access.log;    # the Mainsail stand-in logs; /var/log/nginx isn't writable without root (GitHub's runner)
     client_body_temp_path {ROOT}/body;
     proxy_temp_path {ROOT}/proxy;
     fastcgi_temp_path {ROOT}/fcgi;
