@@ -6,6 +6,9 @@
   software. Before, the Portal answered from its hourly check, so a release published since could take up to an hour
   to show. Check now asks GitHub at most once a minute (GitHub allows 60 unsigned requests an hour); opening the
   page still uses the hourly answer.
+- **Rhino Studio: the Toolheads tab is now Assets**, with three groups: Toolheads (Library, Tool connector, Kinds of
+  tool), Hardware (System hardware, Board pins and outputs) and Parts (Materials, Nozzles, Categories, each on its own
+  page). Old Toolheads bookmarks still open the right page.
 
 ## 1.9.3 - Control › Hardware and macro values (Rhino Studio)
 

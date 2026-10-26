@@ -412,7 +412,7 @@ The on-machine checks are Studio's **SP1-SP8** (Rhino Studio docs/testing.md, 0.
 
 ## 1.9.0: add hardware, job hooks, interlocks
 
-Needs Rhino Studio with the Add hardware wizard (Toolheads › System hardware › Add hardware (wizard)). Off the machine:
+Needs Rhino Studio with the Add hardware wizard (Assets › Hardware › System hardware › Add hardware (wizard)). Off the machine:
 `dev/test_hw_boards.py`, `dev/test_hw_devices.py`, `dev/test_job_hooks.py` (in run_all). The macro change is
 `docs/proposal-macro-hooks.md` (approved 2026-10-26). Back up first. Try new power hardware on a current-limited
 supply before the real load: the simulator is not real Klipper.

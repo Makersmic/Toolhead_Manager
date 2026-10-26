@@ -158,7 +158,7 @@ def label_lines(reg):
     labels = sorted(reg.get("labels", {}).items())
     if not labels:
         return []
-    out = [f"[{LABELS_SECTION}]", "# Pin labels set in Rhino Studio (Toolheads > Board pins). Use them as pin: NAME anywhere.",
+    out = [f"[{LABELS_SECTION}]", "# Pin labels set in Rhino Studio (Assets > Board pins and outputs). Use them as pin: NAME anywhere.",
            "aliases:"]
     out += [f"    {a}={p}" + ("," if i < len(labels) - 1 else "") for i, (a, p) in enumerate(labels)]
     return out + [""]
