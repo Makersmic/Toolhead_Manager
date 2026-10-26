@@ -183,9 +183,20 @@ The Rhino's own sequence is shown greyed between the slots so the order is visib
 Five steps, one question each, matching the model: **What is it → Wiring → For which tools → Follows → Shows**, plus
 a preview of the Klipper section before saving (exists today).
 
-**Graphics:** only the wizard gets a mascot, an original soft pastel 1980s-cartoon-style rhino. It appears in the
-wizard header and on the done screen. Everything else keeps the Rhino Studio theme. Asset:
-`rhino-studio/src/assets/wizard/rhino-mascot.svg`, from this design pass.
+**Graphics:** only the wizard gets the mascot, an original Rhino Studio rhino drawn in a soft 1980s-cartoon style with
+a hand-drawn look: uneven line width, grainy pencil fill. One pose per step panel, beside the question:
+
+| Step | Pose |
+|---|---|
+| What is it | Holding up a part, curious |
+| Wiring | Holding a wire in each hand |
+| For which tools | Pointing at a tool on a rack |
+| Follows | Thinking, a small arrow between two parts |
+| Shows | Waving at a screen |
+| Done | Thumbs up with the wrench |
+
+Everything else keeps the Rhino Studio theme. The base drawing is `rhino-studio/src/assets/wizard/rhino-mascot.svg`.
+Poses are made from it in build step 7. It's checked in light and dark, and it works on both.
 
 ## Build order (once approved)
 
