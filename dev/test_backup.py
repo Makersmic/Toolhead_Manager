@@ -124,6 +124,7 @@ ok(all(v in B.INVENTORY for v in B.DOC_ROWS.values()), "INV-B5: every DOC_ROWS e
 ok(not [k for k in B.DOC_ROWS if k not in [r[0] for r in rows]], "INV-B5: DOC_ROWS names no row the table doesn't have")
 
 # ---------------------------------------------------------------- make one
+open(CFG + "/rhino-config-1.4.0.zip", "wb").write(b"PK old upload")   # an old installer upload in the config folder
 r = post("/api/backup"); j = r.get_json()
 ok(r.status_code == 200 and j["ok"] and j["archive"]["complete"], f"Back up now makes a complete archive ({j.get('archive', {}).get('name')})")
 name = j["archive"]["name"]
@@ -135,6 +136,8 @@ with zipfile.ZipFile(path) as z:
     hist = json.loads(z.read("moonraker/history.json"))
 ok("config/printer.cfg" in names and "config/variables.cfg" in names and "config/myrhino/bed_mesh.cfg" in names, "config files are in it")
 ok(not any(n.startswith("config/.git/") for n in names), "config/.git is left out")
+ok(not any(n.lower().endswith(".zip") for n in names) and "config/manual/Rhino-User-Manual.pdf" not in names,
+   "install zips and the manual PDF are left out (re-downloadable; 1.8.2)")
 ok("moonraker/moonraker-sql.db" in names, "Moonraker's database (its own backup) is in it")
 ok(len(hist) == 123, f"every job is in history.json, across pages ({len(hist)} of 123)")
 ok("moonraker/namespaces/rhino_studio.json" in names and "moonraker/namespaces/mainsail.json" in names, "every namespace is in it as JSON")

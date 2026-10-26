@@ -45,6 +45,9 @@ NAME_RE = re.compile(r"^rhino[-_][A-Za-z0-9._-]{1,80}\.zip$")   # rhino_studio_o
 SKIP_DIRS = {".git", "__pycache__", "node_modules"}
 ARCHIVE_PREFIX = "rhino_studio_os"     # Mike, 2026-10-25: no host name (the Pi's was mainsailos); the manifest still records the host
 SKIP_FILES = re.compile(r"(\.part|\.tmp|\.swp)$")
+# 1.8.2: zips in the config folder are installer uploads (every release is on GitHub; klipper-backup skips *.zip
+# too), and the manual PDF comes with every install. They made each backup ~130 MB on Mike's Pi.
+SKIP_REDERIVABLE = re.compile(r"(\.zip$|^manual/[^/]+\.pdf$)", re.I)
 
 # id -> what it is. Mirrors docs/phase0-spine.md § Backup inventory (rows marked ✅ under "Should be").
 INVENTORY = {
@@ -162,8 +165,9 @@ class BackupService:
             for fn in sorted(files):
                 if not SKIP_FILES.search(fn):
                     full = os.path.join(root, fn)
-                    if os.path.isfile(full) and not os.path.islink(full):
-                        yield full, "config/" + os.path.relpath(full, self.paths.cfg).replace(os.sep, "/")
+                    rel = os.path.relpath(full, self.paths.cfg).replace(os.sep, "/")
+                    if os.path.isfile(full) and not os.path.islink(full) and not SKIP_REDERIVABLE.search(rel):
+                        yield full, "config/" + rel
 
     def _images(self):
         d = self.paths.images_dir

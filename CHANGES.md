@@ -1,5 +1,12 @@
 # What changed
 
+## 1.8.2 - Smaller backups
+
+- **Backups leave out zip files in the config folder, and the manual PDF.** The zips are installer uploads
+  (`rhino-config-*.zip` and the like). Every release is on GitHub, and klipper-backup skips them too. The PDF comes
+  with every install. On the Pi this takes a backup from about 133 MB to about 20 MB. Restore is unchanged: those
+  were never settings.
+
 ## 1.8.1 - Back up now's GitHub copy
 
 - **Back up now** passed its note to klipper-backup the wrong way, so klipper-backup refused to run and the
