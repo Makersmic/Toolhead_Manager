@@ -50,3 +50,8 @@ Append-only. Each entry is dated and gives its reason. An entry is never edited;
   16 call-only insertions, including the laser test fire checking interlocks. The three called macros live in the
   generated `myrhino/job_hooks.cfg` (starter copy shipped, kept by the installer, rewritten on every hooks or
   registry save and at Portal start). Released as 1.9.0.
+- **2026-10-26: 7050 migration answers** (`docs/migrate-7050.md`, Mike): network option A (NetworkManager on the
+  7050), hostname `rhino`, nothing on the Pi's GPIO header (only the Octopus and the webcam, USB). **The Pi is retired**
+  a month after the 7050 is accepted: until then it's the fallback, frozen at 1.9.1 (replacing the 1.8.1 the draft
+  named); the 7050 stays on 1.9.1 until the load test passes so the way back can restore. After acceptance, a one-time
+  Clonezilla image of the 7050 SSD; releases then target x86 only.

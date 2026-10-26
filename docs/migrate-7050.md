@@ -1,6 +1,7 @@
-# Moving the Rhino to the OptiPlex 7050 Micro (design draft)
+# Moving the Rhino to the OptiPlex 7050 Micro
 
-Oct 25 2026. **Draft for Mike's review. Nothing on the machine changes until he approves it.**
+Oct 25 2026, **approved by Mike Oct 26** (answers at the end): NetworkManager on the 7050, hostname `rhino`, nothing on
+the Pi's GPIO header, and the Pi is retired a month after the 7050 is accepted.
 This replaces docs/install-ubuntu-server.md (the 3080 / Ubuntu plan), which stays as a reference.
 
 - **What:** the 7050 Micro (i5-7500T, 8 GB, Mike's 2.5" SSD) runs Klipper, Moonraker, the Portal, Studio and
@@ -14,16 +15,15 @@ Items marked **verify** come from earlier Gemini/Grok research or from memory, a
 
 ## 0. Before the 7050 arrives (on the Pi)
 
-1. **Install Tool Manager 1.8.1** (Update in Studio). Backups from 1.8.1 on are named `rhino_studio_os-<date>.zip`.
+1. **Install Tool Manager 1.9.1** (Update in Studio), then check **HW1** (a normal print runs as before). The
+   7050 gets the same version, so the backup restores cleanly, and the Pi stays on 1.9.1 as the fallback.
 2. **Back up now** (Settings › Host › Backups). Check that it says **complete** and that the GitHub copy says pushed. Then
    **Download** the zip to your PC. That file is the move: config, Moonraker database (history, Studio and Mainsail
    settings), photos, slice profiles and saved jobs.
-3. **Why the backup is 133 MB:** run
-   `unzip -l ~/rhino-backups/<newest>.zip | sort -k1 -n | tail -15` and send the result. If it's a bloated database
-   or old photos, we trim it first (optional).
-4. **The Pi's GPIO header:** look at the Pi and write down anything wired to its pins (relay, button, fan, LED,
-   sensor). The 7050 has no GPIO, so anything there needs a new home first (the MCU board, or a USB relay). If the
-   header is empty, there's nothing to do.
+3. **Size:** fixed in 1.8.2 (installer zips and the manual PDF are left out). Expect about 20 MB, not 133 MB.
+   If it's still large, run `unzip -l ~/rhino-backups/<newest>.zip | sort -k1 -n | tail -15` and send the result.
+4. **The Pi's GPIO header: empty** (Mike, Oct 26). Only the Octopus and the webcam are plugged in, both USB, so
+   nothing needs a new home.
 5. **Write down:** the Pi's IP address, klipper-backup's GitHub repo name, and a GitHub token that can push to it.
    `.env` holds the token and is deliberately not in the backup.
 6. **Which board chip:** run `lsusb` on the Pi. If you see `1a86:7523` (CH340), §3's brltty step applies.
@@ -62,18 +62,18 @@ Items marked **verify** come from earlier Gemini/Grok research or from memory, a
    - `flatpak` is for PrusaSlicer (check P0).
    - **CH340 board only:** `sudo apt remove -y brltty`. It grabs CH340 serial ports. **Verify** whether it's installed at all on netinst.
 
-## 4. Network (decide with Mike)
+## 4. Network: option A (Mike, Oct 26)
 
 On a server install, Debian 12's network is run by **ifupdown** (`/etc/network/interfaces`), not NetworkManager. Studio's
 Settings › Network and **Settings › Host › Name on the network** only change things on NetworkManager. Two options:
 
-- **A (lean):** hand the wired port to NetworkManager:
+- **A (chosen):** hand the wired port to NetworkManager:
   1. Comment out the port's lines in `/etc/network/interfaces`, leaving only `lo`.
   2. `sudo systemctl restart NetworkManager`
   3. Reboot.
 
   After that, Studio can rename the Rhino and set a fixed address, with Keep/Undo. **Verify** on the box before relying on it.
-- **B:** leave ifupdown and set a fixed address in your router. Studio shows the network read-only, like the Pi does today.
+- B (not chosen): leave ifupdown and set a fixed address in the router; Studio would show the network read-only.
 
 ## 5. Klipper, Moonraker, Mainsail (KIAUH)
 
@@ -96,14 +96,14 @@ If `http://rhino.local` shows **403**, run `chmod o+x ~`.
 
 ## 7. Tool Manager, then the restore
 
-1. Install **Tool Manager 1.8.1**: copy the zip over and run `rhino.sh` option 3 (the same as the first install on
+1. Install **Tool Manager 1.9.1** (the same version as the Pi's backup): copy the zip over and run `rhino.sh` option 3 (the same as the first install on
    the Pi). This sets up the Portal, Studio at `http://rhinostudio.local` and the updater.
 2. Studio › Settings › Host › Backups › **Add a backup from another Rhino…**, then pick the zip from step 0.2. It's
    checked before it's listed.
 3. **Restore… › Everything** (check **B5**). It shows what it will change first, asks you to type the machine's
    name, and backs up the 7050's fresh state before writing.
    - It refuses if the backup's `[mcu] serial:` boards aren't connected. That's a good thing after a move: plug the board in first.
-   - It leaves the program files as installed (1.8.1).
+   - It leaves the program files as installed (1.9.1).
    - **Verify:** `moonraker.conf` comes back from the Pi. With user `pi`, the paths match. Check `[authorization]`
      `trusted_clients` still covers your network.
 4. `FIRMWARE_RESTART`, answer "which toolhead is mounted?", then `CHECK_TOOLHEADS`.
@@ -138,18 +138,26 @@ If `http://rhino.local` shows **403**, run `chmod o+x ~`.
 
 ## 10. Afterwards
 
-- The Pi's SD card stays as it is for a month, as the spare.
+- **Until the load test passes, don't update Tool Manager on the 7050.** The way back (§11) restores a 7050 backup on
+  the Pi, and a restore wants the same version on both (1.9.1).
+- **Once it's accepted:** make a **one-time Clonezilla image of the 7050's SSD** (boot Clonezilla Live from a USB stick,
+  device-image, save to a USB drive or the PC, and check it). Recovery is then the image plus the newest backup zip.
+- The Pi's SD card stays as it is, frozen at 1.9.1, for a month after acceptance, then it's retired (Mike, Oct 26).
+  Releases after that target the 7050 (x86) only.
 - I add 7050 notes to the manual's install chapter (it's being rewritten anyway).
 - decisions.md records the result.
 
 ## 11. Way back
 
 Shut the 7050 down, move the USB cables back, and boot the Pi. Its SD card is unchanged. Anything made on the 7050 in
-the meantime (new profiles, history) comes back with a backup from the 7050 restored on the Pi.
+the meantime (new profiles, history) comes back with a backup from the 7050 restored on the Pi (both on 1.9.1).
 
-## Questions for Mike
+After the Pi is retired, the way back is the Clonezilla image (§10) restored onto the SSD, then the newest backup zip.
 
-1. **Network:** option A (NetworkManager, so Studio can rename and set the address) or B (router, read-only)? **Lean: A.**
-2. Hostname **`rhino`** on the 7050, or keep **`mainsailos`** so bookmarks still work? **Lean: `rhino`.**
-   `rhinostudio.local` works either way.
-3. Anything on the Pi's GPIO header (step 0.4)?
+## Mike's answers (Oct 26)
+
+1. **Network:** A, NetworkManager on the 7050 (§4).
+2. **Hostname:** `rhino` (§3). `rhinostudio.local` works too; bookmarks to `mainsailos.local` need updating.
+3. **Pi GPIO header:** nothing on it; only the Octopus and the webcam, both USB (§0.4).
+4. **Pi retirement:** yes. Fallback during the move, frozen at 1.9.1, retired a month after acceptance; a one-time
+   Clonezilla image of the 7050 SSD (§10).
