@@ -32,6 +32,7 @@ class Context:
     umbilical_info: dict = field(default_factory=dict)   # {pin: {"type", "label"}}
     kinds: dict = field(default_factory=dict)            # {kind id: kind dict} from lists.py (Admin screen)
     contacts: list = field(default_factory=list)         # the 21-pin connector (ConfigTree.contacts)
+    boards: dict = field(default_factory=dict)           # second boards {name: {"preset", ...}}: registry + [mcu name]
 
     @property
     def all_tools(self):
@@ -113,8 +114,8 @@ def board_pin(ctx, raw, label, exclude_tool=None):
 def board_pin_any(ctx, raw, label, exclude_hw=None):
     """A board pin for system hardware: any pin nothing uses that is NOT wired to the tool connector."""
     pin = ctx.resolve(raw) if ctx.resolve else str(raw).strip().upper()
-    if not pin or not PIN_RE.match(pin):
-        raise Fail(f"{label} {raw!r} is not a board pin name like PD15")
+    if not pin or not (PIN_RE.match(pin) or ":" in pin):      # ':' only survives resolve() for an added board
+        raise Fail(f"{label} {raw!r} is not a board pin name like PD15 (or board:PA1 on a second board)")
     if pin in ctx.umbilical or any(c["pin"] == pin for c in ctx.contacts):
         raise Fail(f"{pin} is wired to the tool connector - system hardware needs a board pin that is not "
                    f"on the umbilical (tool outputs are added with the tool)")

@@ -44,6 +44,7 @@ itself.
 | maintenance screens | `rhino/portal/static/maint.js`, `rhino/portal/maint_routes.py` |
 | Admin screens (drop-down lists, status codes) | `rhino/portal/static/admin.js`, `rhino/lists.py` |
 | the 21 umbilical contacts, board-header labels | `rhino/presets.py` (`DEFAULT_CONTACTS`, `BOARD_HEADERS`) or `myrhino/umbilical.json` |
+| what each board pin can do, second-board presets | `rhino/hw_boards.py`; pin uses are generated into `rhino/hw_boards_data.py` by `scripts/board_pins_from_klipper.py` |
 | the start-up maintenance prompt, `PM_STATUS` | `guided/maintenance.cfg` |
 | job timer, auto-restart, meter polling | `rhino/monitor.py` |
 | M3/M4/M5, power cap, watchdog, safe-off | `tools/tool_power.cfg` |

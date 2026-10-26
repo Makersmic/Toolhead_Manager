@@ -7,7 +7,7 @@ because Klipper refuses to start on a duplicate macro or object name.
 """
 import re
 
-from . import builders, sections
+from . import builders, hw_boards, sections
 from .errors import Fail
 from .presets import (COMMAND_RE, CONTROL_LIMITS, CONTROL_NAME_RE, CONTROL_ROLES, GCODE_WORD_RE, INPUT_ACTIONS,
                       KLIPPER_COMMANDS, MACRO_NAME_RE, MAX_CONTROLS, MAX_MACRO_LEN, MAX_MACRO_LINES, MAX_MACROS,
@@ -152,7 +152,7 @@ def clean_control(ctx, tool_name, raw, objects, mine_objects, pins_here, hardwar
         # a pin label (or an alias of your own) keeps its name in the section: pin: ENCLOSURE_LIGHT (1.5.3)
         bare = re.sub(r"^[!^~]+", "", str(raw.get("pin") or "").strip()).upper()
         labels = ctx.reg.get("labels", {})
-        if not builders.PIN_RE.match(bare) and pin:
+        if pin and ":" not in bare and not builders.PIN_RE.match(bare):
             label = bare
         else:
             holder = sorted(a for a, q in labels.items() if q == pin)
@@ -163,7 +163,7 @@ def clean_control(ctx, tool_name, raw, objects, mine_objects, pins_here, hardwar
     if pin in pins_here:
         raise Fail(f"{name}: {pin} is already used by this tool")
     ptype = ctx.umbilical_info.get(pin, {}).get("type", "") if not hardware else ""
-    if hardware and role in ("input", "servo") and pin in HEATER_HEADERS:
+    if hardware and role in ("input", "servo") and (pin in HEATER_HEADERS or hw_boards.caps(pin, ctx.boards)["mosfet"]):
         raise Fail(f"{name}: {pin} is a heater / fan MOSFET output on the board - it cannot read a signal or drive a servo")
     if ptype == "mosfet" and role in ("input", "servo"):
         raise Fail(f"{name}: {pin} is a switched power output (MOSFET) - it cannot read a signal or drive a servo. "

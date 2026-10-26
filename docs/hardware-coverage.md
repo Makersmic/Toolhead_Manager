@@ -205,6 +205,18 @@ The other looks tried on Oct 25 (anime eyes, work jacket) are in git history.
 
 1. Framework: devices, pin kinds and sensor types as data tables in `presets.py`; one `clean_item` path.
 2. Pin picker filtered by pin kind, with electrical warnings. **Second board** here: add a board, then its pins appear in the picker.
+   - **Built Oct 26.** `rhino/hw_boards.py` (chip ADC lists, 5 V rule, presets, `caps()` / `check_kind()` / `check_sensor()`),
+     `rhino/hw_boards_data.py` (generated: `scripts/board_pins_from_klipper.py <klipper checkout> rhino/hw_boards_data.py`;
+     never hand-edit), Portal routes in `rhino/portal/hw_routes.py`, `dev/test_hw_boards.py`.
+   - Presets: Octopus v1.1 (F446, main), SKR Mini E3 v3, EBB36/42 v1.2, EBB SB, SKR Pico, Raspberry Pi Pico, plus
+     "Other board (STM32 / RP2040)": any pin the chip has, typed, with a "check your pinout" warning.
+   - Pins on a second board are `name:PIN` everywhere (`ebb:PA1`, `pico:gpio5`). The config scan now counts them, and a
+     hand-written `[mcu name]` in your own files is read too (its pins are taken; its name can't be reused).
+   - PWM: Klipper runs software PWM on any output pin, so every output pin can do PWM. MOSFET vs logic comes from what
+     the board wires to the pin (heater / fan headers).
+   - 5 V tolerant: STM32 digital pins yes except PA4, PA5, PC13-PC15; RP2040 never. From the datasheets, not Klipper.
+   - An added board blocks Klipper's start while it's unplugged; the save warns, and removal is refused while anything
+     uses its pins. Pin labels stay main-board only for now.
 3. Fans + heat + interlocks (most safety weight), with tests. Includes redoing `controller_fan`.
 4. Job hooks: `_RHINO_HOOKS`, `job_hooks.json`, editor, cancel-turns-off guard. Macro diff shown to Mike first.
 5. Spindles, coolant/air/dust, lights, switches and sensors, movement.

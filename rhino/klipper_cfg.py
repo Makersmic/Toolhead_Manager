@@ -11,6 +11,7 @@ import json
 import os
 import re
 
+from . import hw_boards
 from .errors import Fail
 from .presets import CONTACT_KINDS, DEFAULT_CONTACTS, DEFAULT_UMBILICAL
 
@@ -50,7 +51,7 @@ def _strip_includes(text):
 class ConfigTree:
     """Parsed config. Build one per request - it is cheap and always current."""
 
-    def __init__(self, paths, skip_generated=True, extra_aliases=None):
+    def __init__(self, paths, skip_generated=True, extra_aliases=None, extra_boards=None):
         """extra_aliases: {ALIAS: PIN} Klipper also sees but this tree doesn't read - the Rhino pin
         labels ([board_pins rhino]), which live in the generated file skipped above."""
         self.paths = paths
@@ -61,6 +62,11 @@ class ConfigTree:
         self._walk(paths.printer_cfg, skip)
         self.alias_defs = []         # [{"alias", "pin", "file", "section"}] from every [board_pins ...] read here
         self.aliases = {**{a.upper(): p.upper() for a, p in (extra_aliases or {}).items()}, **self._aliases()}
+        # second boards: [mcu name] in your files (chip unknown) plus the ones added in Studio (generated file)
+        self.boards = {sec.split(" ", 1)[1].strip().lower(): {"preset": None, "where": rel}
+                       for rel, cp in self.files for sec in cp.sections()
+                       if sec.startswith("mcu ") and sec.split(" ", 1)[1].strip()}
+        self.boards.update({n: dict(b) for n, b in (extra_boards or {}).items()})
         self.macro_names, self.object_names, self.heaters = set(), {}, []
         self.pin_uses = []           # every pin line: [{"file", "section", "key", "value", "pin", "alias"}]
         self.claimed_pins, self.output_pins = self._scan()
@@ -111,6 +117,8 @@ class ConfigTree:
         """'!EXP1_3' -> 'PE8'; returns '' if it is not a plain board pin."""
         pin = re.sub(r"^[!^~]+", "", (pin or "").strip()).upper()
         pin = self.aliases.get(pin, pin)
+        if ":" in pin:                         # mcu:PA1 or a second board's ebb:PA1 / pico:gpio5
+            return hw_boards.canon(pin, self.boards)
         return pin if _PIN.match(pin) else ""
 
     def _scan(self):

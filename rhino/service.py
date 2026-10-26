@@ -9,7 +9,7 @@ import os
 import re
 import shutil
 
-from . import builders, extras, lists, pin_labels, registry, sections, tooldocs
+from . import builders, extras, hw_boards, hw_catalog, lists, pin_labels, registry, sections, tooldocs
 from .errors import Fail
 from .klipper_cfg import ConfigTree
 from .paths import Paths
@@ -40,7 +40,7 @@ class ToolService:
     def _ctx(self, reg=None):
         reg = reg if reg is not None else registry.load(self.paths)
         # the Rhino pin labels are in the generated file the tree skips: Klipper sees them, so the tree must too
-        tree = ConfigTree(self.paths, extra_aliases=reg.get("labels", {}))
+        tree = ConfigTree(self.paths, extra_aliases=reg.get("labels", {}), extra_boards=reg.get("boards", {}))
         bmap, btools = tree.builtin_tools()
         outs = dict(tree.output_pins)
         for n, o in registry.owned_outputs(reg).items():
@@ -54,7 +54,7 @@ class ToolService:
         return builders.Context(builtin_map=bmap, builtin_tools=btools, claimed=tree.claimed_pins, outs=outs,
                                 reg=reg, umbilical=list(info), resolve=tree.resolve, macro_names=tree.macro_names,
                                 object_names=tree.object_names, heaters=tree.heaters, umbilical_info=info,
-                                kinds=lists.kinds_by_id(lst), contacts=tree.contacts()), tree
+                                kinds=lists.kinds_by_id(lst), contacts=tree.contacts(), boards=tree.boards), tree
 
     # ---------------------------------------------------------------- mutations
     def add(self, fields, dry_run=False):
@@ -542,8 +542,162 @@ class ToolService:
         taken = registry.pins_in_use({"tools": ctx.reg["tools"],
                                       "hardware": {n: h for n, h in ctx.reg.get("hardware", {}).items() if n != exclude_hw}})
         on_umb = set(ctx.umbilical) | {c["pin"] for c in ctx.contacts if c["pin"]}
-        return [{"pin": p, "header": h} for p, h in BOARD_HEADERS.items()
+        main = [{"pin": p, "header": h} for p, h in BOARD_HEADERS.items()
                 if p not in ctx.claimed and p not in taken and p not in on_umb]
+        extra = [{"pin": ref, "header": f"{ref.split(':')[0]} {hw_boards.caps(ref, ctx.boards)['header']}".strip()}
+                 for ref in self._candidate_pins(ctx, main=False) if ref not in ctx.claimed and ref not in taken]
+        return main + extra
+
+    # ---------------------------------------------------------------- second boards + pin picker (hardware wizard step 2)
+    SERIAL_DIR = "/dev/serial/by-id"
+
+    def _candidate_pins(self, ctx, main=True):
+        """Every pin a picker may offer: the main board's known headers, then each added board's (preset) pins."""
+        out = list(hw_boards.PRESETS[hw_boards.MAIN_PRESET]["pins"]) if main else []
+        for name, b in sorted(ctx.boards.items()):
+            preset = hw_boards.PRESETS.get(b.get("preset") or "")
+            if preset:
+                out += [f"{name}:{p}" for p in preset["pins"]]
+        return out
+
+    def _held(self, ctx, exclude_hw=None):
+        reg = {"tools": ctx.reg["tools"], "labels": ctx.reg.get("labels", {}),
+               "hardware": {n: h for n, h in ctx.reg.get("hardware", {}).items() if n != exclude_hw}}
+        on_umb = set(ctx.umbilical) | {c["pin"] for c in ctx.contacts if c["pin"]}
+        return registry.pins_in_use(reg), on_umb
+
+    @staticmethod
+    def _kind_and_sensor(kind, sensor):
+        if kind not in hw_catalog.PIN_KINDS or kind == "i2c":
+            raise Fail(f"Unknown pin kind {kind!r}")
+        if sensor and sensor not in hw_catalog.SENSOR_TYPES:
+            raise Fail(f"Unknown sensor type {sensor!r}")
+
+    def pin_choices(self, kind, sensor=None, exclude_hw=None):
+        """Free pins that can do `kind` (a hw_catalog pin kind), each with its capabilities and warnings."""
+        self._kind_and_sensor(kind, sensor)
+        ctx, _ = self._ctx()
+        held, on_umb = self._held(ctx, exclude_hw)
+        pins, hidden = [], 0
+        for ref in self._candidate_pins(ctx):
+            if ref in ctx.claimed or ref in held or ref in on_umb:
+                continue
+            c = hw_boards.caps(ref, ctx.boards)
+            ok, warnings = hw_boards.check_kind(kind, c)
+            if not ok:
+                hidden += 1
+                continue
+            isolate = False
+            if sensor:
+                try:
+                    warnings += hw_boards.check_sensor(sensor, c)
+                except Fail as e:
+                    isolate = True
+                    warnings.append(str(e))
+            pins.append({**c, "warnings": warnings, "needs_isolation": isolate})
+        order = ["gpio", "endstop", "probe", "servo", "rgb", "thermistor", "fan", "heater", "spi", "led", "driver"]
+        pins.sort(key=lambda p: (p["board"] != "main", p["board"], order.index(p["use"]) if p["use"] in order else 99))
+        typed = sorted(n for n, b in ctx.boards.items() if not hw_boards.PRESETS.get(b.get("preset") or "", {}).get("pins"))
+        return {"ok": True, "kind": kind, "pins": pins, "hidden": hidden, "type_pin_on": typed}
+
+    def pin_check(self, raw):
+        """One typed pin, e.g. on an 'Other board': is it free, can it do the kind, what to watch for."""
+        kind, sensor = raw.get("kind"), raw.get("sensor") or None
+        self._kind_and_sensor(kind, sensor)
+        ctx, _ = self._ctx()
+        ref = ctx.resolve(str(raw.get("pin") or ""))
+        if not ref:
+            raise Fail(f"{raw.get('pin')!r} isn't a pin on the main board or an added board (like PB1 or ebb:PA1)")
+        held, on_umb = self._held(ctx, raw.get("exclude_hw"))
+        if ref in on_umb:
+            raise Fail(f"{ref} is wired to the tool connector")
+        used = ctx.claimed.get(ref) or held.get(ref)
+        if used:
+            raise Fail(f"{ref} is already used by {used}")
+        c = hw_boards.caps(ref, ctx.boards)
+        ok, warnings = hw_boards.check_kind(kind, c)
+        if not ok:
+            raise Fail(warnings[0])
+        if sensor:
+            warnings += hw_boards.check_sensor(sensor, c, isolated=bool(raw.get("isolated")))
+        return {"ok": True, **c, "warnings": warnings}
+
+    def _config_serials(self, tree):
+        """{serial or canbus_uuid: '[mcu ...]'} from your own files."""
+        out = {}
+        for rel, cp in tree.files:
+            for sec in cp.sections():
+                if sec == "mcu" or sec.startswith("mcu "):
+                    for key in ("serial", "canbus_uuid"):
+                        v = cp.get(sec, key, fallback="").strip()
+                        if v:
+                            out[v.lower() if key == "canbus_uuid" else v] = f"{rel} [{sec}]"
+        return out
+
+    def boards_list(self):
+        ctx, tree = self._ctx()
+        mine = ctx.reg.get("boards", {})
+        boards = [{"name": n, **b, "added_here": True} for n, b in sorted(mine.items())]
+        boards += [{"name": n, "where": b["where"], "added_here": False} for n, b in sorted(tree.boards.items()) if n not in mine]
+        used = self._config_serials(tree)
+        used.update({b["serial"]: f"board {n}" for n, b in mine.items() if b.get("serial")})
+        try:
+            ports = sorted(os.listdir(self.SERIAL_DIR))
+        except OSError:
+            ports = []
+        ports = [{"path": f"{self.SERIAL_DIR}/{p}", "used_by": used.get(f"{self.SERIAL_DIR}/{p}", "")} for p in ports]
+        return {"ok": True, "presets": hw_boards.presets_for_ui(), "boards": boards, "serial_ports": ports,
+                "max_boards": hw_boards.MAX_BOARDS}
+
+    def board_save(self, raw, dry_run=False):
+        """Add a second board, or change its connection / type (raw["original"] = its name; renames aren't allowed)."""
+        reg = copy.deepcopy(registry.load(self.paths))
+        ctx, tree = self._ctx(reg)
+        boards = reg["boards"]
+        original = (raw.get("original") or "").strip().lower() or None
+        if original and original not in boards:
+            raise Fail(f"No added board called {original}")
+        taken = {n: b["where"] for n, b in tree.boards.items() if n not in boards and b.get("where")}
+        if not original:
+            taken.update({n: "another added board" for n in boards})
+        name, item = hw_boards.clean_board(raw, taken, {n: b for n, b in boards.items() if n != original})
+        if original and name != original:
+            raise Fail("A board can't be renamed: remove it (nothing may use its pins) and add it again")
+        conn = item.get("serial") or item.get("canbus_uuid")
+        clash = self._config_serials(tree).get(conn)
+        if clash:
+            raise Fail(f"That connection is already {clash}")
+        if original and item["preset"] != boards[original]["preset"]:
+            fam = hw_boards.family_of(item)
+            for ref, where in {**ctx.claimed, **registry.pins_in_use(reg)}.items():
+                if ref.startswith(name + ":") and not hw_boards.canon_pin(ref.split(":", 1)[1], fam):
+                    raise Fail(f"{ref} ({where}) isn't a pin on a {item['label']}")
+        warnings = [f"Klipper won't start while {name} is unplugged or off. Remove it here to run without it."]
+        if item["link"] == "usb":
+            try:
+                present = item["serial"].rsplit("/", 1)[-1] in os.listdir(self.SERIAL_DIR)
+            except OSError:
+                present = False
+            if not present:
+                warnings.append(f"{item['serial']} isn't connected right now.")
+        boards[name] = item
+        if dry_run:
+            return {"ok": True, "name": name, "board": item, "warnings": warnings, "cfg": "\n".join(hw_boards.board_lines({"boards": {name: item}}))}
+        registry.save(self.paths, reg)
+        return {"ok": True, "name": name, "board": item, "warnings": warnings, "restart_needed": True}
+
+    def board_remove(self, name):
+        reg = copy.deepcopy(registry.load(self.paths))
+        name = str(name or "").strip().lower()
+        if name not in reg["boards"]:
+            raise Fail(f"No added board called {name}")
+        ctx, _ = self._ctx(reg)
+        users = sorted({w for ref, w in {**ctx.claimed, **registry.pins_in_use(reg)}.items() if ref.startswith(name + ":")})
+        if users:
+            raise Fail(f"{name}'s pins are used by {', '.join(users)} - change those first")
+        del reg["boards"][name]
+        registry.save(self.paths, reg)
+        return {"ok": True, "name": name, "restart_needed": True}
 
     def hardware_list(self, ctx=None):
         ctx = ctx or self._ctx()[0]
