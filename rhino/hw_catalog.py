@@ -118,10 +118,18 @@ HOOK_SLOTS = ["before_start", "after_start", "before_end", "after_end", "on_canc
 # pins: [(name, pin_kind, required)]. role: the existing CONTROL_ROLES key that writes it today (status ready).
 # live: dangerous when on (spindle, laser, heater) -> behind the PadLock in the Control tab.
 def _d(group, label, section, pins=(), *, role=None, status="planned", follows=("manual",), expose=("control",),
-       sensor=False, purpose=None, live=False, hardware_only=False, help=""):
+       sensor=False, purpose=None, live=False, hardware_only=False, help="", pin_when=None):
     return {"group": group, "label": label, "section": section, "pins": [list(p) for p in pins], "role": role,
             "status": status if role is None else "ready", "follows": list(follows), "expose": list(expose),
-            "sensor": sensor, "purpose": purpose, "live": live, "hardware_only": hardware_only, "help": help}
+            "sensor": sensor, "purpose": purpose, "live": live, "hardware_only": hardware_only, "help": help,
+            "pin_when": pin_when or {}}
+
+
+# Fans: 2 wires (power), 3 (+ speed signal back), 4 (+ PWM speed input). pin_when: a pin only asked for when a
+# setting has one of these values. 4-wire: "pin" is the PWM signal (a logic pin) and "power" an optional MOSFET
+# header Klipper uses as enable_pin (many 4-wire fans keep turning at 0% PWM). Klipper Config_Reference [fan].
+FAN_PINS = (("pin", "pwm_out", True), ("tach", "tach", False), ("power", "digital_out", False))
+FAN_PIN_WHEN = {"tach": {"wires": ["3", "4"]}, "power": {"wires": ["4"]}}
 
 
 DEVICES = {
@@ -152,17 +160,17 @@ DEVICES = {
                        follows=("output", "job", "manual"), expose=("control", "hooks", "care")),
     "vacuum_table": _d("air", "Vacuum table", "output_pin", [("pin", "digital_out", True)],
                        follows=("job", "manual"), expose=("control", "hooks")),
-    "exhaust":      _d("air", "Exhaust fan", "fan_generic", [("pin", "pwm_out", True)],
-                       follows=("job", "output", "manual"), expose=("control", "hooks")),
+    "exhaust":      _d("air", "Exhaust fan", "fan_generic", FAN_PINS, pin_when=FAN_PIN_WHEN,
+                       follows=("job", "output", "manual"), expose=("control", "dashboard", "hooks")),
     # fans
-    "fan":          _d("fans", "Fan by speed", "fan_generic", [("pin", "pwm_out", True), ("tach", "tach", False)], role="fan",
-                       expose=("control", "macros")),
-    "hotend_fan":   _d("fans", "Hotend fan (on while a heater is hot)", "heater_fan", [("pin", "pwm_out", True)], role="heater_fan",
-                       follows=("heater",), expose=()),
-    "controller_fan": _d("fans", "Electronics / driver fan (on while the motors are on)", "controller_fan", [("pin", "pwm_out", True)],
-                         follows=("motors",), expose=(), hardware_only=True),
-    "temperature_fan": _d("fans", "Fan that holds a temperature", "temperature_fan",
-                          [("pin", "pwm_out", True), ("sensor", "adc", True)], follows=("temperature",), expose=("dashboard",)),
+    "fan":          _d("fans", "Fan by speed", "fan_generic", FAN_PINS, role="fan", pin_when=FAN_PIN_WHEN,
+                       expose=("control", "dashboard"), help="2, 3 or 4 wires. Set by speed from Control or a macro."),
+    "hotend_fan":   _d("fans", "Hotend fan (on while a heater is hot)", "heater_fan", FAN_PINS, role="heater_fan",
+                       pin_when=FAN_PIN_WHEN, follows=("heater",), expose=("dashboard",)),
+    "controller_fan": _d("fans", "Electronics / driver fan (on while the motors are on)", "controller_fan", FAN_PINS,
+                         pin_when=FAN_PIN_WHEN, follows=("motors",), expose=("dashboard",), hardware_only=True),
+    "temperature_fan": _d("fans", "Fan that holds a temperature", "temperature_fan", FAN_PINS[:1] + (("sensor", "adc", True),) + FAN_PINS[1:],
+                          pin_when=FAN_PIN_WHEN, follows=("temperature",), expose=("dashboard",)),
     # heat and temperature
     "heater":       _d("heat", "Chamber / enclosure / generic heater", "heater_generic",
                        [("pin", "pwm_out", True), ("sensor", "adc", True)], live=True, expose=("control", "dashboard"),
@@ -235,6 +243,9 @@ def check():
         for name, kind, _req in d["pins"]:
             if kind not in PIN_KINDS:
                 out.append(f"{did}: pin {name} has unknown kind {kind}")
+        for name in d["pin_when"]:
+            if name not in [p[0] for p in d["pins"]]:
+                out.append(f"{did}: pin_when names {name}, which isn't one of its pins")
         if d["role"] is not None:
             if d["role"] not in presets.CONTROL_ROLES:
                 out.append(f"{did}: role {d['role']} is not in presets.CONTROL_ROLES")

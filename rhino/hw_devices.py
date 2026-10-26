@@ -31,10 +31,18 @@ def _n(default, lo, hi):
     return ("num", default, lo, hi)
 
 
+# Every fan: how many wires, the speed-signal pulses per turn, the PWM cycle and (4-wire) an inverted signal.
+FAN_WIRING = {"wires": ("choice", "2", ["2", "3", "4"]), "tach_ppr": _n(2, 1, 12), "cycle": _n(0.01, 0.00005, 0.5),
+              "signal_inverted": ("bool", False)}
+FAN_DEVICES = {"fan", "hotend_fan", "controller_fan", "temperature_fan", "exhaust"}
+
 SETTINGS = {
-    "controller_fan": {"fan_speed": _n(1.0, 0.1, 1.0), "idle_timeout": _n(hw_catalog.CONTROLLER_FAN_IDLE, 0, 3600),
+    "fan": {**FAN_WIRING, "max_power": _n(1.0, 0.1, 1.0), "kick_start": _n(0.5, 0.0, 5.0), "off_below": _n(0.0, 0.0, 0.9)},
+    "hotend_fan": {**FAN_WIRING, "heater": ("choice", "extruder", ["extruder"]), "heater_temp": _n(50.0, 20.0, 300.0),
+                   "fan_speed": _n(1.0, 0.1, 1.0), "kick_start": _n(0.5, 0.0, 5.0)},
+    "controller_fan": {**FAN_WIRING, "fan_speed": _n(1.0, 0.1, 1.0), "idle_timeout": _n(hw_catalog.CONTROLLER_FAN_IDLE, 0, 3600),
                        "kick_start": _n(0.5, 0.0, 5.0)},
-    "temperature_fan": {"target_temp": _n(40.0, 0.0, 100.0), "min_speed": _n(0.3, 0.0, 1.0), "max_speed": _n(1.0, 0.1, 1.0),
+    "temperature_fan": {**FAN_WIRING, "target_temp": _n(40.0, 0.0, 100.0), "min_speed": _n(0.3, 0.0, 1.0), "max_speed": _n(1.0, 0.1, 1.0),
                         "kick_start": _n(0.5, 0.0, 5.0), "thermistor": ("choice", "Generic 3950", THERMISTORS),
                         "pullup_resistor": _n(4700, 100, 100000)},
     "heater": {"max_temp": _n(hw_catalog.HEATER_MAX_TEMP, 30.0, hw_catalog.HEATER_MAX_TEMP), "max_power": _n(1.0, 0.1, 1.0),
@@ -54,7 +62,7 @@ SETTINGS = {
     "dust": {"active_low": ("bool", False)},
     "vacuum_table": {"active_low": ("bool", False)},
     "fixed_output": {},
-    "exhaust": {"max_power": _n(1.0, 0.1, 1.0), "cycle": _n(0.01, 0.00005, 0.5), "kick_start": _n(0.5, 0.0, 5.0)},
+    "exhaust": {**FAN_WIRING, "max_power": _n(1.0, 0.1, 1.0), "kick_start": _n(0.5, 0.0, 5.0)},
     "led": {"cycle": _n(0.01, 0.00005, 0.5)},
     "neopixel": {"chain_count": _n(1, 1, 1024), "color_order": ("choice", "GRB", COLOR_ORDERS)},
     "dotstar": {"chain_count": _n(1, 1, 1024)},
@@ -67,10 +75,10 @@ SETTINGS = {
 WRITERS = set(SETTINGS)          # the devices this module can write (the catalog shows these as ready)
 
 # devices that can have generated ON / OFF (or SET) macros; the catalog's expose list is only the default
-MACRO_DEVICES = {"spindle_relay", "coolant", "air_assist", "dust", "vacuum_table", "spindle_pwm", "pwm_tool", "exhaust",
+MACRO_DEVICES = {"spindle_relay", "coolant", "air_assist", "dust", "vacuum_table", "spindle_pwm", "pwm_tool", "exhaust", "fan",
                  "heater", "led", "neopixel", "dotstar"}
 _SENSOR_INPUT_DEVICES = {"interlock", "flame", "pressure", "vfd_fault", "runout", "jam"}
-_KLIPPER_RUNS_IT = {"controller_fan", "temperature_fan", "fixed_output", "runout", "jam"}   # nothing to switch off
+_KLIPPER_RUNS_IT = {"controller_fan", "temperature_fan", "hotend_fan", "fixed_output", "runout", "jam"}   # nothing to switch off
 _INPUT_ACTION = {"interlock": "pause", "flame": "estop", "pressure": "pause", "vfd_fault": "estop"}
 _EXPECTED_SENSORS = {"interlock", "flame", "pressure", "vfd_fault", "runout", "jam", "manual_stepper"}
 
@@ -80,6 +88,9 @@ def _clean_settings(did, raw, ctx):
     if did == "jam":
         extruders = [h for h in ctx.heaters if h.startswith("extruder")] or ["extruder"]
         spec["extruder"] = ("choice", extruders[0], extruders)
+    if did == "hotend_fan":
+        heaters = list(ctx.heaters) or ["extruder"]
+        spec["heater"] = ("choice", heaters[0], heaters)
     for key, s in spec.items():
         v = raw.get(key, s[1])
         if s[0] == "num":
@@ -205,6 +216,9 @@ def clean(ctx, raw, held):
     for pname, kind, required in cat["pins"]:
         if did == "temp_sensor" and pname == "sensor":
             required = settings["source"] == "thermistor"
+        when = cat["pin_when"].get(pname)
+        if when and any(str(settings.get(k)) not in v for k, v in when.items()):
+            continue                         # e.g. a tach pin on a 2-wire fan: not asked, never written
         if not given.get(pname):
             if required:
                 raise Fail(f"Choose a pin for {pname}")
@@ -221,6 +235,10 @@ def clean(ctx, raw, held):
     for pname, key in (("pin", "active_low"), ("direction", "dir_active_low"), ("enable", "enable_active_low")):
         if pname in pins and settings.get(key):
             flags[pname] = "!"
+    if did in FAN_DEVICES:
+        if settings["wires"] == "4" and "pin" in pins:   # its speed input is meant to be a logic pin
+            warnings = [w for w in warnings if "3.3 V logic pin" not in w]
+        warnings += _fan_rules(ctx, settings, pins, flags)
 
     follows = raw.get("follows") or next((f for f in cat["follows"] if f in FOLLOWS_BUILT), cat["follows"][0])
     if follows not in cat["follows"]:
@@ -263,16 +281,57 @@ def clean(ctx, raw, held):
     if did in ("flame", "vfd_fault"):
         warnings.append("An emergency stop here is not a hardware E-stop: it waits in Klipper's queue. "
                         "A real E-stop must cut motor and spindle/laser power.")
-    if did == "interlock" and (settings["must_close_laser"] or settings["must_close_spindle"]):
-        warnings.append("Opening it pauses a running job. 'Must be closed to start' arrives with the start-check "
-                        "macro change, after review.")
+    if did == "interlock":
+        tools = [w for w, on in (("laser", settings["must_close_laser"]), ("spindle", settings["must_close_spindle"])) if on]
+        warnings.append("Opening it pauses a running job." + (f" While it's open, {' and '.join(tools)} jobs won't start or "
+                        f"resume." if tools else ""))
     if did in ("runout", "jam"):
-        warnings.append("Switching it off when no print head is mounted arrives with the tool-swap macro change, after "
-                        "review. Until then, disable it with SET_FILAMENT_SENSOR before laser or CNC jobs.")
+        warnings.append("It's switched on only while a print head is mounted, so laser and CNC jobs never pause for it.")
     if did == "manual_stepper":
         warnings.append("Set up its driver (current, microsteps on a TMC) in your own config: the wizard writes the "
                         "motor, not the driver.")
     return name, item, warnings
+
+
+def _fan_rules(ctx, s, pins, flags):
+    """Electrical rules for 2/3/4-wire fans. Sets the tach pull-up and the signal inversion; returns warnings."""
+    w, wires = [], s["wires"]
+    if "tach" in pins:
+        flags["tach"] = "^"                  # the speed signal is open collector: Klipper needs the pull-up
+    if wires == "4":
+        c = hw_boards.caps(pins["pin"], ctx.boards)
+        if c["mosfet"]:
+            raise Fail(f"{c['header'] or pins['pin']} is a MOSFET power output. A 4-wire fan's PWM wire needs a logic pin; "
+                       f"its power comes from an always-on fan port, or from a MOSFET header chosen as its power pin.")
+        if s["signal_inverted"]:
+            flags["pin"] = "!"
+        w.append("4-wire: power on the fan's red and black wires (an always-on port, or the power pin here), the "
+                 "speed signal on its blue wire. Most fans read the PWM fine at Klipper's 10 ms; some run at full speed "
+                 "until the signal is inverted (a transistor in between).")
+        if "power" not in pins:
+            w.append("With no power pin, many 4-wire fans keep turning slowly at 0% speed.")
+    elif s["signal_inverted"]:
+        raise Fail("Only a 4-wire fan's speed signal can be inverted")
+    if wires == "3" and "tach" in pins:
+        w.append("3-wire: the speed reading is only right at full speed. Below that the PWM cuts the fan's own power, "
+                 "and its speed signal with it.")
+    if s["cycle"] < 0.01:
+        w.append("Klipper recommends a PWM cycle of 10 ms or more for fans (software PWM).")
+    return w
+
+
+def _fan_lines(d):
+    """The options every fan section shares: cycle, speed signal, power (enable) pin."""
+    s, out = d["settings"], []
+    if s["cycle"] != 0.01:
+        out.append(f"cycle_time: {s['cycle']:g}")
+    if d["pins"].get("tach"):
+        out.append(f"tachometer_pin: {_p(d, 'tach')}")
+        if s["tach_ppr"] != 2:
+            out.append(f"tachometer_ppr: {s['tach_ppr']:g}")
+    if d["pins"].get("power"):
+        out.append(f"enable_pin: {d['pins']['power']}")
+    return out
 
 
 # ----------------------------------------------------------------------------- rendering
@@ -294,13 +353,22 @@ def lines(name, d):
     head = f"# hardware ({d['label']})" + (f": {d['purpose']}" if d.get("purpose") else "")
     if did == "controller_fan":
         out = [f"[controller_fan {name}]", head, f"pin: {_p(d, 'pin')}", f"fan_speed: {s['fan_speed']:g}",
-               f"idle_timeout: {s['idle_timeout']:g}", f"kick_start_time: {s['kick_start']:g}"]
+               f"idle_timeout: {s['idle_timeout']:g}", f"kick_start_time: {s['kick_start']:g}"] + _fan_lines(d)
+    elif did == "hotend_fan":
+        out = [f"[heater_fan {name}]", head, f"pin: {_p(d, 'pin')}", f"heater: {s['heater']}",
+               f"heater_temp: {s['heater_temp']:g}", f"fan_speed: {s['fan_speed']:g}",
+               f"kick_start_time: {s['kick_start']:g}"] + _fan_lines(d)
+    elif did == "fan":
+        out = [f"[fan_generic {name}]", head, f"pin: {_p(d, 'pin')}", f"max_power: {s['max_power']:g}",
+               f"kick_start_time: {s['kick_start']:g}", "shutdown_speed: 0"] + _fan_lines(d)
+        if s["off_below"]:
+            out.append(f"off_below: {s['off_below']:g}")
     elif did == "temperature_fan":
         out = [f"[temperature_fan {name}]", head, f"pin: {_p(d, 'pin')}"] + _thermistor(d) + [
                "control: watermark", f"target_temp: {s['target_temp']:g}", "min_temp: 0",
                f"max_temp: {s['target_temp'] + hw_catalog.TEMP_FAN_SHUTDOWN_MARGIN:g}",
                f"min_speed: {s['min_speed']:g}", f"max_speed: {s['max_speed']:g}", f"kick_start_time: {s['kick_start']:g}",
-               "shutdown_speed: 1"]
+               "shutdown_speed: 1"] + _fan_lines(d)
     elif did == "heater":
         out = [f"[heater_generic {name}]", head, f"heater_pin: {_p(d, 'pin')}"] + _thermistor(d) + [
                "control: watermark", f"max_delta: {s['max_delta']:g}", "min_temp: 0", f"max_temp: {s['max_temp']:g}",
@@ -330,7 +398,7 @@ def lines(name, d):
         out = [f"[static_digital_output {name}]", head, f"pins: {d['pins']['pins']}"]
     elif did == "exhaust":
         out = [f"[fan_generic {name}]", head, f"pin: {_p(d, 'pin')}", f"max_power: {s['max_power']:g}",
-               f"cycle_time: {s['cycle']:g}", f"kick_start_time: {s['kick_start']:g}", "shutdown_speed: 0"]
+               f"kick_start_time: {s['kick_start']:g}", "shutdown_speed: 0"] + _fan_lines(d)
     elif did == "led":
         out = [f"[led {name}]", head] + [f"{c}_pin: {_p(d, c)}" for c in ("red", "green", "blue", "white") if c in d["pins"]]
         out.append(f"cycle_time: {s['cycle']:g}")
@@ -367,7 +435,7 @@ def off_lines(name, d):
         return out
     if did == "heater":
         return [f"SET_HEATER_TEMPERATURE HEATER={name} TARGET=0"]
-    if did == "exhaust":
+    if did in ("exhaust", "fan"):
         return [f"SET_FAN_SPEED FAN={name} SPEED=0"]
     if did in ("led", "neopixel", "dotstar"):
         return [f"SET_LED LED={name} RED=0 GREEN=0 BLUE=0" + (" WHITE=0" if did != "dotstar" else "")]
@@ -397,7 +465,7 @@ def macros_of(name, d):
         body = _guard(name, d) + ["{% set v = [[params.VALUE|default(1)|float, 0.0]|max, 1.0]|min %}",
                                   f"SET_PIN PIN={name} VALUE={{v}}"]
         return [(f"{up}_SET", f"{d['label']}: {name} level VALUE=0..1", body), off]
-    if did == "exhaust":
+    if did in ("exhaust", "fan"):
         return [(f"{up}_SET", f"{d['label']}: {name} speed SPEED=0..1",
                  _guard(name, d) + ["{% set v = [[params.SPEED|default(1)|float, 0.0]|max, 1.0]|min %}",
                                     f"SET_FAN_SPEED FAN={name} SPEED={{v}}"]), off]

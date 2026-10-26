@@ -53,6 +53,8 @@ def gen():
 # the demo machine, like the real one, has only two spare MOSFET headers: add a second board for room
 r = c.post("/api/hardware/boards", json={"name": "aux", "preset": "octopus_v1_1", "link": "can", "canbus_uuid": "aabbccddeeff"}, headers=H)
 ok(r.status_code == 200, "a second board 'aux' for test pins")
+r = c.post("/api/hardware/boards", json={"name": "aux2", "preset": "octopus_v1_1", "link": "can", "canbus_uuid": "aabbccddee00"}, headers=H)
+ok(r.status_code == 200, "and 'aux2'")
 
 # ---------------------------------------------------------------- catalog
 ok(hw_devices.WRITERS <= set(hw_catalog.DEVICES), "every writer is a catalog device")
@@ -148,13 +150,49 @@ ok(code == 200 and "white_pin:" in gen() and not r.get("error"), "plain LED with
 code, r = save({"device": "neopixel", "name": "strip", "pins": {"pin": pick("data")}, "chain_count": 30})
 ok(code == 200 and "chain_count: 30" in gen(), "neopixel with 30 LEDs")
 code, r = save({"device": "runout", "name": "runout", "pins": {"pin": pick("digital_in")}, "sensor_type": "mech_no"})
-ok(code == 200 and "[filament_switch_sensor runout]" in gen() and any("SET_FILAMENT_SENSOR" in w for w in r["warnings"]),
-   "runout sensor, with the 'disable it for laser/CNC' note until the swap macro change")
+ok(code == 200 and "[filament_switch_sensor runout]" in gen() and any("print head is mounted" in w for w in r["warnings"]),
+   "runout sensor: says it's only on with a print head")
 code, r = save({"device": "jam", "name": "jam", "pins": {"pin": pick("digital_in")}, "sensor_type": "mech_no", "extruder": "nope"}, preview=True)
 ok(code == 400, "jam sensor needs a real extruder")
 code, r = save({"device": "manual_stepper", "name": "rotary", "pins": {"step": pick("step"), "dir": pick("dir"), "enable": pick("enable")},
                 "rotation_distance": 360})
 ok(code == 200 and "[manual_stepper rotary]" in gen() and any("driver" in w for w in r["warnings"]), "manual stepper, with the driver note")
+
+# ---------------------------------------------------------------- 2, 3 and 4-wire fans (tach, PWM signal, power)
+def section(head):
+    return gen().split(f"[{head}]")[1].split("\n[")[0]
+
+code, r = save({"device": "fan", "name": "aux_fan", "pins": {"pin": pick("pwm_out", mosfet=True), "tach": "PB1"}, "wires": "2"})
+ok(code == 200 and "tachometer_pin" not in section("fan_generic aux_fan"), "2-wire fan: a tach pin sent anyway is never written")
+t3 = pick("tach")
+code, r = save({"device": "exhaust", "name": "exhaust3", "pins": {"pin": pick("pwm_out", mosfet=True), "tach": t3}, "wires": "3", "tach_ppr": 2})
+sec = section("fan_generic exhaust3")
+ok(code == 200 and f"tachometer_pin: ^{t3}" in sec and "tachometer_ppr" not in sec, "3-wire: tachometer_pin with the pull-up (ppr 2 is Klipper's default)")
+ok(any("only right at full speed" in w for w in r["warnings"]), "3-wire: says the reading is only right at full speed")
+code, r = save({"device": "controller_fan", "name": "bad4", "pins": {"pin": pick("pwm_out", mosfet=True)}, "wires": "4"}, preview=True)
+ok(code == 400 and "logic pin" in r["error"], "4-wire: the PWM signal on a MOSFET header is refused")
+sig, tach4, pwr = pick("pwm_out", mosfet=False), pick("tach"), pick("digital_out", mosfet=True)
+code, r = save({"device": "controller_fan", "name": "drivers4", "pins": {"pin": sig, "tach": tach4, "power": pwr},
+                "wires": "4", "tach_ppr": 1, "signal_inverted": True})
+sec = section("controller_fan drivers4")
+ok(code == 200 and f"pin: !{sig}" in sec and f"tachometer_pin: ^{tach4}" in sec and "tachometer_ppr: 1" in sec and f"enable_pin: {pwr}" in sec,
+   "4-wire: inverted signal, tach with pull-up and ppr, power as enable_pin")
+ok("cycle_time" not in sec, "Klipper's 10 ms PWM cycle is left as its default")
+ok(not any("3.3 V logic pin" in w for w in r["warnings"]), "4-wire: no 'logic pin, not a load' note on its speed input")
+code, r = save({"device": "fan", "name": "fan4", "pins": {"pin": pick("pwm_out", mosfet=False)}, "wires": "4"}, preview=True)
+ok(code == 200 and any("keep turning slowly" in w for w in r["warnings"]), "4-wire with no power pin: warns it may keep turning")
+code, r = save({"device": "fan", "name": "fan2i", "pins": {"pin": pick("pwm_out", mosfet=True)}, "wires": "2", "signal_inverted": True}, preview=True)
+ok(code == 400 and "4-wire" in r["error"], "only a 4-wire signal can be inverted")
+code, r = save({"device": "fan", "name": "fastfan", "pins": {"pin": pick("pwm_out", mosfet=True)}, "cycle": 0.0001}, preview=True)
+ok(code == 200 and "cycle_time: 0.0001" in r["text"] and any("10 ms" in w for w in r["warnings"]), "a PWM cycle under 10 ms is written, with Klipper's advice")
+code, r = save({"device": "hotend_fan", "name": "hotend_cool", "pins": {"pin": pick("pwm_out", mosfet=True)}, "heater": "extruder", "heater_temp": 50})
+ok(code == 200 and "heater: extruder" in section("heater_fan hotend_cool"), "hotend fan follows the extruder")
+code, r = save({"device": "hotend_fan", "name": "hf2", "pins": {"pin": pick("pwm_out", mosfet=True)}, "heater": "nope"}, preview=True)
+ok(code == 400, "a hotend fan needs a real heater")
+code, r = save({"device": "fan", "name": "tachclash", "pins": {"pin": pick("pwm_out", mosfet=True), "tach": t3}, "wires": "3"}, preview=True)
+ok(code == 400 and "already used" in r["error"], "a tach pin can't be shared")
+ok(any(p["pin"] == "aux:PA8" for p in J(c.get("/api/hardware/pins?kind=pwm_out"))["pins"]) and
+   not any(p["mosfet"] for p in J(c.get("/api/hardware/pins?kind=tach"))["pins"]), "the tach picker never offers a MOSFET header")
 
 # ---------------------------------------------------------------- whole file parses like Klipper, and removal
 try:

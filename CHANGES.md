@@ -1,5 +1,18 @@
 # What changed
 
+## 1.9.1 - Fans: 2, 3 and 4 wires
+
+- **Every fan the wizard adds asks how many wires it has.** 3 and 4 wires can read the fan's speed back (its yellow
+  wire, `tachometer_pin` with the pull-up written for you). A 4-wire fan's blue speed input goes on a logic pin (a
+  MOSFET header is refused there), with an optional fan header as its power (`enable_pin`) so it really stops at 0 %.
+  The speed input can be marked inverted for a transistor in between. Pulses per turn and the PWM cycle are settable;
+  Klipper's 10 ms default is kept unless you change it.
+- Driver, hotend, temperature, exhaust and plain fans all get this. Plain fans and hotend fans now go through the
+  wizard too.
+- With Rhino Studio: fans with a speed signal show their rpm on the Dashboard, and a fan driven at 30 % or more that
+  reads nothing for 10 s shows "<name> fan isn't turning" in red.
+- The interlock and filament-sensor notes in the wizard no longer say they're waiting for review (they're live since 1.9.0).
+
 ## 1.9.0 - Add hardware, job hooks, interlocks
 
 - **Add hardware wizard (Portal side).** Rhino Studio's new wizard asks five questions: what it is, where it's

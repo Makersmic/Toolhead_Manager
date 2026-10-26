@@ -435,3 +435,8 @@ supply before the real load: the simulator is not real Klipper.
   job with no filament: no runout pause. Mount BlockOne: the sensor is on again (QUERY_FILAMENT_SENSOR).
 - [ ] **HW7 Second board.** If you add one: unplug it and restart: Klipper refuses to start (expected); plug it back
   or remove it in the wizard's board list.
+- [ ] **HW8 Fans with a speed signal (1.9.1).** Add a 3- or 4-wire fan with its yellow wire on a spare endstop header
+  (and for 4-wire, the blue wire on a logic pin and power on a fan header). Restart, set it to 100 %: the Dashboard rail
+  shows its rpm. Hold the blades still (or unplug the yellow wire) with it set to 100 %: within about 15 s the Dashboard
+  says "<name> fan isn't turning" in red. Let go: it clears. A 4-wire fan with a power pin stops at 0 %.
+  *Stop if:* the fan runs at full speed whatever it's set to (tick "The speed input is inverted").
