@@ -51,6 +51,11 @@ ok(c.post("/api/slice-profiles", json=PLA).status_code == 400, "a write without 
 dup = post("/api/slice-profiles", PLA).get_json()["profile"]
 ok(dup["name"] == "PLA 0.2 everyday (2)", "a second profile with the same name gets (2)")
 
+full = c.get("/api/slice-profiles?full=1").get_json()["profiles"]
+ok("settings" in full[0] and "settings" not in c.get("/api/slice-profiles").get_json()["profiles"][0], "?full=1 includes settings (Prepare), the plain list doesn't")
+ok(post("/api/slice-profiles", {"name": "Vinyl", "engine": "kiri", "process": "dragknife", "settings": {"depth": 0.3}}).status_code == 200,
+   "process names are Studio's own (dragknife)")
+
 # ---- validation
 bad = [
     (dict(PLA, settings={"nozzle": 0.4, "flux": 1}), "unknown setting flux"),
@@ -108,11 +113,11 @@ ok(r.status_code == 200 and r.get_json()["profile"]["name"] == "PLA 0.2 everyday
 # ---- export / import
 ex = c.get("/api/slice-profiles-export")
 data = ex.get_json()
-ok(ex.status_code == 200 and "attachment" in ex.headers.get("Content-Disposition", "") and len(data["profiles"]) == 4, "export gives every profile as a download")
+ok(ex.status_code == 200 and "attachment" in ex.headers.get("Content-Disposition", "") and len(data["profiles"]) == 5, "export gives every profile as a download")
 ok(all("id" not in x and "rev" not in x for x in data["profiles"]), "an export carries settings, not this Rhino's ids or revisions")
 r = post("/api/slice-profiles-import", data)
 added = r.get_json().get("added", [])
-ok(r.status_code == 200 and len(added) == 4 and all(a["name"].endswith(")") for a in added), "import adds them all, renaming clashes")
+ok(r.status_code == 200 and len(added) == 5 and all(a["name"].endswith(")") for a in added), "import adds them all, renaming clashes")
 before = len(c.get("/api/slice-profiles").get_json()["profiles"])
 broken = json.loads(json.dumps(data)); broken["profiles"][2]["settings"] = {"bogus": 1}
 r = post("/api/slice-profiles-import", broken)

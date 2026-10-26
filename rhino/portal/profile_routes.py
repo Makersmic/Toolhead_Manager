@@ -23,7 +23,7 @@ def _rev(b):
 @bp.get("/api/slice-profiles")
 def listing():
     s = _svc()
-    st = s.state()
+    st = s.state(full=request.args.get("full") == "1")
     try:
         st["deleted"] = s.deleted()
     except Fail:

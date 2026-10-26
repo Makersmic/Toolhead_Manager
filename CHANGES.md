@@ -1,5 +1,27 @@
 # What changed
 
+## 1.8.0 - Slice profiles, kept on the Rhino
+
+- **Slice profiles** live on the Rhino in `config/myrhino/slice_profiles.json`, so the backup and klipper-backup
+  include them. A cleared browser, another device or a new host no longer loses your settings. Each profile is
+  one engine's own settings (Kiri:Moto or PrusaSlicer); nothing is translated between engines.
+- **Job setup** (Rhino Studio 0.9.0, inside this zip) has a profile picker, a line saying whether the settings
+  are saved on the Rhino, and Save to profile / Save as new / Reset. Each file and toolhead remembers its
+  profile plus only the settings you changed, in `rhino_data/prepare_jobs.json` (in the backup zip, not on GitHub).
+- **Settings › Slice profiles**: rename, notes, the last 5 revisions with Go back, delete (Bring back for
+  30 days), export and import.
+- **No silent overwrites:** a save from an out-of-date copy is refused ("changed on another device").
+- **Restore** has a new item, "Slice profiles and saved Prepare jobs".
+- **The first time** Studio finds settings this browser saved before 0.9.0, it offers once to bring them to the Rhino.
+- **Rhino Studio UI:**
+  - the red padlock on Motion, Speed and Flow
+  - Speed and Flow are now foldable panels, and Flow and pressure advance need the padlock
+  - console input on top with the newest line first
+  - the camera card is level with Motion
+  - the hostname moved to Settings › Host
+  - Update says "Updating…" until it's done
+- **Nothing here talks to Klipper:** profiles and jobs never send G-code.
+
 ## 1.7.0 - Back up now, and restore
 
 - **One complete backup of the Rhino**, kept on the Rhino in `~/rhino-backups` (the last 10). It holds the config

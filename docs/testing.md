@@ -405,3 +405,7 @@ Needs Rhino Studio 0.8.0 for the Settings › Host › Backups panel. The Portal
   another Rhino (the Pi's zip), Restore… › Everything. The board's serial path must exist on the 7050 or it stops before
   changing anything. Type the 7050's name; Klipper and Moonraker restart; job history and Studio settings are back.
 - [ ] **B6 Keep 10.** After eleven backups, the oldest is gone.
+
+## 1.8.0: slice profiles
+
+The on-machine checks are Studio's **SP1-SP8** (Rhino Studio docs/testing.md, 0.9.0). Off the machine: `dev/test_slice_profiles.py` (in run_all).

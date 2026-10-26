@@ -22,7 +22,7 @@ Today none of that holds:
       "id": "p_8f3k2",
       "name": "PLA 0.2 everyday",
       "engine": "kiri" | "prusa",
-      "process": "fdm" | "laser" | "knife" | "cnc",
+      "process": "fdm" | "laser" | "dragknife" | "cnc",
       "toolhead": "BlockOne" | null,     // null = any toolhead of that process
       "material": "PLA" | null,          // a key in the materials table, or null
       "settings": { ... },               // the engine's own shape, below

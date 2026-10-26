@@ -31,7 +31,7 @@ KEEP_DELETED_S = 30 * 86400
 MAX_PROFILES = 200
 MAX_JOBS = 2000
 ENGINES = ("kiri", "prusa")
-PROCESSES = ("fdm", "laser", "knife", "cnc")
+PROCESSES = ("fdm", "laser", "dragknife", "cnc")      # Studio's own names
 _ID = re.compile(r"^p_[a-z0-9]{5,12}$")
 _NAME = re.compile(r"^[^\x00-\x1f<>]{1,60}$")
 _TOKEN = re.compile(r"^[A-Za-z0-9_.-]{1,40}$")      # toolhead and material keys
@@ -67,7 +67,7 @@ SPECS = {
     },
     "laser": {"power": _num(0, 1), "feed": _num(1, 20000), "passes": _num(1, 100), "cutHeight": _num(0, 100),
               "kerf": _num(0, 5), "smooth": _num(0, 5), "outerOnly": BOOL},
-    "knife": {"feed": _num(1, 20000), "depth": _num(0, 20), "passes": _num(1, 100), "tip": _num(0, 10),
+    "dragknife": {"feed": _num(1, 20000), "depth": _num(0, 20), "passes": _num(1, 100), "tip": _num(0, 10),
               "plunge": _num(1, 20000), "cutHeight": _num(0, 100), "smooth": _num(0, 5), "outerOnly": BOOL},
     "cnc": {"operation": _enum("cutout", "clear-and-cutout"), "ops": ("ops",), "toolType": _enum("endmill", "ballmill"),
             "toolDiameter": _num(0.05, 50), "fluteLength": _num(0, 200), "extraTop": _num(0, 50), "stepDown": _num(0, 50),
@@ -79,7 +79,7 @@ CNC_OP = {"kind": _enum("level", "rough", "outline"), "on": BOOL, "stepDown": _n
           "direction": _enum("climb", "conventional")}
 # What a list shows, per process (header: filled from settings on every save, never edited)
 HEADER_KEYS = {"fdm": ("nozzle", "layerHeight", "walls", "infill", "speed"), "laser": ("power", "feed", "passes"),
-               "knife": ("feed", "depth", "passes"), "cnc": ("toolDiameter", "stepDown", "feed")}
+               "dragknife": ("feed", "depth", "passes"), "cnc": ("toolDiameter", "stepDown", "feed")}
 PRUSA_HEADER = {"layer_height": "layerHeight", "nozzle_diameter": "nozzle", "perimeters": "walls", "fill_density": "infill"}
 
 
@@ -148,7 +148,7 @@ def clean(raw, where="Profile"):
     if engine not in ENGINES:
         raise Fail(f"{name}: engine must be kiri or prusa")
     if process not in PROCESSES:
-        raise Fail(f"{name}: process must be fdm, laser, knife or cnc")
+        raise Fail(f"{name}: process must be fdm, laser, dragknife or cnc")
     out = {"name": name, "engine": engine, "process": process}
     for k in ("toolhead", "material"):
         v = raw.get(k)
@@ -217,16 +217,16 @@ class SliceProfiles:
         d["deleted"] = [p for p in d.get("deleted", []) if p.get("deleted_at", 0) >= cut]
         return d
 
-    def state(self):
-        """For the list screen: profiles, or why the file can't be read."""
+    def state(self, full=False):
+        """For the list screen (full: with settings, for Prepare): profiles, or why the file can't be read."""
         try:
-            return {"ok": True, "profiles": self.list()}
+            return {"ok": True, "profiles": self.list(full)}
         except Fail as e:
             return {"ok": False, "error": str(e), "profiles": []}
 
-    def list(self):
-        return [{k: p[k] for k in ("id", "name", "engine", "process", "toolhead", "material", "header", "notes",
-                                   "created", "updated", "rev")} for p in self._profiles()["profiles"]]
+    def list(self, full=False):
+        keys = ("id", "name", "engine", "process", "toolhead", "material", "header", "notes", "created", "updated", "rev")
+        return [{k: p[k] for k in keys + (("settings",) if full else ())} for p in self._profiles()["profiles"]]
 
     def get(self, pid):
         for p in self._profiles()["profiles"]:
