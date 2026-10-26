@@ -183,20 +183,23 @@ The Rhino's own sequence is shown greyed between the slots so the order is visib
 Five steps, one question each, matching the model: **What is it → Wiring → For which tools → Follows → Shows**, plus
 a preview of the Klipper section before saving (exists today).
 
-**Graphics:** only the wizard gets the mascot, an original Rhino Studio rhino drawn in a soft 1980s-cartoon style with
-a hand-drawn look: uneven line width, grainy pencil fill. One pose per step panel, beside the question:
+**Graphics (final, approved by Mike Oct 26):** only this wizard gets the mascot. It is not used in Add a toolhead
+or anywhere else. The mascot is an original Rhino Studio rhino: slate blue, yellow hard hat, safety glasses. It's drawn
+in a soft 1980s-cartoon style with a hand-drawn look: pressure-varying pencil line, grainy fill, front and
+three-quarter views with shading. One pose per step panel, beside the question, each with a speech bubble of odd tech glyphs:
 
-| Step | Pose |
-|---|---|
-| What is it | Holding up a part, curious |
-| Wiring | Holding a wire in each hand |
-| For which tools | Pointing at a tool on a rack |
-| Follows | Thinking, a small arrow between two parts |
-| Shows | Waving at a screen |
-| Done | Thumbs up with the wrench |
+| Step | File | Pose | Bubble |
+|---|---|---|---|
+| What is it | `rhino-what.svg` | Three-quarter, holding a stepper motor up | ? · resistor · gear |
+| Wiring | `rhino-wiring.svg` | Front, a connector in each paw | switch · bolt · ground |
+| For which tools | `rhino-tools.svg` | Three-quarter, pointing | drill bit · laser · chip |
+| Follows | `rhino-follows.svg` | Three-quarter (left), paw at chin | thought: ○ → □ |
+| Shows | `rhino-shows.svg` | Three-quarter, waving | bars · sine · spiral |
+| Done | `rhino-done.svg` | Front, thumbs up | ✓ · spark · gear |
 
-Everything else keeps the Rhino Studio theme. The base drawing is `rhino-studio/src/assets/wizard/rhino-mascot.svg`.
-Poses are made from it in build step 7. It's checked in light and dark, and it works on both.
+Files live in `rhino-studio/src/assets/wizard/` and come from `scripts/wizard_poses.py`. Change a pose there, never
+by hand-editing an SVG. Checked in light and dark. Everything else keeps the Rhino Studio theme.
+The other looks tried on Oct 25 (anime eyes, work jacket) are in git history.
 
 ## Build order (once approved)
 
