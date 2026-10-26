@@ -9,7 +9,7 @@ import os
 import re
 import shutil
 
-from . import builders, extras, hw_boards, hw_catalog, hw_devices, lists, pin_labels, registry, sections, tooldocs
+from . import builders, extras, hw_boards, hw_catalog, hw_devices, job_hooks, lists, pin_labels, registry, sections, tooldocs
 from .errors import Fail
 from .klipper_cfg import ConfigTree
 from .paths import Paths
@@ -736,6 +736,41 @@ class ToolService:
         del reg["devices"][name]
         registry.save(self.paths, reg)
         return {"ok": True, "name": name, "restart_needed": True}
+
+    # ---------------------------------------------------------------- job hooks (hardware wizard step 4)
+    def _hook_known(self):
+        ctx, tree = self._ctx()
+        reg = ctx.reg
+        gen = sections.parse_like_klipper(registry.render_cfg(reg))
+        macros = set(tree.macro_names) | {s.split(" ", 1)[1].upper() for s in gen.sections() if s.startswith("gcode_macro ")}
+        tools = {n: (t.get("category") or BUILTIN_CATEGORY.get(t.get("type"), "")) for n, t in ctx.all_tools.items()}
+        heater_max = {}
+        for _rel, cp in tree.files:
+            for sec in cp.sections():
+                kind, _, rest = sec.partition(" ")
+                name = rest.strip() if kind == "heater_generic" else kind
+                if (kind in ("heater_bed", "heater_generic") or kind.startswith("extruder")) and cp.has_option(sec, "max_temp"):
+                    try:
+                        heater_max[name] = float(cp.get(sec, "max_temp").split("#")[0])
+                    except ValueError:
+                        pass
+        on_off = {n: [f"SET_PIN PIN={n} VALUE=0"] for n in ctx.outs}
+        on_off.update({n: sections.control_off_lines(c) for n, c in reg.get("hardware", {}).items() if sections.control_off_lines(c)})
+        for n, d in reg.get("devices", {}).items():
+            if d["device"] == "heater":
+                heater_max[n] = float(d["settings"]["max_temp"])
+            if hw_devices.off_lines(n, d):
+                on_off[n] = hw_devices.off_lines(n, d)
+        return job_hooks.Known(macros, tools, heater_max, on_off)
+
+    def hooks_state(self):
+        return job_hooks.JobHooks(self.paths).state(self._hook_known())
+
+    def hooks_save(self, raw, dry_run=False):
+        return job_hooks.JobHooks(self.paths).save(raw, self._hook_known(), dry_run=dry_run)
+
+    def hooks_history(self):
+        return {"ok": True, "revisions": job_hooks.JobHooks(self.paths).history()}
 
     def board_remove(self, name):
         reg = copy.deepcopy(registry.load(self.paths))

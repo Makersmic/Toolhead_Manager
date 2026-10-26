@@ -1,0 +1,290 @@
+"""Job hooks (Add hardware wizard, step 4). Design: docs/hardware-coverage.md section 6.
+
+    myrhino/job_hooks.json           {"schema": 1, "rev": n, "updated": t, "hooks": {scope: {slot: [line, ...]}}}
+    myrhino/job_hooks.history.json   {"schema": 1, "revisions": [old file, ...]}   (newest first, KEEP_REVISIONS)
+
+scope: "machine", "category:<additive|subtractive|passive>" or "tool:<ToolName>".
+slot:  hw_catalog.HOOK_SLOTS (before_start ... on_resume).
+
+Hooks run from the macros through one call, _RHINO_HOOKS SLOT=<slot> TOOL=<name>. That call is NOT in any macro
+yet: the change to START_JOB / *_JOB_SETUP / END_PRINT / _RHINO_CANCEL / _RHINO_PAUSE_HOOK / _RHINO_RESUME_HOOK
+waits for Mike's review (docs/proposal-macro-hooks.md). Until then, render() is shown in the editor and the
+proposal, and nothing is written to any .cfg (LIVE = False).
+
+Rules (decisions.md 2026-10-26):
+- before_start can't move an axis (G0/G1/G2/G3/G28): nothing is homed yet.
+- Every command must exist (a macro in the config, one the registry generates, or a Klipper command).
+- Heater targets stay within that heater's max_temp.
+- on_cancel always turns off everything any hook turned on, whatever the user wrote, and does it FIRST.
+- Every save carries the rev it started from; a stale rev is refused. An unreadable file is never overwritten.
+"""
+import copy
+import json
+import os
+import re
+import time
+
+from . import hw_catalog
+from .errors import Fail
+from .presets import CATEGORIES, KLIPPER_COMMANDS
+
+SCHEMA = 1
+LIVE = False                    # becomes True only with the reviewed macro change
+KEEP_REVISIONS = 10
+MAX_LINES = 20
+MAX_LINE = 120
+SLOTS = hw_catalog.HOOK_SLOTS
+MOVES = {"G0", "G1", "G2", "G3", "G28"}
+# Klipper's own G/M codes a hook may use (M3/M4/M5 and the like come from the config's macros)
+GCODES = {"G4", "G90", "G91", "G92", "M82", "M83", "M84", "M18", "M104", "M109", "M140", "M190", "M106", "M107",
+          "M117", "M118", "M220", "M221", "M400"} | MOVES
+_LINE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*( +[A-Za-z_][A-Za-z0-9_]*=[A-Za-z0-9_.\-]+| +[A-Z][\-0-9.]+)*$")
+_TEXT = re.compile(r"^[A-Za-z0-9 .,:!?()/+\-]{0,80}$")
+_PARAM = re.compile(r"([A-Za-z_][A-Za-z0-9_]*)=([A-Za-z0-9_.\-]+)")
+_WORD = re.compile(r" ([A-Z])([\-0-9.]+)")
+EMPTY = {"schema": SCHEMA, "rev": 0, "updated": 0, "hooks": {}}
+
+
+def _read(path, empty):
+    if not os.path.exists(path):
+        return copy.deepcopy(empty), True
+    try:
+        with open(path, encoding="utf-8") as f:
+            d = json.load(f)
+        return (d, True) if isinstance(d, dict) and d.get("schema") == SCHEMA else (None, False)
+    except (OSError, ValueError):
+        return None, False
+
+
+def _write(path, data):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=1, sort_keys=True)
+        f.write("\n")
+    os.replace(tmp, path)
+
+
+class Known:
+    """What validation needs from the machine, gathered by the service from the live config + registry."""
+
+    def __init__(self, macros, tools, heater_max, on_off):
+        self.macros = {m.upper() for m in macros}       # every macro name Klipper will have
+        self.tools = tools                              # {name: category}
+        self.heater_max = heater_max                    # {heater name: max_temp}
+        self.on_off = on_off                            # {object name: [off lines]} for things a hook can switch
+
+
+def scopes(known):
+    out = [("machine", "Whole machine")]
+    out += [(f"category:{c}", f"{label} tools") for c, label in CATEGORIES.items()]
+    out += [(f"tool:{n}", n) for n in sorted(known.tools)]
+    return out
+
+
+def _num(v):
+    try:
+        return float(v)
+    except ValueError:
+        return None
+
+
+def check_line(line, slot, known):
+    """-> (clean line, [names it turns on], [names it turns off]) or Fail."""
+    line = " ".join(str(line).split())
+    if not line:
+        raise Fail("empty line")
+    if len(line) > MAX_LINE:
+        raise Fail(f"longer than {MAX_LINE} characters")
+    if re.match(r"^M11[78]( |$)", line, re.I):             # display text: free, but nothing a template could run
+        if not _TEXT.match(line[5:]):
+            raise Fail("M117 / M118 text: letters, digits, spaces and . , : ! ? ( ) / + - only")
+        return line[:4].upper() + line[4:], [], []
+    if not _LINE.match(line):
+        raise Fail("use a command or macro with KEY=VALUE parameters, or a G/M code like M106 S255")
+    word = line.split()[0].upper()
+    line = word + line[len(word):]
+    params = {k.upper(): v for k, v in _PARAM.findall(line)}
+    words = dict(_WORD.findall(line))
+    if slot == "before_start" and word in MOVES:
+        raise Fail(f"{word} moves an axis, and nothing is homed before the start")
+    if re.match(r"^[GM][0-9]+$", word):
+        if word not in GCODES and word not in known.macros:
+            raise Fail(f"{word} isn't a G-code Klipper or your config knows")
+    elif word not in known.macros and word not in KLIPPER_COMMANDS:
+        raise Fail(f"{word} isn't a macro in your config or a Klipper command")
+    # heater limits
+    if word == "SET_HEATER_TEMPERATURE":
+        h, t = params.get("HEATER", ""), _num(params.get("TARGET", "0"))
+        lim = known.heater_max.get(h)
+        if lim is None:
+            raise Fail(f"no heater called {h}")
+        if t is None or t > lim:
+            raise Fail(f"{h} goes to {lim:g} C at most")
+    for code, heater in (("M104", "extruder"), ("M109", "extruder"), ("M140", "heater_bed"), ("M190", "heater_bed")):
+        if word == code:
+            t, lim = _num(words.get("S", "0")), known.heater_max.get(heater)
+            if t is None or (lim is not None and t > lim):
+                raise Fail(f"{heater} goes to {lim:g} C at most")
+    # what it switches
+    on, off = [], []
+    target = params.get("PIN") or params.get("FAN") or params.get("HEATER") or params.get("LED")
+    level = params.get("VALUE") or params.get("SPEED") or params.get("TARGET") or params.get("RED")
+    if word in ("SET_PIN", "SET_FAN_SPEED", "SET_HEATER_TEMPERATURE", "SET_LED") and target:
+        (on if (_num(level or "0") or 0) > 0 else off).append(target.lower())
+    m = re.match(r"^([A-Z][A-Z0-9_]*)_(ON|SET|OFF)$", word)
+    if m and m.group(1).lower() in known.on_off:
+        lvl = params.get("VALUE") or params.get("SPEED") or params.get("TEMP") or "1"
+        (off if m.group(2) == "OFF" or (_num(lvl) or 0) <= 0 else on).append(m.group(1).lower())
+    if word in ("M106",) and (_num(words.get("S", "255")) or 0) > 0:
+        on.append("fan")
+    return line, on, off
+
+
+def clean(raw_hooks, known):
+    """-> (hooks, warnings). raw_hooks: {scope: {slot: [line, ...]}}."""
+    if not isinstance(raw_hooks, dict):
+        raise Fail("hooks must be an object")
+    valid = {k for k, _ in scopes(known)}
+    out, turned_on, turned_off, warnings = {}, {}, set(), []
+    for scope, slots in raw_hooks.items():
+        if scope not in valid:
+            raise Fail(f"Unknown scope {scope}" + (" (that tool no longer exists)" if scope.startswith("tool:") else ""))
+        if not isinstance(slots, dict):
+            raise Fail(f"{scope}: slots must be an object")
+        for slot, lines in slots.items():
+            if slot not in SLOTS:
+                raise Fail(f"Unknown slot {slot}")
+            if not isinstance(lines, list) or len(lines) > MAX_LINES:
+                raise Fail(f"{scope} {slot}: at most {MAX_LINES} lines")
+            clean_lines = []
+            for i, ln in enumerate(lines, 1):
+                if not str(ln).strip():
+                    continue
+                try:
+                    c, on, off = check_line(ln, slot, known)
+                except Fail as e:
+                    raise Fail(f"{_label(scope)}, {slot.replace('_', ' ')}, line {i}: {e}")
+                clean_lines.append(c)
+                for n in on:
+                    turned_on.setdefault(n, f"{_label(scope)}, {slot.replace('_', ' ')}")
+                if slot in ("before_end", "after_end", "on_cancel", "on_pause"):
+                    turned_off.update(off)
+            if clean_lines:
+                out.setdefault(scope, {})[slot] = clean_lines
+    for n, where in sorted(turned_on.items()):
+        if n not in turned_off:
+            warnings.append(f"{n} is turned on ({where}) but no end hook turns it off. Cancel still turns it off.")
+    return out, warnings
+
+
+def _label(scope):
+    if scope == "machine":
+        return "Whole machine"
+    kind, _, v = scope.partition(":")
+    return f"{CATEGORIES.get(v, v)} tools" if kind == "category" else v
+
+
+def forced_off(hooks, known):
+    """Off lines for everything any hook turns on: run first on cancel, whatever the user wrote."""
+    names = set()
+    for slots in hooks.values():
+        for slot, lines in slots.items():
+            for ln in lines:
+                names.update(check_line(ln, slot, known)[1])
+    out = []
+    for n in sorted(names):
+        out += known.on_off.get(n) or ([f"SET_HEATER_TEMPERATURE HEATER={n} TARGET=0"] if n in known.heater_max
+                                       else [f"SET_FAN_SPEED FAN={n} SPEED=0"] if n == "fan" else [f"SET_PIN PIN={n} VALUE=0"])
+    return list(dict.fromkeys(out))
+
+
+def render(hooks, known):
+    """The [gcode_macro _RHINO_HOOKS] text (not written anywhere while LIVE is False)."""
+    cats = {n: c for n, c in sorted(known.tools.items())}
+    out = ["[gcode_macro _RHINO_HOOKS]",
+           "description: Job hooks from Rhino Studio (generated). SLOT=before_start|after_start|before_end|after_end|"
+           "on_cancel|on_pause|on_resume [TOOL=<name>, default the mounted tool]",
+           f"variable_categories: {json.dumps(cats)}",
+           "gcode:",
+           "  {% set slot = params.SLOT|default('')|lower %}",
+           "  {% set _map = {} %}",
+           "  {% set _ = _map.update(printer['gcode_macro VARIABLES'].tool_mapping) %}",
+           "  {% set _ = _map.update(printer['gcode_macro CUSTOM_TOOLS'].tool_mapping|default({})) %}",
+           "  {% set tool = params.TOOL|default(_map.get(printer['gcode_macro SWAP_TOOL'].current_tool|int, '')) %}",
+           "  {% set cat = categories[tool]|default('') %}"]
+    first = True
+    for slot in SLOTS:
+        body = []
+        if slot == "on_cancel":
+            body += [f"    {l}" for l in forced_off(hooks, known)]
+        for scope, slots in sorted(hooks.items(), key=lambda kv: (kv[0] != "machine", kv[0])):
+            lines = slots.get(slot) or []
+            if not lines:
+                continue
+            if scope == "machine":
+                body += [f"    {l}" for l in lines]
+            else:
+                kind, _, v = scope.partition(":")
+                test = f"cat == {json.dumps(v)}" if kind == "category" else f"tool == {json.dumps(v)}"
+                body += [f"    {{% if {test} %}}"] + [f"      {l}" for l in lines] + ["    {% endif %}"]
+        if not body:
+            continue
+        out.append(f"  {'{% if' if first else '{% elif'} slot == '{slot}' %}}")
+        out += body
+        first = False
+    if not first:
+        out.append("  {% endif %}")
+    else:
+        out.append("  {% if false %}{% endif %}")
+    return "\n".join(out) + "\n"
+
+
+class JobHooks:
+    def __init__(self, paths, now=time.time):
+        self.paths, self.now = paths, now
+        my = os.path.join(paths.cfg, "myrhino")
+        self.file = os.path.join(my, "job_hooks.json")
+        self.hist_file = os.path.join(my, "job_hooks.history.json")
+
+    def _load(self):
+        d, ok = _read(self.file, EMPTY)
+        if not ok:
+            raise Fail("myrhino/job_hooks.json can't be read, so it's kept as it is. Fix or remove it by hand.")
+        return d
+
+    def state(self, known):
+        d = self._load()
+        hooks, warnings = d.get("hooks", {}), []
+        try:
+            _, warnings = clean(hooks, known)
+        except Fail as e:               # a tool was removed or a macro renamed since the save: say so, don't hide it
+            warnings = [f"Needs attention: {e}"]
+        return {"ok": True, "rev": d["rev"], "updated": d["updated"], "hooks": hooks, "warnings": warnings,
+                "slots": SLOTS, "scopes": [{"id": k, "label": v} for k, v in scopes(known)],
+                "macro": render(hooks, known) if not warnings or not warnings[0].startswith("Needs") else "",
+                "live": LIVE}
+
+    def save(self, raw, known, dry_run=False):
+        d = self._load()
+        if raw.get("rev") != d["rev"]:
+            raise Fail(f"Job hooks were changed on another device (now revision {d['rev']}). Reload, then save again.")
+        hooks, warnings = clean(raw.get("hooks") or {}, known)
+        text = render(hooks, known)
+        if dry_run:
+            return {"ok": True, "hooks": hooks, "warnings": warnings, "macro": text}
+        h, ok = _read(self.hist_file, {"schema": SCHEMA, "revisions": []})
+        if not ok:
+            raise Fail("myrhino/job_hooks.history.json can't be read, so it's kept as it is. Fix or remove it by hand.")
+        if d["rev"]:
+            h["revisions"].insert(0, d)
+            del h["revisions"][KEEP_REVISIONS:]
+        new = {"schema": SCHEMA, "rev": d["rev"] + 1, "updated": int(self.now()), "hooks": hooks}
+        _write(self.hist_file, h)
+        _write(self.file, new)
+        return {"ok": True, "rev": new["rev"], "hooks": hooks, "warnings": warnings, "macro": text,
+                "restart_needed": LIVE}
+
+    def history(self):
+        h, ok = _read(self.hist_file, {"schema": SCHEMA, "revisions": []})
+        return h["revisions"] if ok else []

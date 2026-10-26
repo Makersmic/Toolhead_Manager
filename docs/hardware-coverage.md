@@ -231,6 +231,12 @@ The other looks tried on Oct 25 (anime eyes, work jacket) are in git history.
    - Scope: category / named tools are stored; ON macros refuse unless a matching tool is mounted (slots are
      recomputed on every save).
 4. Job hooks: `_RHINO_HOOKS`, `job_hooks.json`, editor, cancel-turns-off guard. Macro diff shown to Mike first.
+   - **Portal side built Oct 26:** `rhino/job_hooks.py` (versioned `myrhino/job_hooks.json` + history, in the backup),
+     `/api/hooks` (+ preview, history), `dev/test_job_hooks.py`. Not live (`job_hooks.LIVE = False`).
+   - **The macro change is `docs/proposal-macro-hooks.md`, waiting for review.** It also carries the interlock
+     start check (`_RHINO_INTERLOCKS`) and filament sensors off without a print head (`_RHINO_FILAMENT_SENSORS`).
+   - Found while placing it: `START_JOB` ends at the `CONFIRM_TOOLHEAD` prompt, so "after start" goes in
+     `_START_JOB_FILE` (every job path ends there), not at the end of `START_JOB`.
 5. Spindles, coolant/air/dust, lights, switches and sensors, movement.
 6. Measuring, advanced.
 7. Studio wizard with mascot; role picker hides `hardware_only` roles for tool controls.

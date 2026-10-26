@@ -11,6 +11,10 @@
     POST   /api/hardware/devices               add or replace one {"device", "name", "pins", ...; "original"?}
     POST   /api/preview/hardware/devices       check one, return the exact .cfg text (writes nothing)
     DELETE /api/hardware/devices/<name>
+    GET    /api/hooks                          step 4: job hooks, scopes, slots, the generated _RHINO_HOOKS text
+    POST   /api/hooks                          save {"rev", "hooks"} (stale rev refused)
+    POST   /api/preview/hooks                  check (writes nothing)
+    GET    /api/hooks/history                  older revisions
 """
 from flask import Blueprint, jsonify, request
 
@@ -77,3 +81,24 @@ def device_preview():
 @bp.delete("/api/hardware/devices/<name>")
 def device_remove(name):
     return _write(lambda: _svc().device_remove(name), lambda r: f"hardware {r['name']} removed")
+
+
+@bp.get("/api/hooks")
+def hooks():
+    return jsonify(_svc().hooks_state())
+
+
+@bp.post("/api/hooks")
+def hooks_save():
+    return _write(lambda: _svc().hooks_save(security.json_body()), lambda r: "job hooks saved")
+
+
+@bp.post("/api/preview/hooks")
+def hooks_preview():
+    security.check_write()
+    return jsonify(_svc().hooks_save(security.json_body(), dry_run=True))
+
+
+@bp.get("/api/hooks/history")
+def hooks_history():
+    return jsonify(_svc().hooks_history())

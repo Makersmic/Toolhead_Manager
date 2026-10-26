@@ -446,3 +446,47 @@ def pins_of(d):
 def sections_of(name, d):
     """Section headers a device must produce (round-trip check)."""
     return [l[1:-1] for l in lines(name, d) if l.startswith("[")] + [f"gcode_macro {m}" for m, *_ in macros_of(name, d)]
+
+
+# ----------------------------------------------------------------------------- macro changes awaiting review
+# These two macros are rendered for docs/proposal-macro-hooks.md and the Portal preview only. Nothing calls them and
+# they are not written to any .cfg until Mike approves the macro change (then: regenerated on every registry save).
+_MOUNTED = ["  {% set _map = {} %}",
+            "  {% set _ = _map.update(printer['gcode_macro VARIABLES'].tool_mapping) %}",
+            "  {% set _ = _map.update(printer['gcode_macro CUSTOM_TOOLS'].tool_mapping|default({})) %}",
+            "  {% set tool = params.TOOL|default(_map.get(printer['gcode_macro SWAP_TOOL'].current_tool|int, '')) %}"]
+
+
+def interlock_macro(reg, laser_tools, spindle_tools):
+    """_RHINO_INTERLOCKS: refuse a job (or a laser test fire) while a required input is triggered.
+    laser_tools / spindle_tools: tool names, from the tool types and kinds at generation time."""
+    checks = []
+    for n, d in sorted(reg.get("devices", {}).items()):
+        s, st = d["settings"], f'printer["gcode_button {n}"].state == "PRESSED"'
+        groups = []
+        if d["device"] == "interlock":
+            if s.get("must_close_laser"):
+                groups.append(("laser", laser_tools, f"{n} is open. Close it before starting the laser."))
+            if s.get("must_close_spindle"):
+                groups.append(("spindle", spindle_tools, f"{n} is open. Close it before starting the spindle."))
+        elif d["device"] == "flame" and s.get("required_for_laser"):
+            groups.append(("laser", laser_tools, f"{n} reads a flame. Check the machine before starting the laser."))
+        elif d["device"] == "pressure" and s.get("must_be_ok"):
+            groups.append(("any", None, f"{n} isn't OK (no air or coolant pressure)."))
+        for _, tools, msg in groups:
+            cond = st if tools is None else f"tool in {sorted(tools)} and {st}"
+            checks += [f"  {{% if {cond} %}}", f'    {{ action_raise_error("{msg}") }}', "  {% endif %}"]
+    body = _MOUNTED + (checks or ["  {% if false %}{% endif %}"])
+    return ("[gcode_macro _RHINO_INTERLOCKS]\n"
+            "description: Refuse to start while a door / lid interlock is open or a required sensor is triggered (generated). "
+            "TOOL defaults to the mounted tool.\ngcode:\n" + "\n".join(body) + "\n")
+
+
+def filament_macro(reg, print_tools):
+    """_RHINO_FILAMENT_SENSORS: filament sensors on only while a print head is mounted (a laser job never pauses for runout)."""
+    sensors = [n for n, d in sorted(reg.get("devices", {}).items()) if d["device"] in ("runout", "jam")]
+    body = _MOUNTED + [f"  {{% set on = 1 if tool in {sorted(print_tools)} else 0 %}}"]
+    body += [f"  SET_FILAMENT_SENSOR SENSOR={n} ENABLE={{on}}" for n in sensors] or ["  {% if false %}{% endif %}"]
+    return ("[gcode_macro _RHINO_FILAMENT_SENSORS]\n"
+            "description: Filament sensors on only with a print head mounted (generated). TOOL defaults to the mounted tool.\n"
+            "gcode:\n" + "\n".join(body) + "\n")
