@@ -5,6 +5,8 @@
 - **Back up now** passed its note to klipper-backup the wrong way, so klipper-backup refused to run and the
   GitHub copy showed as failed. It's now sent as `--commit_message`. BACKUP_CFG wasn't affected: its push
   carries no note.
+- **Backups are now named `rhino_studio_os-<date>.zip`**, without the host name (the Pi's was mainsailos). The
+  host is still recorded inside each backup. Older `rhino-<name>-<date>.zip` backups still list, upload and restore.
 
 ## 1.8.0 - Slice profiles, kept on the Rhino
 

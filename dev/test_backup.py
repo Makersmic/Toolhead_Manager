@@ -129,6 +129,7 @@ ok(r.status_code == 200 and j["ok"] and j["archive"]["complete"], f"Back up now 
 name = j["archive"]["name"]
 path = os.path.join(ROOT, "rhino-backups", name)
 ok(os.path.isfile(path) and not path.startswith(CFG), "the archive is in ~/rhino-backups, outside the config folder")
+ok(os.path.basename(path).startswith("rhino_studio_os-") and socket.gethostname() not in os.path.basename(path), "the archive is named rhino_studio_os-<date>.zip, not after the host")
 with zipfile.ZipFile(path) as z:
     names = set(z.namelist()); man = json.loads(z.read("manifest.json"))
     hist = json.loads(z.read("moonraker/history.json"))
@@ -269,7 +270,7 @@ finally:
 import subprocess
 env = dict(os.environ, RHINO_MOONRAKER=MR, RHINO_CONFIG_DIR=CFG, HOME=ROOT)
 out = subprocess.run([sys.executable, os.path.join(CFG, "scripts", "rhino_backup_cfg.py"), "test_msg"], capture_output=True, text=True, env=env, timeout=60)
-ok(out.returncode == 0 and "rhino: backup rhino-" in out.stdout and "pushed to GitHub" in out.stdout, f"BACKUP_CFG makes an archive, then pushes ({out.stdout.strip().splitlines()[-1:]})")
+ok(out.returncode == 0 and "rhino: backup rhino_studio_os-" in out.stdout and "pushed to GitHub" in out.stdout, f"BACKUP_CFG makes an archive, then pushes ({out.stdout.strip().splitlines()[-1:]})")
 M["print_state"] = "printing"
 out = subprocess.run([sys.executable, os.path.join(CFG, "scripts", "rhino_backup_cfg.py")], capture_output=True, text=True, env=env, timeout=60)
 ok(out.returncode == 0 and "when it's finished" in out.stdout, "BACKUP_CFG during a job leaves the archive until the job is over")

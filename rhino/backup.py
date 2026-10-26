@@ -1,7 +1,7 @@
 """Back up now (Tool Manager 1.7, Phase 2 of docs/phase0-spine.md; spec docs/phase2-backup.md).
 
 One archive holds everything a person would be upset to lose (INV-B1), in
-~/rhino-backups/rhino-<host>-<YYYYMMDD-HHMMSS>.zip, OUTSIDE the config folder so klipper-backup
+~/rhino-backups/rhino_studio_os-<YYYYMMDD-HHMMSS>.zip (1.8.1; older ones are rhino-<host>-<date>.zip), OUTSIDE the config folder so klipper-backup
 never pushes archives to GitHub:
 
     config/                     printer_data/config (everything but .git)
@@ -41,8 +41,9 @@ from .errors import Fail
 from .moonraker import BUSY_STATES
 
 KEEP = 10
-NAME_RE = re.compile(r"^rhino-[A-Za-z0-9._-]{1,80}\.zip$")
+NAME_RE = re.compile(r"^rhino[-_][A-Za-z0-9._-]{1,80}\.zip$")   # rhino_studio_os-<date>.zip, and older rhino-<host>-<date>.zip
 SKIP_DIRS = {".git", "__pycache__", "node_modules"}
+ARCHIVE_PREFIX = "rhino_studio_os"     # Mike, 2026-10-25: no host name (the Pi's was mainsailos); the manifest still records the host
 SKIP_FILES = re.compile(r"(\.part|\.tmp|\.swp)$")
 
 # id -> what it is. Mirrors docs/phase0-spine.md § Backup inventory (rows marked ✅ under "Should be").
@@ -96,9 +97,6 @@ ITEMS = {
 def _sha(b):
     return hashlib.sha256(b).hexdigest()
 
-
-def _host():
-    return re.sub(r"[^A-Za-z0-9-]", "-", socket.gethostname())[:40] or "rhino"
 
 
 def github_status(state_dir, home=None):
@@ -195,12 +193,12 @@ class BackupService:
         if shutil.disk_usage(self.dir).free < need:
             raise Fail(f"Backup refused: the disk needs about {need // (1024 * 1024)} MB free. Nothing was kept.")
         stamp = time.strftime("%Y%m%d-%H%M%S", time.localtime(self.now()))
-        name = f"rhino-{_host()}-{stamp}.zip"
+        name = f"{ARCHIVE_PREFIX}-{stamp}.zip"
         final = os.path.join(self.dir, name)
         n = 1
         while os.path.exists(final):
             n += 1
-            name = f"rhino-{_host()}-{stamp}-{n}.zip"
+            name = f"{ARCHIVE_PREFIX}-{stamp}-{n}.zip"
             final = os.path.join(self.dir, name)
         part = final + ".part"
         files = []
@@ -324,7 +322,7 @@ class BackupService:
         """A backup from another machine (the 7050 move). Checked before it is listed."""
         name = os.path.basename(filename or "")
         if not NAME_RE.match(name):
-            raise Fail("Only Rhino backups (rhino-<host>-<date>.zip) can be added")
+            raise Fail("Only Rhino backups (rhino_studio_os-<date>.zip, or an older rhino-<name>-<date>.zip) can be added")
         os.makedirs(self.dir, exist_ok=True)
         final = os.path.join(self.dir, name)
         if os.path.exists(final):
