@@ -1,5 +1,16 @@
 # What changed
 
+## 1.9.3 - Control › Hardware and macro values (Rhino Studio)
+
+No Tool Manager change; this release carries the newer Rhino Studio:
+
+- **Control › Hardware:** each piece of system hardware with the control that fits it. Fans, dimmers and lights get a
+  slider and a % field; switches Off / On; servos an angle; heaters, spindles and laser-style power sit behind the red
+  padlock. Fans Klipper runs itself, interlocks, sensors and temperatures are shown read-only.
+- **Macro buttons that take values** (DRIVER_FAN_SET SPEED=...) show a small sliders icon and ask for the values
+  first, with a slider when the macro states a range, and the exact line before it's sent.
+- On-machine checks: Rhino Studio docs/testing.md HC1-HC5.
+
 ## 1.9.2 - 4-wire fans at 25 kHz
 
 - **A PWM cycle of 0.00004 (25 kHz) is accepted.** Both the Add hardware wizard and the System hardware form had a
