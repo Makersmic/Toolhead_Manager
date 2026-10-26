@@ -265,12 +265,30 @@ def check():
 
 def for_ui():
     """The whole catalog as JSON-safe data, menu-ordered, for Studio's wizard."""
-    from .hw_devices import WRITERS          # a device with a writer is ready (steps 3 and 5)
-    groups = [{"id": g, "label": label,
-               "devices": [dict(d, id=did, status="ready" if (d["role"] or did in WRITERS) else "planned")
-                           for did, d in DEVICES.items() if d["group"] == g]}
+    from .hw_devices import FOLLOWS_BUILT, MACRO_DEVICES, SETTINGS, WRITERS   # steps 3 and 5
+
+    def settings(did):
+        out = []
+        for key, spec in SETTINGS.get(did, {}).items():
+            row = {"key": key, "kind": spec[0], "default": spec[1]}
+            if spec[0] == "num":
+                row.update(min=spec[2], max=spec[3])
+            elif spec[0] == "choice":
+                row["options"] = list(spec[2])
+            out.append(row)
+        return out
+
+    def row(did, d):
+        r = dict(d, id=did, status="ready" if (d["role"] or did in WRITERS) else "planned")
+        if did in WRITERS:            # a role device keeps the system hardware form; these use the wizard
+            r.update(writer="wizard", settings=settings(did),
+                     expose_allowed=sorted(set(d["expose"]) | ({"macros"} if did in MACRO_DEVICES else set())))
+        elif d["role"]:
+            r["writer"] = "form"
+        return r
+    groups = [{"id": g, "label": label, "devices": [row(did, d) for did, d in DEVICES.items() if d["group"] == g]}
               for g, label in GROUPS]
     return {"groups": groups, "pin_kinds": PIN_KINDS, "sensor_types": SENSOR_TYPES, "scopes": SCOPES,
-            "follows": FOLLOWS, "input_purposes": INPUT_PURPOSES, "expose": EXPOSE, "hook_slots": HOOK_SLOTS,
+            "follows": FOLLOWS, "follows_built": sorted(FOLLOWS_BUILT), "input_purposes": INPUT_PURPOSES, "expose": EXPOSE, "hook_slots": HOOK_SLOTS,
             "limits": {"heater_max_temp": HEATER_MAX_TEMP, "temp_fan_margin": TEMP_FAN_SHUTDOWN_MARGIN,
                        "run_on": RUN_ON_DEFAULT, "controller_fan_idle": CONTROLLER_FAN_IDLE}}
