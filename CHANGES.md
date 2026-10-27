@@ -1,6 +1,6 @@
 # What changed
 
-## Unreleased (next: 1.9.5) - ready for the move
+## 1.9.5 - Health check, ready for the move
 
 - **Health check** (`rhino.sh` option 7, `scripts/rhino_doctor.py`): read-only checks of this host, with PASS / WARN
   / FAIL and what to do. It checks the board connected by its serial name, the camera, Klipper, Moonraker, the Portal and
@@ -11,6 +11,10 @@
   shipped config and on one the Portal filled with a second board, every wizard device and job hooks, then every
   macro once. The **move drill** (`dev/test_move.py`) backs up a used "Pi", restores it on a freshly installed
   "7050" with another host name, and goes back again. Both are in `dev/run_all.sh`.
+- **Hardware a job hook uses can't vanish under it.** Removing or renaming a wizard device or a piece of system
+  hardware, or taking away the macro a hook calls, is refused and names the hook. Before, `job_hooks.cfg` would
+  have called a command that was gone, and every job start would have stopped on it. Hooks that were already broken
+  don't block unrelated changes. Check HC0b.
 - `AGENTS.md` (and `CLAUDE.md` pointing to it): the rules for anyone, person or AI, changing this repository.
   README brought up to date.
 

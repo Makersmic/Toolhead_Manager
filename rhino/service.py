@@ -723,6 +723,8 @@ class ToolService:
         if item["safe_off"] and hw_devices.off_lines(name, item):
             text += "\n# also switched off by _TOOL_SAFE_OFF (end of job, cancel, tool swap, emergency stop):\n"
             text += "".join(f"#   {l}\n" for l in hw_devices.off_lines(name, item))
+        if original:
+            self._hooks_survive(reg, f"{original} can't change like this")
         if dry_run:
             return {"ok": True, "name": name, "item": item, "warnings": warnings, "text": text}
         self._save(reg)
@@ -735,12 +737,13 @@ class ToolService:
         if name not in reg["devices"]:
             raise Fail(f"No hardware named {name}")
         del reg["devices"][name]
+        self._hooks_survive(reg, f"{name} can't be removed")
         self._save(reg)
         return {"ok": True, "name": name, "restart_needed": True}
 
     # ---------------------------------------------------------------- job hooks (hardware wizard step 4)
-    def _hook_known(self):
-        ctx, tree = self._ctx()
+    def _hook_known(self, reg=None):
+        ctx, tree = self._ctx(reg)
         reg = ctx.reg
         gen = sections.parse_like_klipper(registry.render_cfg(reg))
         macros = set(tree.macro_names) | {s.split(" ", 1)[1].upper() for s in gen.sections() if s.startswith("gcode_macro ")}
@@ -763,6 +766,25 @@ class ToolService:
             if hw_devices.off_lines(n, d):
                 on_off[n] = hw_devices.off_lines(n, d)
         return job_hooks.Known(macros, tools, heater_max, on_off)
+
+    def _hooks_survive(self, new_reg, what):
+        """Refuse a hardware change that would break a job hook that works now: job_hooks.cfg would call a macro
+        or switch a pin that's gone, and every job start would stop on it. Hooks that were already broken don't
+        block an unrelated change (they're shown when the hooks are next edited)."""
+        try:
+            hooks = job_hooks.JobHooks(self.paths)._load().get("hooks", {})
+        except Fail:
+            return                          # unreadable hooks file: no hooks run (hooks_cfg_text does the same)
+        if not hooks:
+            return
+        try:
+            job_hooks.clean(hooks, self._hook_known())
+        except Fail:
+            return
+        try:
+            job_hooks.clean(hooks, self._hook_known(new_reg))
+        except Fail as e:
+            raise Fail(f"{what}: a job hook uses it ({e}). Change or remove that hook first.")
 
     def _tool_groups(self, ctx):
         """(laser, spindle, print head) tool names, for the interlock and filament-sensor macros."""
@@ -866,6 +888,8 @@ class ToolService:
         before = registry.render_cfg(registry.load(self.paths))
         hw[name] = item
         self._audit(ctx)
+        if original:
+            self._hooks_survive(ctx.reg, f"{original} can't change like this")
         if dry_run:
             return {"ok": True, "name": name, "warnings": warnings}
         self._save(ctx.reg)
@@ -886,6 +910,7 @@ class ToolService:
         if users:
             raise Fail(f"{', '.join(users)} switch {name} on with the tool - change those tools first")
         del ctx.reg["hardware"][name]
+        self._hooks_survive(ctx.reg, f"{name} can't be removed")
         self._save(ctx.reg)
         return {"ok": True, "name": name, "restart_needed": True}
 

@@ -138,6 +138,31 @@ fs = open(HCFG).read().split("[gcode_macro _RHINO_FILAMENT_SENSORS]")[1]
 ok("SET_FILAMENT_SENSOR SENSOR=runout ENABLE={on}" in fs and "'BlockOne'" in fs and "'LightSaber'" not in fs,
    "runout sensor: on only with a print head mounted")
 
+# ---------------------------------------------------------------- hardware a hook uses can't vanish under it
+# Renaming or removing it would leave job_hooks.cfg calling a command that's gone: every job start would fail.
+st = J(c.get("/api/hooks"))
+r = c.post("/api/hooks", json={"rev": st["rev"], "hooks": {"category:subtractive": {"after_start": ["DUST_ON"], "before_end": ["DUST_OFF"]}}}, headers=H)
+ok(r.status_code == 200, f"a hook switches the dust collector {J(r).get('error', '')}")
+r = c.delete("/api/hardware/devices/dust", headers=H)
+ok(r.status_code == 400 and "job hook" in J(r).get("error", "") and "DUST_ON" in J(r)["error"],
+   f"removing hardware a hook uses is refused and names the hook ({J(r).get('error', '')[:90]})")
+ok("dust" in [d["name"] for d in J(c.get("/api/hardware/devices"))["devices"]], "... and it's still there")
+r = c.post("/api/hardware/devices", json={"original": "dust", "device": "dust", "name": "extractor", "pins": {"pin": "aux:PG11"},
+                                          "expose": ["control", "macros"]}, headers=H)
+ok(r.status_code == 400 and "job hook" in J(r).get("error", ""), "renaming it is refused the same way")
+r = c.post("/api/preview/hardware/devices", json={"original": "dust", "device": "dust", "name": "extractor", "pins": {"pin": "aux:PG11"},
+                                                 "expose": ["control", "macros"]}, headers=H)
+ok(r.status_code == 400 and "job hook" in J(r).get("error", ""), "... and its preview says so before saving")
+r = c.post("/api/hardware/devices", json={"original": "dust", "device": "dust", "name": "dust", "pins": {"pin": "aux:PG11"},
+                                          "expose": ["control", "macros"], "safe_off": True}, headers=H)
+ok(r.status_code == 200, f"editing it without breaking the hook is fine {J(r).get('error', '')}")
+r = c.post("/api/hardware/devices", json={"original": "dust", "device": "dust", "name": "dust", "pins": {"pin": "aux:PG11"}}, headers=H)
+ok(r.status_code == 400 and "job hook" in J(r).get("error", ""), "taking away the macros a hook calls is refused too")
+st = J(c.get("/api/hooks"))
+c.post("/api/hooks", json={"rev": st["rev"], "hooks": {}}, headers=H)
+r = c.delete("/api/hardware/devices/dust", headers=H)
+ok(r.status_code == 200, "with the hook gone, it can be removed")
+
 print(f"\n{'ALL PASS' if not fails else str(len(fails)) + ' FAILED'}")
 fake.shutdown()
 sys.exit(1 if fails else 0)

@@ -442,3 +442,10 @@ supply before the real load: the simulator is not real Klipper.
   shows its rpm. Hold the blades still (or unplug the yellow wire) with it set to 100 %: within about 15 s the Dashboard
   says "<name> fan isn't turning" in red. Let go: it clears. A 4-wire fan with a power pin stops at 0 %.
   *Stop if:* the fan runs at full speed whatever it's set to (tick "The speed input is inverted").
+- [ ] **HC0 Health check (1.9.5).** `bash ~/rhino-manager/rhino.sh`, option **7**. It lists PASS / WARN / FAIL and
+  says where it saved `~/rhino-health-<host>-<date>.json`. *Pass if:* no FAIL on the working Pi; the board line says
+  connected; Klipper, Moonraker and the Portal pass. Run it twice: the second run offers to compare with the first,
+  and the compare shows no `*` on the boards line. *Stop if:* anything in the config folder changed (it's read-only:
+  `git status` in klipper-backup shows nothing new from it).
+- [ ] **HC0b Hardware a hook uses (1.9.5).** With a job hook that calls a wizard device's macro, remove that device
+  in Assets > System hardware. *Pass if:* it's refused, naming the hook, and the device is still listed.
