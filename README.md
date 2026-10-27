@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <img alt="version" src="https://img.shields.io/badge/version-1.3.5-2196f3">
+  <a href="https://github.com/Makersmic/Toolhead_Manager/releases/latest"><img alt="latest release" src="https://img.shields.io/github/v/release/Makersmic/Toolhead_Manager?label=version&color=2196f3"></a>
   <img alt="Klipper" src="https://img.shields.io/badge/firmware-Klipper-b12f36">
   <img alt="Mainsail" src="https://img.shields.io/badge/UI-Mainsail-d51f26">
   <img alt="Python" src="https://img.shields.io/badge/portal-Python%20%2F%20Flask-3776ab">
@@ -26,6 +26,11 @@ Rhino Klipper config for BTT Octopus v1.1, plus a tool-management package: add y
 with drop-down menus, typed names and photos - or from the console. Each tool can bring its own
 extra controls (relays, fans, servos, switches - set up by describing what they do) and macros,
 and the portal tracks preventive maintenance for the machine and every tool.
+
+Each release also carries **[Rhino Studio](https://github.com/Makersmic/rhino-studio)**, one web interface for the
+whole machine (job setup, preview, control, assets and care), served on port 5001. Studio's **Add hardware** wizard
+adds fans, lights, pumps, sensors, interlocks and second boards by asking what they are and how they're wired, checks
+every pin against the board, and writes the Klipper config for you.
 
 ## The portal
 
@@ -67,6 +72,9 @@ A dashboard on port 5000 that follows Mainsail's light or dark theme and colour.
 | 🛠️ **Add your own tools** | Hot wire, needle cutter or any powered or passive tool, from the portal with photos |
 | 🧰 **Maintenance** | Tasks by hours, jobs, swaps or calendar, for the machine and every tool, with a work log - [see it in action](docs/maintenance/) |
 | 🖨️ **OrcaSlicer profiles** | BlockOne printer, process, PLA and PETG in `slicer/orca/` |
+| 🧙 **Add hardware wizard** | Fans (2, 3 or 4 wires, with stall warnings), lights, pumps, heaters, buttons, sensors and second boards (EBB, SKR, Pico...), each pin checked against what the board can do |
+| 🔒 **Interlocks and job hooks** | Lid or door switches that must be closed before a laser or spindle job starts; hardware that switches on and off with a job |
+| 💾 **Backups and updates** | One-click backup zip of your config and Rhino data; Studio's Software page checks GitHub and installs a new release |
 | 📦 **Menu installer** | KIAUH-style menu: preview, install, update from a zip, undo from a backup |
 | 📘 **User manual** | `manual/Rhino-User-Manual.pdf` - install, every tool, wiring and maintenance |
 
@@ -86,6 +94,7 @@ You need a Klipper/Mainsail Pi with the Rhino config, and a print head (BlockOne
    saved settings, then starts the portal on port 5000.
 4. In Mainsail: `FIRMWARE_RESTART`, answer "which toolhead is mounted?", then `CHECK_TOOLHEADS`.
 
+Once installed, later releases can also be installed from Rhino Studio (**Settings** > **Software** > **Check now**).
 Undo with menu option **4**. The full walkthrough is the *Install and first start* chapter of the manual.
 
 ## Using it
@@ -97,7 +106,8 @@ Undo with menu option **4**. The full walkthrough is the *Install and first star
 | Laser, CNC or drag knife | `LASER_JOB_SETUP` / `CNC_JOB_SETUP` / `DRAGKNIFE_JOB_SETUP FILE=<name>.gcode` | Running a job |
 | Set Z zero for a non-print tool | `SET_Z_ZERO` - move the bed, then SET | Running a job |
 | Set nozzle height | `NOZZLE_HEIGHT_CALIBRATE` (paper test) | Running a job |
-| Add a tool | Portal > **Add a tool** (or `ADD_TOOLHEAD`) | The Tool Manager portal |
+| Add a tool | Studio > **Assets** > Library > **Add a toolhead** (or Portal > **Add a tool**, or `ADD_TOOLHEAD`) | The Tool Manager portal |
+| Add a fan, light, sensor or board | Studio > **Assets** > System hardware > **Add hardware** | - |
 | Track maintenance | Portal > **Maintenance** ([showcase](docs/maintenance/)) | Maintenance tracking |
 
 ## Documentation
@@ -107,6 +117,9 @@ Undo with menu option **4**. The full walkthrough is the *Install and first star
 - [**Testing**](docs/testing.md) - how it's tested, and the on-machine checks for each release
 - [**Developer notes**](docs/developer.md) - running it without the printer, where things are in the code
 - [**Accessibility**](docs/accessibility.md) - the WCAG 2.1 AA audit of the portal
+- [**Hardware coverage**](docs/hardware-coverage.md) - what the Add hardware wizard handles and how it decides
+- [**Decisions**](docs/decisions.md) - why things are the way they are
+- [**Contributing with an AI assistant**](AGENTS.md) - the rules any contributor (human or AI) follows
 - [**Tech debt**](docs/tech-debt.md) - what to tidy next, in priority order
 - [**Changes**](CHANGES.md) - what changed in each version
 - The machine itself (CAD, wiring, build notes): [Rhino-3d-Printer](https://github.com/Makersmic/Rhino-3d-Printer)
