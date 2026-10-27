@@ -137,6 +137,31 @@ ok(c.delete("/api/prepare-jobs", json={"file": "benchy.stl"}, headers=HDR).statu
    and "benchy.stl" not in c.get("/api/prepare-jobs").get_json()["jobs"], "a saved job can be deleted")
 post("/api/prepare-jobs", {"file": "benchy.stl", "job": job})
 
+# ---- two saves at once (Oct 27): Studio saves a new file's job under the toolhead and the file name together.
+# Before 1.9.7 they shared one .tmp file: one crashed with a 500, or a job was lost, or the file was left corrupt.
+import threading
+codes, ROUNDS = [], 60
+for i in range(ROUNDS):
+    gate = threading.Barrier(3)
+    def save(key):
+        cl = app.test_client()
+        gate.wait()
+        codes.append((key, cl.post("/api/prepare-jobs", json={"file": key, "job": job}, headers=HDR).status_code))
+    def read():   # a read at the same moment never sees a half-written file
+        gate.wait()
+        try: SP.SliceProfiles(app.config["PATHS"]).jobs()
+        except Fail as e: codes.append(("read", str(e)))
+    ts = [threading.Thread(target=save, args=(k,)) for k in (f"tool/T{i}", f"sphere {i}.stl")] + [threading.Thread(target=read)]
+    [t.start() for t in ts]; [t.join() for t in ts]
+saved = json.load(open(JOBS))["jobs"]
+ok(all(code == 200 for _, code in codes) and len(codes) == 2 * ROUNDS, f"{2 * ROUNDS} saves in pairs at the same instant all succeed")
+ok(all(f"tool/T{i}" in saved and f"sphere {i}.stl" in saved for i in range(ROUNDS)), "and no job is lost")
+ok(not [n for n in os.listdir(os.path.dirname(JOBS)) if n.endswith(".tmp")], "and no temp file is left behind")
+ok(oct(os.stat(JOBS).st_mode & 0o777) == "0o644", "the jobs file keeps its usual permissions (0644)")
+for i in range(ROUNDS):
+    for k in (f"tool/T{i}", f"sphere {i}.stl"):
+        c.delete("/api/prepare-jobs", json={"file": k}, headers=HDR)
+
 # ---- an unreadable file is never overwritten
 good = open(FILE).read()
 open(FILE, "w").write('{"schema": 1, "profiles": [')

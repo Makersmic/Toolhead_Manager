@@ -1,5 +1,18 @@
 # What changed
 
+## 1.9.7 - Large models prepare; job saves no longer clash
+
+- **Large models prepare** (Rhino Studio). Prepare built the job file with one call per line, so a real-sized model
+  (a 4 MB sphere is hundreds of thousands of lines) failed with "Maximum call stack size exceeded". A 10 mm cube
+  never showed it. Check LM1.
+- **Saving a job's settings no longer clashes.** Studio saves a new file's settings under its toolhead and under its
+  file name at the same instant. The Portal wrote both through one shared temp file with no lock, so one save failed
+  ("Couldn't save the job on the Rhino: Unexpected error"), a job could be lost, and the jobs file could be left
+  unreadable. Slice profiles and saved jobs now change one at a time, each write uses a temp file of its own and is
+  flushed to disk before it replaces the old one. The job hooks file and the restart flag get their own temp files
+  too. Check LM2.
+- **The move version is now 1.9.7** (`docs/migrate-7050.md`): the Pi and the 7050 both run it.
+
 ## 1.9.6 - Edit wizard hardware; job hooks editor in Studio
 
 No Tool Manager code change: this release carries Rhino Studio's new screens.

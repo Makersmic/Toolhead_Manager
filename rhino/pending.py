@@ -10,6 +10,7 @@ An empty file (written by older versions) still counts as "something is waiting"
 """
 import json
 import os
+import tempfile
 import time
 
 MAX_CHANGES = 30
@@ -36,10 +37,18 @@ def _read(paths):
 
 def _write(paths, d):
     os.makedirs(paths.state_dir, exist_ok=True)
-    tmp = paths.restart_flag + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(d, f)
-    os.replace(tmp, paths.restart_flag)
+    fd, tmp = tempfile.mkstemp(dir=paths.state_dir, prefix=".restart_pending.", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:   # its own temp file: the monitor and a request may write at once
+            json.dump(d, f)
+        os.chmod(tmp, 0o644)   # mkstemp makes 0600; keep what the old writer gave
+        os.replace(tmp, paths.restart_flag)
+    except BaseException:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
 
 
 def get(paths):

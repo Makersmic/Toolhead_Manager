@@ -15,8 +15,8 @@ Items marked **verify** come from earlier Gemini/Grok research or from memory, a
 
 ## 0. Before the 7050 arrives (on the Pi)
 
-1. **Install Tool Manager 1.9.5** (Update in Studio), then check **HW1** (a normal print runs as before). The
-   7050 gets the same version, so the backup restores cleanly, and the Pi stays on 1.9.5 as the fallback.
+1. **Install Tool Manager 1.9.7** (Update in Studio), then check **HW1** (a normal print runs as before). The
+   7050 gets the same version, so the backup restores cleanly, and the Pi stays on 1.9.7 as the fallback.
 2. **Back up now** (Settings › Host › Backups). Check that it says **complete** and that the GitHub copy says pushed. Then
    **Download** the zip to your PC. That file is the move: config, Moonraker database (history, Studio and Mainsail
    settings), photos, slice profiles and saved jobs.
@@ -103,14 +103,14 @@ If `http://rhino.local` shows **403**, run `chmod o+x ~`.
 
 ## 7. Tool Manager, then the restore
 
-1. Install **Tool Manager 1.9.5** (the same version as the Pi's backup): copy the zip over and run `rhino.sh` option 3 (the same as the first install on
+1. Install **Tool Manager 1.9.7** (the same version as the Pi's backup): copy the zip over and run `rhino.sh` option 3 (the same as the first install on
    the Pi). This sets up the Portal, Studio at `http://rhinostudio.local` and the updater.
 2. Studio › Settings › Host › Backups › **Add a backup from another Rhino…**, then pick the zip from step 0.2. It's
    checked before it's listed.
 3. **Restore… › Everything** (check **B5**). It shows what it will change first, asks you to type the machine's
    name, and backs up the 7050's fresh state before writing.
    - It refuses if the backup's `[mcu] serial:` boards aren't connected. That's a good thing after a move: plug the board in first.
-   - It leaves the program files as installed (1.9.5).
+   - It leaves the program files as installed (1.9.7).
    - **Verify:** `moonraker.conf` comes back from the Pi. With user `pi`, the paths match. Check `[authorization]`
      `trusted_clients` still covers your network.
 4. `FIRMWARE_RESTART`, answer "which toolhead is mounted?", then `CHECK_TOOLHEADS`.
@@ -148,10 +148,10 @@ If `http://rhino.local` shows **403**, run `chmod o+x ~`.
 ## 10. Afterwards
 
 - **Until the load test passes, don't update Tool Manager on the 7050.** The way back (§11) restores a 7050 backup on
-  the Pi, and a restore wants the same version on both (1.9.5).
+  the Pi, and a restore wants the same version on both (1.9.7).
 - **Once it's accepted:** make a **one-time Clonezilla image of the 7050's SSD** (boot Clonezilla Live from a USB stick,
   device-image, save to a USB drive or the PC, and check it). Recovery is then the image plus the newest backup zip.
-- The Pi's SD card stays as it is, frozen at 1.9.5, for a month after acceptance, then it's retired (Mike, Oct 26).
+- The Pi's SD card stays as it is, frozen at 1.9.7, for a month after acceptance, then it's retired (Mike, Oct 26).
   Releases after that target the 7050 (x86) only.
 - I add 7050 notes to the manual's install chapter (it's being rewritten anyway).
 - decisions.md records the result.
@@ -159,7 +159,7 @@ If `http://rhino.local` shows **403**, run `chmod o+x ~`.
 ## 11. Way back
 
 Shut the 7050 down, move the USB cables back, and boot the Pi. Its SD card is unchanged. Anything made on the 7050 in
-the meantime (new profiles, history) comes back with a backup from the 7050 restored on the Pi (both on 1.9.5).
+the meantime (new profiles, history) comes back with a backup from the 7050 restored on the Pi (both on 1.9.7).
 
 After the Pi is retired, the way back is the Clonezilla image (§10) restored onto the SSD, then the newest backup zip.
 
@@ -168,5 +168,5 @@ After the Pi is retired, the way back is the Clonezilla image (§10) restored on
 1. **Network:** A, NetworkManager on the 7050 (§4).
 2. **Hostname:** `rhino` (§3). `rhinostudio.local` works too; bookmarks to `mainsailos.local` need updating.
 3. **Pi GPIO header:** nothing on it; only the Octopus and the webcam, both USB (§0.4).
-4. **Pi retirement:** yes. Fallback during the move, frozen at 1.9.5, retired a month after acceptance; a one-time
+4. **Pi retirement:** yes. Fallback during the move, frozen at 1.9.7, retired a month after acceptance; a one-time
    Clonezilla image of the 7050 SSD (§10).

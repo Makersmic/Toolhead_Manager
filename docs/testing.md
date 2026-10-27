@@ -449,3 +449,9 @@ supply before the real load: the simulator is not real Klipper.
   `git status` in klipper-backup shows nothing new from it).
 - [ ] **HC0b Hardware a hook uses (1.9.5).** With a job hook that calls a wizard device's macro, remove that device
   in Assets > System hardware. *Pass if:* it's refused, naming the hook, and the device is still listed.
+
+## 1.9.7: large models, job saves
+
+Checks **LM1-LM2** are in Rhino Studio's `docs/testing.md`. On the Rhino, after LM2:
+- [ ] **LM3** `python3 -m json.tool ~/printer_data/rhino_data/prepare_jobs.json > /dev/null && echo OK` prints OK, and
+  `ls -a ~/printer_data/rhino_data | grep tmp` prints nothing. *Stop if:* the file can't be read: don't delete it, send it.

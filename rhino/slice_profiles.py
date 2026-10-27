@@ -16,11 +16,14 @@ Rules:
 - Profiles never send G-code, start anything or change tool state.
 """
 import copy
+import functools
 import json
 import math
 import os
 import re
 import secrets
+import tempfile
+import threading
 import time
 
 from .errors import Fail
@@ -185,12 +188,37 @@ def _read(path, empty):
 
 
 def _write(path, data):
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    tmp = path + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=1, sort_keys=True)
-        f.write("\n")
-    os.replace(tmp, path)
+    """Atomic: a temp file of its own (two writers never share one), flushed to disk, then renamed over."""
+    d = os.path.dirname(path)
+    os.makedirs(d, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(dir=d, prefix="." + os.path.basename(path) + ".", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=1, sort_keys=True)
+            f.write("\n")
+            f.flush()
+            os.fsync(f.fileno())
+        os.chmod(tmp, 0o644)   # mkstemp makes 0600; keep what the old writer gave
+        os.replace(tmp, path)
+    except BaseException:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
+
+
+# One change at a time. Studio saves a job under its toolhead and under its file name in the same instant;
+# Flask serves them on two threads, and an unlocked read -> change -> write lost one, or crashed (Oct 27).
+_LOCK = threading.RLock()
+
+
+def _locked(fn):
+    @functools.wraps(fn)
+    def run(*a, **kw):
+        with _LOCK:
+            return fn(*a, **kw)
+    return run
 
 
 class SliceProfiles:
@@ -244,6 +272,7 @@ class SliceProfiles:
             n += 1
         return f"{name} ({n})"[:60]
 
+    @_locked
     def create(self, raw):
         d = self._profiles()
         if len(d["profiles"]) >= MAX_PROFILES:
@@ -256,6 +285,7 @@ class SliceProfiles:
         _write(self.file, d)
         return p
 
+    @_locked
     def save(self, pid, raw, rev):
         d = self._profiles()
         h = self._history()
@@ -277,6 +307,7 @@ class SliceProfiles:
             return p
         raise Fail("That profile isn't on the Rhino (deleted, or never saved)")
 
+    @_locked
     def delete(self, pid):
         d = self._profiles()
         h = self._history()
@@ -293,6 +324,7 @@ class SliceProfiles:
     def history(self, pid):
         return self._history()["revisions"].get(pid, [])
 
+    @_locked
     def revert(self, pid, to_rev):
         """Save an old revision as the newest one (history keeps what it replaces)."""
         cur = self.get(pid)
@@ -304,6 +336,7 @@ class SliceProfiles:
     def deleted(self):
         return [{k: p.get(k) for k in ("id", "name", "engine", "process", "deleted_at")} for p in self._history()["deleted"]]
 
+    @_locked
     def undelete(self, pid):
         h = self._history()
         p = next((x for x in h["deleted"] if x["id"] == pid), None)
@@ -327,6 +360,7 @@ class SliceProfiles:
                 "profiles": [{k: p[k] for k in ("name", "engine", "process", "toolhead", "material", "settings", "notes")}
                              for p in ps]}
 
+    @_locked
     def import_(self, data):
         """Every profile is checked before any is added; a clashing name gets " (2)"."""
         if not isinstance(data, dict) or data.get("rhino_slice_profiles") != SCHEMA or not isinstance(data.get("profiles"), list):
@@ -360,6 +394,7 @@ class SliceProfiles:
     def jobs(self):
         return self._jobs()["jobs"]
 
+    @_locked
     def save_job(self, file, job):
         if not isinstance(file, str) or not _FILE.match(file) or ".." in file:
             raise Fail("That file name can't hold a saved job")
@@ -373,6 +408,7 @@ class SliceProfiles:
         _write(self.jobs_file, d)
         return j
 
+    @_locked
     def delete_job(self, file):
         d = self._jobs()
         if d["jobs"].pop(file, None) is not None:
