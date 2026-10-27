@@ -19,6 +19,7 @@ Static lint of every .cfg file               unknown commands, invalid options, 
 |---|---|---|---|
 | Lint | `dev/lint_rhino.py` | Every macro calls a command that exists; options Klipper rejects at start-up (e.g. `description:` in a `delayed_gcode`, soft-PWM `shutdown_value` other than 0/1); pins used twice | That Klipper accepts the whole config on your board |
 | Macro tests | `dev/test_macros.py` with `dev/klippersim.py` (190 checks) | Macros render the way Klipper renders them (whole template first), run in order, show the right pop-up and buttons, save the right variables, refuse what they should | Timing, heaters, real pins |
+| Real Klipper | `dev/test_real_klipper.py` (SKIPs without a Klipper checkout and `arm-none-eabi-gcc`) | Klipper itself (batch mode, a pretend STM32F446) reads the shipped config and one the Portal filled (second board, one of each wizard device, job hooks), then runs every macro once: no option Klipper rejects, no pin used twice, no template error or unknown command when a macro actually runs | One run per macro walks one path; homing can't run in batch mode; no real pins or heat |
 | Motion tests | `dev/test_motion.py` (110 checks, about a minute) | Where the bed and head end up: the simulator follows the position like Klipper (G90/G91, G92, offsets, `safe_z_home`, `SAVE`/`RESTORE_GCODE_STATE`, pause/resume) and refuses moves past `position_min`/`max` or on unhomed axes, with the limits read from `printer.cfg`. Flows: homing, paper test, print, cancel, swap, Set Z zero, Z restore, CNC, knife, laser pause/resume, filament change. Then a sweep of every macro and every button from 7 machine states x 5 tools (about 15,600 runs) against five safety rules (below) | Collisions: it knows the travel limits, not tool lengths or stock height, so "too close" is judged by rules, not geometry |
 | Portal tests | `test_portal.py` (52), `test_extras.py` (46), `test_v12.py` (71), `test_maint.py` (60) | The portal API, security (token, same-origin), tool registry and generated `custom_tools.cfg`, controls and macros, Task Books, maintenance schedule maths, meters | The browser screens themselves |
 | Installer test | `dev/test_install.py` (38 checks) | `install.sh`, `uninstall.sh` and the `rhino.sh` menu on a fake Pi (login "tester", an existing config with SAVE_CONFIG, saved variables and a GitHub-backup `.git`; stand-in `sudo`/`systemctl`/`apt-get`; the portal really started from the installed service file): refusals (sudo, job printing, unzipped in the config folder, no printer.cfg, port 5000 taken) change nothing; preview changes nothing; install backs up first, keeps your saved state, `.git` and SAVE_CONFIG (once), rewrites `/home/pi`, starts the portal; update keeps added tools; undo restores exactly; menu options 3 and 4 | Real `apt`, real systemd, the Pi's own Python |
@@ -62,9 +63,9 @@ Highest first. A change to anything in the top rows gets on-machine testing befo
    slices a test cube and checks the start G-code, first-layer speed and bed size.
 2. **The motion tests know limits, not shapes.** They can't tell that a tool is 40 mm long or the stock is 20 mm
    tall; "too close" comes from the rules above and the measured 150 mm park height. Only the machine proves clearance.
-3. **Klipper itself never sees the config before you restart.** The first `FIRMWARE_RESTART` (test A2) is the real
-   check; keep it the first step after every install. Next step: run Klipper's own config loader in CI
-   ([tech-debt.md](tech-debt.md) #3).
+3. **Klipper itself sees the config only where a Klipper checkout is.** `dev/test_real_klipper.py` runs real Klipper
+   on the config, but CI doesn't have Klipper yet ([tech-debt.md](tech-debt.md) #3), and the version tested is
+   whatever is checked out. The first `FIRMWARE_RESTART` (test A2) stays the first step after every install.
 4. **No screen-reader pass.** The accessibility checks are automated (axe-core) plus scripted keyboard use; a pass with
    VoiceOver on a phone would catch what they can't.
 

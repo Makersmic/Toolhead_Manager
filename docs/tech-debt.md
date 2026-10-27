@@ -18,7 +18,7 @@ Priority = (Impact + Risk) x (6 - Effort), each 1-5.
 |---|---|---|---|---|---|---|
 | 1 | Every G0/G1 move goes through a macro | Code / performance | 4 | 4 | 3 | **24** |
 | 2 | ~~Machine positions and limits written out in several places~~ **Done in 1.4.0** | Code | 3 | 3 | 2 | **24** |
-| 3 | Klipper never checks the config until `FIRMWARE_RESTART` on the Pi | Test | 4 | 4 | 3 | **24** |
+| 3 | ~~Klipper never checks the config until `FIRMWARE_RESTART` on the Pi~~ **Done (local) Oct 2026; CI step open** | Test | 4 | 4 | 3 | **24** |
 | 4 | ~~Old and overlapping macros in the Mainsail macro list~~ **Done in 1.4.0** | Code | 2 | 2 | 1 | **20** |
 | 5 | CI on actions and a runner image that are being retired; unpinned test tools | Infrastructure | 1 | 3 | 1 | **20** |
 | 6 | Version number kept by hand in two files (plus docs) | Infrastructure | 2 | 2 | 1 | **20** |
@@ -55,7 +55,15 @@ finding every copy. **Fix:** keep the Rhino's measured numbers in one place (`VA
 `printer.toolhead.axis_maximum` and `printer.configfile` (`safe_z_home`, `probe`). The values stay identical, and the
 motion tests prove it. **Why:** the first thing that breaks on another machine, and on this one after a frame change.
 
-### 3. Klipper never sees the config until the Pi restarts (24)
+### 3. Klipper never sees the config until the Pi restarts (24) - done locally, Oct 2026
+
+**Done:** `dev/test_real_klipper.py` (in `run_all.sh`) builds an STM32F446 data dictionary in a temp folder and
+runs Klipper's own batch mode on the shipped config and on a config the Portal has filled (a second board, one of
+each wizard device, job hooks), then runs every macro once. It SKIPs without a Klipper checkout and
+`arm-none-eabi-gcc`. **Still open:** run it in CI (clone Klipper, `apt install gcc-arm-none-eabi
+libnewlib-arm-none-eabi`, about a minute). Pin the Klipper version to the one the machine runs, or a change on
+Klipper's master turns our CI red with nothing of ours changed.
+
 
 The lint and the simulator copy Klipper's rules, but they're our copies: the RESUME offset bug (M1) was Klipper
 behaviour the simulator didn't have until this week. **Fix:** in CI, check out Klipper and run its own config
