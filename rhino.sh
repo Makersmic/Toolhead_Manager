@@ -60,6 +60,7 @@ menu() {
   row "${C}4)${N} Undo an install            (pick a backup)"
   row "${C}5)${N} Portal status and recent log"
   row "${C}6)${N} Restart the portal"
+  row "${C}7)${N} Health check  (before and after a move)"
   row ""
   row "${C}Q)${N} Quit"
   line '\' '=' '/'
@@ -130,6 +131,23 @@ do_restart() {
   pause
 }
 
+do_doctor() {
+  local doc="$CFG/scripts/rhino_doctor.py"; [ -f "$doc" ] || doc="$HERE/scripts/rhino_doctor.py"
+  [ -f "$doc" ] || { echo "${R}The health check isn't installed (Tool Manager 1.9.5+).${N}"; pause; return; }
+  echo; python3 "$doc"
+  local reps=() i=1 r
+  for r in "$HOME"/rhino-health-*.json; do [ -f "$r" ] && reps+=("$r"); done
+  if [ ${#reps[@]} -ge 2 ]; then
+    echo; echo "${B}Earlier reports${N} (copy the Pi's here to compare it with this one)"
+    for r in "${reps[@]:0:${#reps[@]}-1}"; do echo "  $i) $(basename "$r")"; i=$((i+1)); done
+    local n; read -r -p "Compare the newest with which one (number, Enter to skip)? " n
+    if [[ "$n" =~ ^[0-9]+$ ]] && [ "$n" -ge 1 ] && [ "$n" -lt ${#reps[@]} ]; then
+      echo; python3 "$doc" --compare "${reps[$((n-1))]}" "${reps[-1]}"
+    fi
+  fi
+  pause
+}
+
 [ "$(id -u)" = 0 ] && { echo "Run this as your normal login, without sudo."; exit 1; }
 if [ "${1:-}" = "--after-unpack" ] && is_package; then
   # Straight on from option 3: preview this version, then offer to install it - so picking a zip
@@ -146,6 +164,7 @@ while true; do
     4) do_undo ;;
     5) do_status ;;
     6) do_restart ;;
+    7) do_doctor ;;
     q) echo "Bye."; exit 0 ;;
   esac
 done

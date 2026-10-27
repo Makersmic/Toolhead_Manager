@@ -1,5 +1,19 @@
 # What changed
 
+## Unreleased (next: 1.9.5) - ready for the move
+
+- **Health check** (`rhino.sh` option 7, `scripts/rhino_doctor.py`): read-only checks of this host, with PASS / WARN
+  / FAIL and what to do. It checks the board connected by its serial name, the camera, Klipper, Moonraker, the Portal and
+  nginx, `job_hooks.cfg` and `custom_tools.cfg` included, `mainsail.cfg`, NetworkManager, clock sync, disk space,
+  sleep (a desktop PC that suspends stops a job), backups and klipper-backup. It saves a report; option 7 compares
+  the newest with an earlier one (the Pi's before the move, the 7050's after). `docs/migrate-7050.md` §0.7, §3.4, §8.
+- **Tests:** real Klipper now reads the config (`dev/test_real_klipper.py`): Klipper's own batch mode, on the
+  shipped config and on one the Portal filled with a second board, every wizard device and job hooks, then every
+  macro once. The **move drill** (`dev/test_move.py`) backs up a used "Pi", restores it on a freshly installed
+  "7050" with another host name, and goes back again. Both are in `dev/run_all.sh`.
+- `AGENTS.md` (and `CLAUDE.md` pointing to it): the rules for anyone, person or AI, changing this repository.
+  README brought up to date.
+
 ## 1.9.4 - Check now finds a new release straight away
 
 - **Settings › Software › Check now** re-checks GitHub for a new Tool Manager release, not just Moonraker's

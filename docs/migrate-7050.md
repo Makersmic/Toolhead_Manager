@@ -27,6 +27,8 @@ Items marked **verify** come from earlier Gemini/Grok research or from memory, a
 5. **Write down:** the Pi's IP address, klipper-backup's GitHub repo name, and a GitHub token that can push to it.
    `.env` holds the token and is deliberately not in the backup.
 6. **Which board chip:** run `lsusb` on the Pi. If you see `1a86:7523` (CH340), §3's brltty step applies.
+7. **Health check:** `rhino.sh` option **7** (Tool Manager 1.9.5 or later). It changes nothing. It saves
+   `~/rhino-health-mainsailos-<date>.json`; copy that to your PC with the backup zip, to compare with the 7050 in §8.
 
 ## 1. Hardware
 
@@ -61,6 +63,11 @@ Items marked **verify** come from earlier Gemini/Grok research or from memory, a
    - `avahi-daemon` makes `rhino.local` and `rhinostudio.local` work.
    - `flatpak` is for PrusaSlicer (check P0).
    - **CH340 board only:** `sudo apt remove -y brltty`. It grabs CH340 serial ports. **Verify** whether it's installed at all on netinst.
+4. **Never sleep.** A desktop PC can suspend itself, and a sleeping host stops Klipper mid-job:
+   ```
+   sudo systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target
+   ```
+   The health check (§8) checks this.
 
 ## 4. Network: option A (Mike, Oct 26)
 
@@ -116,6 +123,8 @@ If `http://rhino.local` shows **403**, run `chmod o+x ~`.
 
 ## 8. First checks (a short list, not the whole testing.md)
 
+- [ ] **Health check** (`rhino.sh` option 7): no FAIL. Copy the Pi's report from §0.7 into `~` and let option 7
+      compare them: the **boards** line should be the same Octopus, connected.
 - [ ] Studio opens at `http://rhinostudio.local` from the PC and the phone.
 - [ ] Settings › Slice profiles shows your profiles. Job history and Care are as they were.
 - [ ] Home all, swap tools once each way, and a bed mesh (BM checks).
