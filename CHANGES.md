@@ -1,5 +1,16 @@
 # What changed
 
+## 1.9.6 - Edit wizard hardware; job hooks editor in Studio
+
+No Tool Manager code change: this release carries Rhino Studio's new screens.
+
+- **Edit hardware added with the wizard** (Assets › System hardware › Edit). Its answers, pins and settings are
+  filled in; its own pins are offered again; Save replaces it. The kind can't change (remove it and add the new one).
+  The Portal refuses an edit that would break a job hook. Checks HE1-HE2.
+- **Job hooks editor** (Assets › Hardware › Job hooks): pick the whole machine, a kind of tool or one tool, then one
+  line per moment of the job (before and when it starts, before and after it ends, cancel, pause, resume). **Save**
+  only after **Check** has passed for exactly what's typed; the Portal checks every line again. Checks HK1-HK2.
+
 ## 1.9.5 - Health check, ready for the move
 
 - **Health check** (`rhino.sh` option 7, `scripts/rhino_doctor.py`): read-only checks of this host, with PASS / WARN
