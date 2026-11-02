@@ -24,8 +24,13 @@ Items marked **verify** come from earlier Gemini/Grok research or from memory, a
    If it's still large, run `unzip -l ~/rhino-backups/<newest>.zip | sort -k1 -n | tail -15` and send the result.
 4. **The Pi's GPIO header: empty** (Mike, Oct 26). Only the Octopus and the webcam are plugged in, both USB, so
    nothing needs a new home.
-5. **Write down:** the Pi's IP address, klipper-backup's GitHub repo name, and a GitHub token that can push to it.
-   `.env` holds the token and is deliberately not in the backup.
+5. **Save klipper-backup's settings on your PC, and write down the Pi's IP address.** From the PC:
+   ```
+   scp pi@<the Pi's IP>:klipper-backup/.env klipper-backup.env
+   chmod 600 klipper-backup.env
+   ```
+   This file holds the repo name, what gets backed up and how it pushes, and it may hold a GitHub token, so it's
+   deliberately not in the backup. Don't share it, and delete it from the PC after §7.5.
 6. **Which board chip:** run `lsusb` on the Pi. If you see `1a86:7523` (CH340), §3's brltty step applies.
 7. **Health check:** `rhino.sh` option **7** (Tool Manager 1.9.5 or later). It changes nothing. It saves
    `~/rhino-health-mainsailos-<date>.json`; copy that to your PC with the backup zip, to compare with the 7050 in §8.
@@ -114,17 +119,39 @@ If `http://rhino.local` shows **403**, run `chmod o+x ~`.
    - **Verify:** `moonraker.conf` comes back from the Pi. With user `pi`, the paths match. Check `[authorization]`
      `trusted_clients` still covers your network.
 4. `FIRMWARE_RESTART`, answer "which toolhead is mounted?", then `CHECK_TOOLHEADS`.
-5. **klipper-backup:**
-   ```
-   cd ~ && git clone https://github.com/Staubgeborener/klipper-backup.git && ./klipper-backup/install.sh
-   ```
-   Use the same repo and token as step 0.5. Then **Back up now**. The GitHub copy should say pushed.
+5. **klipper-backup.** The Pi must stay off: only one host should push to the backup repo.
+   1. Get it, without installing yet:
+      ```
+      cd ~ && git clone https://github.com/Staubgeborener/klipper-backup.git
+      ```
+   2. From the PC, put the settings from step 0.5 in place, then delete the PC's copy once this step works:
+      ```
+      scp klipper-backup.env pi@rhino.local:klipper-backup/.env
+      ```
+   3. Give the 7050 its own key. This pushes over SSH, the same way the Pi does, and an SSH key doesn't expire:
+      ```
+      chmod 600 ~/klipper-backup/.env
+      ssh-keygen -t ed25519 -N "" -f ~/.ssh/id_ed25519 -C rhino-7050
+      cat ~/.ssh/id_ed25519.pub
+      ```
+      On GitHub, open the backup repo › Settings › Deploy keys › **Add deploy key**, paste that line, and tick **Allow
+      write access**. Then run `ssh -T git@github.com` and answer `yes`. *Stop if:* it doesn't say you've successfully
+      authenticated. Pushes would fail.
+   4. Run `~/klipper-backup/install.sh`. Answer **no** to reconfiguring the `.env`, and **yes** to the filewatch
+      service. **Verify:** the installer's questions on this version.
+   5. **Run `rhino.sh` option 3 again with the same zip.** This adds Rhino's backup watcher. Step 1 couldn't, because
+      klipper-backup wasn't there yet. Without this step the 7050 keeps klipper-backup's own watcher, which runs one
+      whole backup per file event. It's the same install as an update and keeps your config.
+   6. Check it: `systemctl cat klipper-backup-filewatch` ends with the `rhino.conf` override, and
+      `pgrep -af rhino_backup_watch` shows it running. *Stop if:* either is missing. Don't carry on with the old watcher.
+   7. **Back up now.** The GitHub copy should say pushed.
 6. **PrusaSlicer:** Settings › Software › PrusaSlicer › Install. Expect 10–20 minutes the first time. Then run checks P1–P9.
 
 ## 8. First checks (a short list, not the whole testing.md)
 
-- [ ] **Health check** (`rhino.sh` option 7): no FAIL. Copy the Pi's report from §0.7 into `~` and let option 7
-      compare them: the **boards** line should be the same Octopus, connected.
+- [ ] **Health check** (`rhino.sh` option 7): no FAIL, apart from one known false alarm up to 1.9.9: "No VERSION in
+      the config folder", with `tool manager ?` in the facts. Settings › Software shows the real version. Copy the Pi's
+      report from §0.7 into `~` and let option 7 compare them: the **boards** line should be the same Octopus, connected.
 - [ ] Studio opens at `http://rhinostudio.local` from the PC and the phone.
 - [ ] Settings › Slice profiles shows your profiles. Job history and Care are as they were.
 - [ ] Home all, swap tools once each way, and a bed mesh (BM checks).
