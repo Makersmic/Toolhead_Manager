@@ -1,5 +1,13 @@
 # What changed
 
+## 1.9.8 - A failed GitHub push no longer shows as pushed
+
+- **The GitHub backup line tells the truth.** klipper-backup can exit normally after git has failed, and the Portal
+  trusted that exit code. On one machine, a corrupt local copy stopped every push for 19 days while the status said
+  OK. A push now counts only if git reported no errors, the latest commit can be read, and that commit reached GitHub.
+  Otherwise Studio and `BACKUP_CFG` say the push failed and give the reason. Check B2b.
+- **The move version is now 1.9.8** (`docs/migrate-7050.md`): the Pi and the 7050 both run it.
+
 ## 1.9.7 - Large models prepare; job saves no longer clash
 
 - **Large models prepare** (Rhino Studio). Prepare built the job file with one call per line, so a real-sized model

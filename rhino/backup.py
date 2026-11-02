@@ -103,6 +103,15 @@ def _sha(b):
 
 
 
+KB_WORK_FOLDER = "config_backup"  # klipper-backup's working copy; its script.sh fixes this name
+
+
+def _no_secrets(line):
+    """Status lines reach Studio, so a token that git printed must not."""
+    line = re.sub(r"(https?://)[^/@\s]+@", r"\1", line)
+    return re.sub(r"\b(ghp|gho|ghs|ghu|github_pat)_\w+", "[token removed]", line)
+
+
 def github_status(state_dir, home=None):
     """klipper-backup: installed? .env? and the result of the last push this Portal or BACKUP_CFG ran."""
     home = home or os.path.expanduser("~")
@@ -537,8 +546,12 @@ class BackupService:
             cmd += ["--commit_message", re.sub(r"[^A-Za-z0-9_.:-]", "_", msg)[:60]]
         try:
             r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
-            res = {"ok": r.returncode == 0, "code": r.returncode, "time": self.now(),
-                   "tail": (r.stdout + r.stderr).strip().splitlines()[-3:]}
+            lines = (r.stdout + r.stderr).strip().splitlines()
+            # klipper-backup can exit 0 after git failed, so exit 0 alone proves nothing (Nov 2026: 19 days of false "ok")
+            problem = self._push_problem(lines) if r.returncode == 0 else None
+            tail = lines[-3:] + ([problem] if problem else [])  # Studio shows the last line, so the reason goes there
+            res = {"ok": r.returncode == 0 and not problem, "code": r.returncode, "time": self.now(),
+                   "tail": [_no_secrets(line) for line in tail]}
         except (OSError, subprocess.TimeoutExpired) as e:
             res = {"ok": False, "code": None, "time": self.now(), "tail": [str(e)]}
         os.makedirs(self.paths.state_dir, exist_ok=True)
@@ -547,6 +560,27 @@ class BackupService:
             json.dump({"github": res}, f)
         os.replace(tmp, os.path.join(self.paths.state_dir, "backup_status.json"))
         return github_status(self.paths.state_dir, self.home)
+
+    def _push_problem(self, lines):
+        """Why this push can't be called good, or None. A real push moves the upstream ref to HEAD, so the
+        check needs neither the network nor the GitHub token. It reads HEAD's object too, to catch a corrupt copy."""
+        for line in lines:
+            if line.startswith(("fatal:", "error:")):
+                return f"git reported {line}"
+        repo = os.path.join(self.home, KB_WORK_FOLDER)
+        try:
+            head, upstream = (subprocess.run(["git", "-C", repo, "rev-parse", "--verify", "-q", ref],
+                                             capture_output=True, text=True, timeout=30)
+                              for ref in ("HEAD^{commit}", "@{u}^{commit}"))
+        except (OSError, subprocess.TimeoutExpired) as e:
+            return f"couldn't check the local backup copy: {e}"
+        if head.returncode != 0:
+            return "the latest commit in the local backup copy can't be read"
+        if upstream.returncode != 0:
+            return "the local backup copy has no GitHub branch to compare with"
+        if head.stdout.strip() != upstream.stdout.strip():
+            return "the latest commit didn't reach GitHub"
+        return None
 
     def wait_then_create(self, reason, poll=30, max_wait=12 * 3600):
         """For BACKUP_CFG at the end of a long job: wait until the job is over, then back up."""

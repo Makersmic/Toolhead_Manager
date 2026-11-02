@@ -398,6 +398,12 @@ Needs Rhino Studio 0.8.0 for the Settings › Host › Backups panel. The Portal
   `moonraker/history.json` (every job), `moonraker/namespaces/`, `images/`, `manifest.json`.
 - [ ] **B2 GitHub line.** With klipper-backup set up, the GitHub line says "pushed just now" within a minute. Break it
   on purpose (rename `~/klipper-backup/.env`), back up again: it says "isn't set up", never "pushed". Put `.env` back.
+- [ ] **B2b A failed push is shown as failed.** With no job running, block pushes with a local hook and make a commit:
+  `printf '#!/bin/sh\nexit 1\n' > ~/config_backup/.git/hooks/pre-push; chmod +x ~/config_backup/.git/hooks/pre-push; git -C ~/config_backup commit --allow-empty -m push-check`.
+  Back up again: the GitHub line says the last push failed, and `BACKUP_CFG` says "did NOT push". Then remove the hook
+  with `rm ~/config_backup/.git/hooks/pre-push` and back up again: it says "pushed", and GitHub's newest commit matches
+  `git -C ~/config_backup rev-parse --short HEAD`. *Stop if:* it says "pushed" while the hook is in place, or still
+  says "failed" with the hook gone and GitHub showing the commit.
 - [ ] **B3 BACKUP_CFG.** Type `BACKUP_CFG` in the console: "backup rhino-... made", then the klipper-backup result.
   During a print, `BACKUP_CFG` says the backup will be made when the job is finished; after the job it's in the list.
   *Stop if:* the print stutters or klippy.log shows "Timer too close" while it runs.

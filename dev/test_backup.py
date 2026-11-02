@@ -195,10 +195,41 @@ st = SVC.push_github("t")
 ok(st["state"] == "failed" and st["last"]["code"] == 1, "INV-B8: a failed push is shown as failed")
 # like the real klipper-backup: only flags; a bare argument gets its usage error and exit 1
 open(kb + "/script.sh", "w").write('#!/bin/bash\nif [ -n "$1" ] && [ "$1" != "--commit_message" ]; then echo "Unknown option: $1"; echo "script.sh --debug"; exit 1; fi\necho "ok $2"\n')
+# a real working copy with a real remote, because "ok" now means the commit reached the remote
+import subprocess
+work, remote = os.path.join(ROOT, B.KB_WORK_FOLDER), os.path.join(ROOT, "kb-remote.git")
+def git(*a):
+    subprocess.run(["git", "-C", work, "-c", "user.name=t", "-c", "user.email=t@t", "-c", "commit.gpgsign=false", *a], check=True, capture_output=True)
+subprocess.run(["git", "init", "-q", "--bare", "-b", "main", remote], check=True)
+subprocess.run(["git", "init", "-q", "-b", "main", work], check=True)
+git("commit", "--allow-empty", "-m", "first"); git("remote", "add", "origin", remote); git("push", "-u", "origin", "main")
 st = SVC.push_github("rhino_backup_now")
 ok(st["state"] == "ok" and "rhino_backup_now" in " ".join(st["last"]["tail"]), "the message goes to klipper-backup as --commit_message (a bare argument is refused)")
 st = SVC.push_github("")
 ok(st["state"] == "ok", "a push that worked is shown as ok")
+# the real failure of Nov 2026: script.sh exits 0 although git failed
+open(kb + "/script.sh", "w").write("#!/bin/bash\necho 'fatal: loose object abc is corrupt'\necho 'Everything up-to-date'\necho \"rm: cannot remove 'x': Directory not empty\"\nexit 0\n")
+st = SVC.push_github("")
+ok(st["state"] == "failed" and st["last"]["code"] == 0, "INV-B8: exit 0 with a git fatal line is failed, not ok")
+ok("loose object abc is corrupt" in st["last"]["tail"][-1], "INV-B8: the git error is the last line, the one Studio shows")
+open(kb + "/script.sh", "w").write("#!/bin/bash\necho \"fatal: unable to access 'https://x:ghp_abc123@github.com/a/b.git/'\"\necho 'error: github_pat_abc123 refused'\n")
+st = SVC.push_github("")
+ok(st["state"] == "failed" and "abc123" not in json.dumps(st), "a token in git's output doesn't reach the saved status")
+open(kb + "/script.sh", "w").write("#!/bin/bash\necho quiet\n")
+ok(SVC.push_github("")["state"] == "ok", "nothing new to push, with no errors, is still ok")
+git("commit", "--allow-empty", "-m", "never pushed")
+st = SVC.push_github("")
+ok(st["state"] == "failed" and "didn't reach GitHub" in st["last"]["tail"][-1], "INV-B8: a commit that wasn't pushed is failed, even with no error shown")
+git("push", "origin", "main")
+ok(SVC.push_github("")["state"] == "ok", "the same commit is ok once it has been pushed")
+head = subprocess.run(["git", "-C", work, "rev-parse", "HEAD"], check=True, capture_output=True, text=True).stdout.strip()
+obj = os.path.join(work, ".git", "objects", head[:2], head[2:])
+os.chmod(obj, 0o644); open(obj, "wb").close()
+st = SVC.push_github("")
+ok(st["state"] == "failed" and "can't be read" in st["last"]["tail"][-1], "INV-B8: a corrupt latest commit is failed, though HEAD still matches the remote")
+shutil.rmtree(work)
+st = SVC.push_github("")
+ok(st["state"] == "failed", "INV-B8: no working copy at all is failed, not ok")
 
 # ---------------------------------------------------------------- keep 10
 for i in range(12):
@@ -272,6 +303,8 @@ finally:
 # ---------------------------------------------------------------- BACKUP_CFG launcher
 import subprocess
 env = dict(os.environ, RHINO_MOONRAKER=MR, RHINO_CONFIG_DIR=CFG, HOME=ROOT)
+subprocess.run(["git", "init", "-q", "-b", "main", work], check=True)  # the corrupt-copy test above removed it
+git("remote", "add", "origin", remote); git("fetch", "origin"); git("reset", "--hard", "origin/main"); git("branch", "-u", "origin/main")
 out = subprocess.run([sys.executable, os.path.join(CFG, "scripts", "rhino_backup_cfg.py"), "test_msg"], capture_output=True, text=True, env=env, timeout=60)
 ok(out.returncode == 0 and "rhino: backup rhino_studio_os-" in out.stdout and "pushed to GitHub" in out.stdout, f"BACKUP_CFG makes an archive, then pushes ({out.stdout.strip().splitlines()[-1:]})")
 M["print_state"] = "printing"

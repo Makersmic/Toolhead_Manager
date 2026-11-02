@@ -46,7 +46,7 @@ The Portal reports one of these, and the archive records it:
 - last push OK at a given time
 - last push failed
 
-It reads the push result from the script's exit code and saves it in `rhino_data/backup_status.json`. "Backed up" in Studio means the local archive succeeded. The GitHub push is shown separately and is never shown as done when it wasn't (INV-B8).
+A push counts as OK only if the script exits 0, its output has no line starting `fatal:` or `error:`, the latest commit in `~/config_backup` can be read, and that commit matches the branch's upstream ref. The exit code alone isn't enough, because the script can exit 0 after git fails. The result is saved in `rhino_data/backup_status.json`. "Backed up" in Studio means the local archive succeeded. The GitHub push is shown separately and is never shown as done when it wasn't (INV-B8).
 
 ## Restore
 

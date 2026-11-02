@@ -55,3 +55,10 @@ Append-only. Each entry is dated and gives its reason. An entry is never edited;
   a month after the 7050 is accepted: until then it's the fallback, frozen at 1.9.1 (replacing the 1.8.1 the draft
   named); the 7050 stays on 1.9.1 until the load test passes so the way back can restore. After acceptance, a one-time
   Clonezilla image of the 7050 SSD; releases then target x86 only.
+- **2026-11-02: The Pi and the 7050 both move on 1.9.8.** This replaces the frozen version named in the Oct 26 entry
+  and in `docs/migrate-7050.md` (1.9.7 until now). The rest of that entry stands. *Reason:* the Pi's backup failed
+  silently for 19 days while the status said OK. The way back also needs a backup with a truthful status, so the Pi
+  gets the fix before the move.
+- **2026-11-02: `rhino-backup` is private.** It was public and includes `moonraker.conf`. *Reason:* a backup of a live
+  machine's config isn't public material. Going private doesn't undo the time it was public, so its contents still
+  need checking for secrets.
