@@ -106,6 +106,7 @@ start_() {
 }
 case "$*" in
   *rhino-studio-name*) exit 0 ;;
+  *klipper-backup-filewatch*) exit 0 ;;
   *is-active*) alive ;;
   *disable*) stop_ ;;
   stop*) stop_ ;;
@@ -445,6 +446,26 @@ try:
         ok(rc == 0 and "sudo apt install avahi-daemon avahi-utils" in out and not os.path.exists(NUNIT) and os.path.lexists(NLINK)
            and "apt-get install -y avahi" not in open(LOG).read(), "no avahi-daemon: the install says the one apt line to run and never installs the daemon itself")
         run(f"{PKG}/uninstall.sh")
+        # The backup watcher: an override only where klipper-backup's watcher is set up, and none of its own files touched
+        fw_unit = os.path.join(UNITS0, "klipper-backup-filewatch.service"); fw_conf = fw_unit + ".d/rhino.conf"
+        rc, out = run(f"{PKG}/install.sh")
+        ok(rc == 0 and not os.path.exists(fw_conf) and "Backup file watcher" not in out, "no klipper-backup watcher here: the install leaves that alone")
+        run(f"{PKG}/uninstall.sh")
+        original = "[Service]\nExecStart=/usr/bin/env bash -c filewatch.sh\n"
+        open(fw_unit, "w").write(original)
+        open(LOG, "w").close()
+        rc, out = run(f"{PKG}/install.sh")
+        conf = open(fw_conf).read() if os.path.exists(fw_conf) else ""
+        ok(rc == 0 and "ExecStart=\nExecStart=/bin/bash " + os.path.join(CFG, "scripts", "rhino_backup_watch.sh") in conf and "@" not in conf.split("[Service]")[1],
+           "with klipper-backup's watcher: an override runs Rhino's watcher from the installed config")
+        ok(os.path.exists(os.path.join(CFG, "scripts", "rhino_backup_watch.sh")), "the watcher script arrives with the config")
+        ok("systemctl restart klipper-backup-filewatch" in open(LOG).read(), "the restart picks it up and drops anything the old watcher had queued")
+        ok(open(fw_unit).read() == original, "klipper-backup's own service file isn't changed")
+        open(LOG, "w").close()
+        rc, out = run(f"{PKG}/uninstall.sh")
+        ok(rc == 0 and not os.path.exists(fw_conf) and not os.path.exists(fw_unit + ".d") and open(fw_unit).read() == original
+           and "systemctl try-restart klipper-backup-filewatch" in open(LOG).read(), "uninstall puts klipper-backup's watcher back as it was")
+        os.remove(fw_unit)
         # 1.5.4: avahi-utils 404 on a Pi with stale lists (and an apt-get update that complains about a retired source)
         pub = os.path.join(BIN, "avahi-publish"); os.rename(pub, pub + ".off")
         if os.path.exists(LOG + ".updated"): os.remove(LOG + ".updated")

@@ -62,3 +62,17 @@ Append-only. Each entry is dated and gives its reason. An entry is never edited;
 - **2026-11-02: `rhino-backup` is private.** It was public and includes `moonraker.conf`. *Reason:* a backup of a live
   machine's config isn't public material. Going private doesn't undo the time it was public, so its contents still
   need checking for secrets.
+- **2026-11-02: The Pi and the 7050 both move on 1.9.9.** This replaces 1.9.8 in the entry above and in
+  `docs/migrate-7050.md`. The rest stands. *Reason:* the Pi needs the backup watcher fix, and a restore wants the same
+  version on both.
+- **2026-11-02: The 3D Preview uses three.js and draws toolpaths, not solid parts** (Mike). `three` 0.186.0 (MIT),
+  pinned exactly, with one parser and viewer in Studio shared by later screens. Printed moves are threads at their real
+  width from `;WIDTH:` or the nozzle size, lit from one side; laser, CNC, knife and travel moves stay thin lines.
+  *Reason:* it shows the real moves in the file on the Pi's kiosk-class hardware, and Lighter drawing covers weak screens.
+- **2026-11-02: Tool Manager replaces klipper-backup's watcher through a systemd override** (Mike: "fix the backup
+  watcher"). `scripts/rhino_backup_watch.sh` makes one backup per burst, holds during a job, and leaves klipper-backup's
+  files untouched. Uninstalling removes the override. *Reason:* the old watcher ran one whole backup per file event, so an
+  update kept the host busy for hours.
+- **2026-11-02: `meters.json` doesn't start a backup** (Mike). It goes up with the next backup something else starts.
+  *Reason:* it saves about every 5 minutes, up to about 288 commits a day and needless SD card wear. *Accepted cost:*
+  GitHub's copy of the meters can lag behind while nothing else changes. Local archives still include them.

@@ -484,6 +484,25 @@ else
   fi
 fi
 
+# ------------------------------------------------------------------ klipper-backup's file watcher
+# One backup per burst of changes, not one per file event. Only if klipper-backup's watcher is set up here. The restart
+# also drops any backups the old watcher had queued, including those this install's own copying just caused.
+FWUNIT="$UNITS/klipper-backup-filewatch.service"; FWDROP="$FWUNIT.d"
+if [ -f "$FWUNIT" ]; then
+  say "Backup file watcher"
+  tmp="$(mktemp)"
+  sed "s#@SCRIPT@#$CFG/scripts/rhino_backup_watch.sh#g" "$SRC/service/klipper-backup-filewatch.conf" > "$tmp"
+  do_ sudo install -d "$FWDROP"
+  do_ sudo install -m 644 "$tmp" "$FWDROP/rhino.conf"
+  rm -f "$tmp"
+  do_ sudo systemctl daemon-reload
+  if [ $DRY = 1 ]; then echo "   would restart klipper-backup-filewatch if it's running"
+  elif systemctl is-enabled --quiet klipper-backup-filewatch 2>/dev/null || systemctl is-active --quiet klipper-backup-filewatch 2>/dev/null; then
+    do_ sudo systemctl restart klipper-backup-filewatch
+  fi
+  ok "the backup watcher now makes one backup per burst of changes"
+fi
+
 # ------------------------------------------------------------------ Moonraker trusted_clients (1.5.4)
 # Studio works like Mainsail: no login, Moonraker's trusted_clients decides. Add what this Rhino needs if it isn't
 # covered yet: 127.0.0.0/8 (the Portal's own reads), this Rhino's LAN, and 100.64.0.0/10 when Tailscale is up. Only

@@ -456,6 +456,16 @@ supply before the real load: the simulator is not real Klipper.
 - [ ] **HC0b Hardware a hook uses (1.9.5).** With a job hook that calls a wizard device's macro, remove that device
   in Assets > System hardware. *Pass if:* it's refused, naming the hook, and the device is still listed.
 
+## Backup watcher: one backup per burst of changes
+
+The simulator tests use a pretend `inotifywait`. These prove it on the real host.
+
+- [ ] **BW1 It's in place.** After installing: `systemctl cat klipper-backup-filewatch` ends with the `rhino.conf` override, and `pgrep -af rhino_backup_watch` shows it running. Within a few minutes the old backlog has stopped: `git -C ~/config_backup log --since="10 minutes ago" --oneline | wc -l` is small, and the host's load falls. *Stop if:* the service isn't running: `sudo rm -r /etc/systemd/system/klipper-backup-filewatch.service.d; sudo systemctl daemon-reload; sudo systemctl restart klipper-backup-filewatch` puts the old watcher back. Then tell me.
+- [ ] **BW2 A burst is one backup.** With no job running, save three config files within a few seconds. *Pass if:* about a minute after the last save, one new commit reaches GitHub, saying `3 changes`. *Stop if:* no commit arrives within 5 minutes.
+- [ ] **BW3 An update is one backup.** Install the next release. *Pass if:* the host's load settles within minutes, and GitHub gets a few commits at most, not hundreds. *Stop if:* commits keep arriving every minute after the files stop changing.
+- [ ] **BW4 During a job.** Save a config file while a job prints. *Pass if:* no backup runs and no commit arrives during the job, and one arrives within about a minute of the job ending, with the job undisturbed. *Stop if:* a backup runs during the job.
+- [ ] **BW5 The Care meters stay quiet.** With no job running and no config saved, watch for 15 minutes: `git -C ~/config_backup log --since="15 minutes ago" --oneline` stays empty while `ls -l ~/printer_data/config/myrhino/maintenance/meters.json` shows a newer time. Then do BW2. *Pass if:* no commit arrives until BW2, and that commit includes the meters. *Stop if:* commits naming `meters.json` keep arriving.
+
 ## 1.9.7: large models, job saves
 
 Checks **LM1-LM2** are in Rhino Studio's `docs/testing.md`. On the Rhino, after LM2:

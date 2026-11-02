@@ -1,5 +1,23 @@
 # What changed
 
+## 1.9.9 - 3D G-code preview; one backup per burst of changes
+
+- **3D Preview** (Rhino Studio 0.10.0). Files and Job setup can now open a G-code file in 3D, with layer and move
+  sliders. Printed moves are drawn at their real width and lit from one side. Start job, Send to Rhino and Download sit
+  beside the drawing, and go through the same checks as everywhere else. The preview itself sends nothing to the
+  machine. It uses three.js (MIT). Checks PV1-PV7 in Studio's `docs/testing.md`.
+- **The backup watcher no longer floods the host.** klipper-backup's watcher ran one whole backup and push per file
+  event, in turn, so installing an update queued hours of backups, a commit for each, and kept the host busy. Tool
+  Manager now runs its own watcher in its place: changes in a burst make one backup a minute after they stop, and a
+  steady stream still gets one every 15 minutes. rsync's temporary files no longer count as changes. klipper-backup's
+  own files aren't touched: it's a systemd override, and uninstalling takes it away. Check BW1-BW4.
+- **Changes during a job are no longer skipped.** The old watcher dropped them until something else changed. They're
+  now backed up once when the job is over, and nothing runs while it prints or is paused.
+- **The Care meters no longer start a backup.** `meters.json` saves about every 5 minutes, which meant up to about 288
+  commits a day and more wear on the SD card. It now goes up with the next backup something else starts, so GitHub's
+  copy of the meters can lag behind. Local archives still include them. Check BW5.
+- **The move version is now 1.9.9** (`docs/migrate-7050.md`): the Pi and the 7050 both run it.
+
 ## 1.9.8 - A failed GitHub push no longer shows as pushed
 
 - **The GitHub backup line tells the truth.** klipper-backup can exit normally after git has failed, and the Portal

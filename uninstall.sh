@@ -60,6 +60,16 @@ if [ -f "$B/_rhino_install/old-rhino-studio.nginx" ] || [ -e "$SITE" ] || [ -d "
     else echo "nginx -t found a problem - not reloading nginx. See:  sudo nginx -t"; fi
   fi
 fi
+# klipper-backup's file watcher goes back to its own script
+FWDROP="$UNITS/klipper-backup-filewatch.service.d"
+if [ -f "$FWDROP/rhino.conf" ]; then
+  echo "Putting klipper-backup's file watcher back as it was"
+  do_ sudo rm -f "$FWDROP/rhino.conf"
+  do_ sudo rmdir --ignore-fail-on-non-empty "$FWDROP"
+  do_ sudo systemctl daemon-reload
+  do_ sudo systemctl try-restart klipper-backup-filewatch
+fi
+
 # 1.5.3+: Studio by name (rhinostudio.local) - its nginx site and its name service, as they were before that install
 NSITE="$NGX/sites-available/rhino-studio-name"; NUNIT="$UNITS/rhino-studio-name.service"
 if [ -f "$B/_rhino_install/old-rhino-studio-name.nginx" ] || [ -e "$NSITE" ]; then
