@@ -4,7 +4,7 @@ Oct 25 2026, **approved by Mike Oct 26** (answers at the end): NetworkManager on
 the Pi's GPIO header, and the Pi is retired a month after the 7050 is accepted.
 This replaces docs/install-ubuntu-server.md (the 3080 / Ubuntu plan), which stays as a reference.
 
-- **What:** the 7050 Micro (i5-7500T, 8 GB, Mike's 2.5" SSD) runs Klipper, Moonraker, the Portal, Studio and
+- **What:** the 7050 Micro (i5-7500T, 8 GB, its own 128 GB M.2 SATA drive, on Wi-Fi) runs Klipper, Moonraker, the Portal, Studio and
   PrusaSlicer on **Debian 12**. The Pi 3B keeps its SD card untouched and becomes the spare.
 - **Accepted when:** the load test passes (§9): a long PrusaSlicer slice during a print, with no "Timer too close",
   no lost MCU, and no missed steps. Core pinning is a fix if it fails, not a substitute for the test
@@ -12,6 +12,9 @@ This replaces docs/install-ubuntu-server.md (the 3080 / Ubuntu plan), which stay
 - **Way back at any step:** shut the 7050 down, move the USB cables back, boot the Pi (§11).
 
 Items marked **verify** come from earlier Gemini/Grok research or from memory, and haven't been checked on this hardware.
+
+**Done Nov 3 2026** up to §8's health check. What the real move changed is in **"The move, Nov 3"** near the end;
+read it before doing this again.
 
 ## 0. Before the 7050 arrives (on the Pi)
 
@@ -189,6 +192,104 @@ Shut the 7050 down, move the USB cables back, and boot the Pi. Its SD card is un
 the meantime (new profiles, history) comes back with a backup from the 7050 restored on the Pi (both on 1.9.9).
 
 After the Pi is retired, the way back is the Clonezilla image (§10) restored onto the SSD, then the newest backup zip.
+
+## The move, Nov 3
+
+What happened on the real hardware, and what to do differently next time. Where this disagrees with the steps above,
+this wins.
+
+**Hardware and BIOS (§1, §2)**
+- The 7050 came with a **128 GB M.2 SATA** drive (SanDisk SD8SN8U), used instead of the 2.5" SSD. The BIOS lists it as
+  "SATA". Check a used drive before trusting it: `sudo apt install smartmontools`, `sudo smartctl -H -A /dev/sda`
+  (PASSED, 0 reallocated), then `sudo smartctl -t short /dev/sda` and `-l selftest` after 2 minutes. This one passed
+  with 91 % life left, 20,204 hours, and 272 unexpected power losses from its office life.
+- **Wi-Fi** (`wlp2s0`, internal card) instead of wired, Mike's choice. Klipper talks to the board over USB, so a Wi-Fi drop
+  doesn't stop a job. Power saving is off (§4 below).
+
+**Debian installer (§3)**
+- **Leave the root password blank.** Debian then locks root, installs `sudo` and puts the user in the sudo group. With a
+  root password set, `sudo` isn't installed and the plan's `su -` line needs that password. The first step after boot is
+  then only `sudo usermod -aG dialout pi`.
+- **Username:** the installer proposes one from the full name (`mike`). Erase it and type **`pi`**.
+- **Software selection:** move with the arrows and toggle with **space**. Enter accepts the list as it is, which installs
+  GNOME and leaves SSH out. If that happens, reinstall rather than remove a desktop.
+- Partitioning: Guided, entire disk, no LVM or encryption (encryption would wait for a passphrase after a power cut).
+  "Force UEFI installation?" Yes.
+- **"No bootable devices" after the install**, with a `debian` entry already first in the BIOS boot list: the entry was
+  stale and remaking it didn't help. Fix from the installer stick: Advanced options › Rescue mode › root on `/dev/sda2`
+  (mount `/boot/efi` when asked) › Execute a shell, then:
+  ```
+  grub-install --target=x86_64-efi --efi-directory=/boot/efi --removable
+  update-grub
+  ```
+  This puts the loader at the default UEFI path, so the 7050 boots with no boot entry at all, which also survives a BIOS
+  update or a dead CMOS battery. **Do it on every install**, even when it boots fine.
+- Add `smartmontools` to §3's install line.
+
+**Network (§4, Wi-Fi version, at the 7050's keyboard)**
+```
+sudo cp /etc/network/interfaces /root/interfaces.installer
+printf 'source /etc/network/interfaces.d/*\n\nauto lo\niface lo inet loopback\n' | sudo tee /etc/network/interfaces
+printf '[connection]\nwifi.powersave = 2\n' | sudo tee /etc/NetworkManager/conf.d/wifi-powersave-off.conf
+sudo reboot
+nmcli device                                            # the wl... line must say disconnected, not unmanaged
+sudo nmcli --ask device wifi connect "<network name>"   # --ask keeps the passphrase out of the shell history
+sudo reboot                                             # then PuTTY in without touching the keyboard
+sudo rm /root/interfaces.installer                      # it holds the passphrase in plain text
+```
+The address changed from .133 to **192.168.1.132** when NetworkManager took over. Reserve it in the Google Home app.
+
+**KIAUH (§5)**
+- **Say yes to KIAUH's example `printer.cfg`.** `install.sh` refuses without a `printer.cfg` ("No printer.cfg in ..."), and
+  so does the restore's safety backup. The restore replaces it.
+- Crowsnest and G-Code Shell Command installed fine. Klipper came out two commits newer than the Pi's
+  (`v0.13.0-820-g0cee841e` vs `-818-g020d25e7`) and loaded the restored config. Pin the real-Klipper CI step to the
+  7050's version.
+
+**Before the Pi goes off (end of §0 / start of §6)**
+- With the PC that held `~/rhino-safety` out of action, copy straight from the Pi to the 7050 while both are on:
+  ```
+  scp pi@192.168.1.225:klipper-backup/.env ~/klipper-backup.env && chmod 600 ~/klipper-backup.env
+  scp 'pi@192.168.1.225:rhino-health-mainsailos-*.json' ~/
+  ```
+  The token then never touches a USB stick or the laptop. In §7.5.2 it's
+  `mv ~/klipper-backup.env ~/klipper-backup/.env && chmod 600 ~/klipper-backup/.env`.
+- Take the backup zip **after** the last Pi print, so it holds the newest history.
+
+**Move and Tool Manager (§6, §7)**
+- **Switch the Rhino's 24 V supply on.** With it off, the Octopus doesn't appear in `lsusb` or `/dev/serial/by-id/` at
+  all, and `dmesg` shows nothing when it's plugged in.
+- Tool Manager straight onto the 7050, checked against the release's `.sha256`:
+  ```
+  cd ~/printer_data/config && wget https://github.com/Makersmic/Toolhead_Manager/releases/download/v1.9.9/rhino-config-1.9.9.zip
+  unzip -o rhino-config-1.9.9.zip -d ~/rhino-1.9.9 && bash ~/rhino-1.9.9/rhino.sh     # option 3
+  ```
+- Before the restore, the Portal log warns `job_hooks.cfg not rewritten ... cannot find [gcode_macro VARIABLES]`. That's
+  KIAUH's example config; it's gone after the restore and a Portal restart (menu 6).
+- The restore (Everything) went through first time, including the board check.
+
+**klipper-backup (§7.5)**
+- This version's installer asks, in order: proceed **y**; reconfigure the .env **n**; add to Moonraker's update manager **n**
+  (asked only if `moonraker.conf` lacks it, so no keeps it as on the Pi); filewatch **y**; on-boot service **n**; cron every
+  4 hours **n** (it would run during jobs).
+- `pgrep -af rhino_backup_watch` shows **two** lines: the watcher and its helper (`ps -o pid,ppid,cmd` shows one is the
+  other's child). Two lines with PPID 1 would be two watchers.
+- **The first Back up now failed to push:** "untracked working tree files would be overwritten by merge". An earlier run had
+  started a new history in `~/config_backup` without pulling GitHub's (one parentless commit). Fix:
+  `mv ~/config_backup ~/config_backup.broken-<date>`, then Back up now. Next time, **rename any existing
+  `~/config_backup` before the first Back up now**. Check: `git -C ~/config_backup log --oneline -3` shows the new commit on
+  top of the Pi's, with `origin/main` beside it, and `ls-tree HEAD printer_data/` shows `040000 tree`.
+
+**Health check (§8):** 21 pass, plus the known VERSION false alarm. Compared with the Pi's report: same Octopus, connected.
+The `boards` line lists the same `[mcu]` twice on both machines, which is a counting bug in the check, not two boards.
+
+**Found on the way**
+- **`BACKUP_CFG` during a job stalls the print.** Seen on the Pi Nov 3: `RUN_SHELL_COMMAND` holds Klipper's G-code queue
+  until the backup ends (`timeout: 240.`), so the head stops on the part. **Don't run it during a job** until it refuses
+  there. The fix is a macro change and goes to review first. The Portal's automatic backups already wait for the job.
+- Health check fixes for the next release: the VERSION false alarm, and the doubled boards line.
+
+Still open after Nov 3: the rest of §8 (data, motion, a short print with BW4), PrusaSlicer (§7.6), the load test (§9).
 
 ## Mike's answers (Oct 26)
 
