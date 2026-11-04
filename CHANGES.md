@@ -1,6 +1,12 @@
 # What changed
 
-## Next release - 3D workspace in Job setup
+## 1.9.10 - Several parts in 3D, built-in themes and background pictures; safer backups
+
+Rhino Studio 0.11.0. These changes pass the automated tests, but most haven't run on a real machine yet, including the
+BACKUP_CFG change, a print or cut with several parts, and the themes on a kiosk. The checks to run are in docs/testing.md.
+
+- **23 built-in themes** (Rhino Studio). Settings > Appearance > Theme: Cold Cache, Sudo Plum, Bubblegum Segfault, Jungle
+  Grep and more, each with a day and a night look. Stop, Cancel and unlocked panels look the same in all of them. Check TH4.
 
 - **Place parts in 3D** (Rhino Studio). Print jobs open on a 3D bed: drag the part, turn it on any axis, or lay it flat by
   clicking a face. It warns if the part is off the bed, too tall, or over a keep-out. Laser, knife, CNC and ready-made
