@@ -1,5 +1,11 @@
 # What changed
 
+## Next release - Typefaces
+
+- **Choose the typefaces** (Rhino Studio). Settings > Appearance > Typefaces sets a font for category titles, subcategories and
+  regular text, from 16 open-licensed fonts inside Studio, so no internet is needed. Sizes don't change. Big numbers, positions,
+  the console and Stop keep their own fonts. Check TH5.
+
 ## 1.9.10 - Several parts in 3D, built-in themes and background pictures; safer backups
 
 Rhino Studio 0.11.0. These changes pass the automated tests, but most haven't run on a real machine yet, including the
