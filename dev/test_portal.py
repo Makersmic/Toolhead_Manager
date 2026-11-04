@@ -109,6 +109,26 @@ ok(not os.path.exists(ROOT + "/printer_data/config/toolhead_images"), "photos no
 r = c.post("/api/tools/HotWire/photos", data={"photo": (io.BytesIO(b"<?php evil ?>"), "x.png")}, headers=HDR, content_type="multipart/form-data"); ok(r.status_code == 400, "fake png rejected")
 r = c.post("/api/tools/HotWire/photos", data={"photo": (io.BytesIO(png), "x.svg")}, headers=HDR, content_type="multipart/form-data"); ok(r.status_code == 400, "svg rejected")
 ok(c.get("/media/HotWire/..%2f..%2fprinter.cfg").status_code in (400, 404), "path traversal blocked")
+
+# ---- background pictures for themes
+r = c.get("/api/theme-images"); ok(J(r)["images"] == [] and J(r)["max"] == 12, "no background pictures to start with")
+r = c.post("/api/theme-images", data={"image": (io.BytesIO(png), "bg.png")}, content_type="multipart/form-data")
+ok(r.status_code != 200 and J(c.get("/api/theme-images"))["images"] == [], "a picture needs the write token")
+r = c.post("/api/theme-images", data={"image": (io.BytesIO(png), "bg.png")}, headers=HDR, content_type="multipart/form-data")
+bg = J(r).get("name", "")
+ok(r.status_code == 200 and bg.endswith(".png") and len(J(r)["images"]) == 1, "a picture is stored under a new name")
+ok(c.get(f"/theme-media/{bg}").data == png, "and served")
+ok(os.path.isfile(os.path.join(ROOT, "printer_data", "rhino_data", "images", "_theme", bg)) and not os.path.exists(ROOT + "/printer_data/config/_theme"), "outside the config folder, with the photos")
+r = c.post("/api/theme-images", data={"image": (io.BytesIO(b"<?php evil ?>"), "x.png")}, headers=HDR, content_type="multipart/form-data"); ok(r.status_code == 400, "a fake picture is refused")
+r = c.post("/api/theme-images", data={"image": (io.BytesIO(png), "x.svg")}, headers=HDR, content_type="multipart/form-data"); ok(r.status_code == 400, "SVG is refused: it can hold scripts")
+ok(c.get("/theme-media/..%2f..%2fprinter.cfg").status_code in (400, 404), "path traversal blocked on pictures")
+ok(c.delete(f"/api/theme-images/{bg}").status_code != 200 and c.get(f"/theme-media/{bg}").status_code == 200, "deleting a picture needs the token")
+for i in range(12):
+    r = c.post("/api/theme-images", data={"image": (io.BytesIO(png), "bg.png")}, headers=HDR, content_type="multipart/form-data")
+ok(r.status_code == 400 and "12" in J(r).get("error", ""), "the 13th picture is refused and says why")
+for im in J(c.get("/api/theme-images"))["images"]:
+    r = c.delete(f"/api/theme-images/{im['name']}", headers=HDR)
+ok(r.status_code == 200 and J(r)["images"] == [] and c.get(f"/theme-media/{bg}").status_code == 404, "pictures can be deleted")
 r = c.post("/api/tools/HotWire/rename", json={"new_name": "WireCutter"}, headers=HDR); ok(r.status_code == 200, "rename ok")
 ok(c.get(f"/media/WireCutter/{fn}").status_code == 200, "photos follow rename")
 ok(J(c.get("/api/state"))["tools"][-1]["name"] == "WireCutter", "renamed in library")

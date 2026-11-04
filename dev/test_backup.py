@@ -300,9 +300,25 @@ try:
 finally:
     os.path.exists = REAL_EXISTS
 
+# ---------------------------------------------------------------- photos in their own folders
+# Toolhead photos sit in images/<tool>/ and background pictures in images/_theme/. Until Nov 2026 no backup held them.
+imgs = SVC.paths.images_dir
+for rel, data in (("HotWire/aaaa000011112222.png", b"photo"), ("_theme/bbbb000011112222.jpg", b"picture")):
+    os.makedirs(os.path.dirname(os.path.join(imgs, rel)), exist_ok=True)
+    open(os.path.join(imgs, rel), "wb").write(data)
+held = {a for _, a in SVC._images()}
+ok({"images/HotWire/aaaa000011112222.png", "images/_theme/bbbb000011112222.jpg"} <= held, f"the backup finds photos inside folders ({sorted(held)[:3]})")
+M["print_state"] = "standby"
+pic = SVC.create("photos in folders")
+with zipfile.ZipFile(os.path.join(SVC.dir, pic["name"])) as z:
+    ok("images/HotWire/aaaa000011112222.png" in z.namelist() and "images/_theme/bbbb000011112222.jpg" in z.namelist(), "and they're in the zip")
+shutil.rmtree(os.path.join(imgs, "HotWire")); shutil.rmtree(os.path.join(imgs, "_theme"))
+j = post("/api/restore", {"archive": pic["name"], "item": "images"}).get_json()
+ok(j.get("ok") and open(os.path.join(imgs, "HotWire/aaaa000011112222.png"), "rb").read() == b"photo" and open(os.path.join(imgs, "_theme/bbbb000011112222.jpg"), "rb").read() == b"picture", f"a restore puts them back in their folders ({str(j)[:90]})")
+
 # ---------------------------------------------------------------- BACKUP_CFG launcher
 import subprocess
-env = dict(os.environ, RHINO_MOONRAKER=MR, RHINO_CONFIG_DIR=CFG, HOME=ROOT)
+env = dict(os.environ, RHINO_MOONRAKER=MR, RHINO_CONFIG_DIR=CFG, HOME=ROOT, RHINO_BACKUP_WAIT_POLL="0.2", RHINO_BACKUP_WAIT_MAX="60")
 subprocess.run(["git", "init", "-q", "-b", "main", work], check=True)  # the corrupt-copy test above removed it
 git("remote", "add", "origin", remote); git("fetch", "origin"); git("reset", "--hard", "origin/main"); git("branch", "-u", "origin/main")
 out = subprocess.run([sys.executable, os.path.join(CFG, "scripts", "rhino_backup_cfg.py"), "test_msg"], capture_output=True, text=True, env=env, timeout=60)
@@ -310,6 +326,57 @@ ok(out.returncode == 0 and "rhino: backup rhino_studio_os-" in out.stdout and "p
 M["print_state"] = "printing"
 out = subprocess.run([sys.executable, os.path.join(CFG, "scripts", "rhino_backup_cfg.py")], capture_output=True, text=True, env=env, timeout=60)
 ok(out.returncode == 0 and "when it's finished" in out.stdout, "BACKUP_CFG during a job leaves the archive until the job is over")
+# ...and the push: it held Klipper's G-code queue, which stopped the head on the part (Nov 3 2026)
+import fcntl
+M["print_state"] = "standby"
+time.sleep(2)                           # lets the waiter from the call above finish
+RUNS = os.path.join(ROOT, "push-runs.log")
+open(kb + "/script.sh", "w").write(f'#!/bin/bash\necho run >> "{RUNS}"\necho quiet\n')
+def backup_cfg(e=env):
+    t = time.monotonic()
+    r = subprocess.run([sys.executable, os.path.join(CFG, "scripts", "rhino_backup_cfg.py"), "mid_job"], capture_output=True, text=True, env=e, timeout=60)
+    return r, time.monotonic() - t
+def runs():
+    return len(open(RUNS).read().splitlines()) if os.path.exists(RUNS) else 0
+def wait_for(cond, secs=15):
+    end = time.monotonic() + secs
+    while time.monotonic() < end and not cond():
+        time.sleep(0.1)
+    return cond()
+zips = lambda: {f for f in os.listdir(SVC.dir) if f.endswith(".zip")}   # names: only the last 10 are kept, so a count can't rise
+for state in ("printing", "paused", "unknown"):
+    M["print_state"] = state
+    before = zips()
+    r1, secs = backup_cfg()
+    r2, _ = backup_cfg()
+    time.sleep(1)
+    ok("when it's finished" in r1.stdout and secs < 10 and runs() == 0 and zips() == before,
+       f"{state}: BACKUP_CFG returns without pushing or archiving ({secs:.1f} s)")
+    M["print_state"] = "standby"
+    ok(wait_for(lambda: runs() == 1), f"{state}: the push runs once the job is over")
+    time.sleep(1)
+    ok(runs() == 1 and len(zips() - before) == 1, f"{state}: two requests make one backup and one push (runs {runs()}, new archives {len(zips() - before)})")
+    os.remove(RUNS)
+
+M["print_state"] = "printing"
+r, _ = backup_cfg(dict(env, RHINO_BACKUP_WAIT_MAX="0.5"))
+ok(wait_for(lambda: "outlasted" in " ".join((B.github_status(SVC.paths.state_dir, ROOT).get("last") or {}).get("tail") or [])) and runs() == 0,
+   "a job that outlasts the wait makes no backup, and Studio's GitHub line says why")
+M["print_state"] = "standby"
+
+# One push at a time, with the lock the watcher also takes
+held = open(os.path.join(ROOT, B.PUSH_LOCK), "a")
+fcntl.flock(held, fcntl.LOCK_EX)
+LOCKED = B.BackupService(SVC.paths, SVC.mr, backup_dir=SVC.dir, home=ROOT)
+st = LOCKED.push_github("", lock_wait=0)
+ok(st["state"] == "failed" and "Another push" in st["last"]["tail"][-1] and runs() == 0, "a push doesn't start while another is running, and says so")
+threading.Timer(1, held.close).start()
+t = time.monotonic()
+LOCKED.push_github("", lock_wait=30)
+ok(runs() == 1 and 0.5 < time.monotonic() - t < 25, "a push waits its turn, then runs")
+os.remove(RUNS)
+ok(subprocess.run(["bash", "-n", os.path.join(REPO, "scripts", "rhino_backup_watch.sh")]).returncode == 0
+   and B.PUSH_LOCK in open(os.path.join(REPO, "scripts", "rhino_backup_watch.sh")).read(), "the watcher names the same lock")
 M["print_state"] = "standby"
 sc = open(os.path.join(REPO, "shell_command.cfg")).read()
 ok("scripts/rhino_backup_cfg.py" in sc and "klipper-backup/script.sh" not in sc.split("[gcode_macro SHOW_BACKUP_LOCATION]")[0].split("[gcode_shell_command backup_cfg]")[1],

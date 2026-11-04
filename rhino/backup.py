@@ -104,6 +104,7 @@ def _sha(b):
 
 
 KB_WORK_FOLDER = "config_backup"  # klipper-backup's working copy; its script.sh fixes this name
+PUSH_LOCK = ".rhino-push.lock"    # in the home folder; scripts/rhino_backup_watch.sh takes the same one
 
 
 def _no_secrets(line):
@@ -180,12 +181,15 @@ class BackupService:
                         yield full, "config/" + rel
 
     def _images(self):
+        # Photos sit in one folder per tool and pictures in _theme, so this has to look inside folders
+        # (until Nov 2026 it only took files at the top, which left every toolhead photo out of the backup)
         d = self.paths.images_dir
-        if os.path.isdir(d):
-            for fn in sorted(os.listdir(d)):
-                full = os.path.join(d, fn)
-                if os.path.isfile(full):
-                    yield full, "images/" + fn
+        for root, dirs, files in os.walk(d):
+            dirs.sort()
+            for fn in sorted(files):
+                full = os.path.join(root, fn)
+                if os.path.isfile(full) and not os.path.islink(full):
+                    yield full, "images/" + os.path.relpath(full, d).replace(os.sep, "/")
 
     # ------------------------------------------------------------------ create
     def create(self, reason="button"):
@@ -536,11 +540,48 @@ class BackupService:
                 "note": " ".join(notes)}
 
     # ------------------------------------------------------------------ GitHub (klipper-backup)
-    def push_github(self, msg="", timeout=180):
-        """Run klipper-backup if it's installed and record the result (INV-B8: never claim a push that failed)."""
+    def _push_lock(self, wait):
+        """-> the held push lock, or None if it's still taken after wait seconds. scripts/rhino_backup_watch.sh takes the
+        same one. The system frees it when the holder exits, however that happens."""
+        f = open(os.path.join(self.home, PUSH_LOCK), "a")
+        end = time.monotonic() + wait
+        while True:
+            try:
+                fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                return f
+            except OSError:
+                if time.monotonic() >= end:
+                    f.close()
+                    return None
+                time.sleep(min(0.5, max(0.01, end - time.monotonic())))
+
+    def record_push(self, res):
+        os.makedirs(self.paths.state_dir, exist_ok=True)
+        tmp = os.path.join(self.paths.state_dir, "backup_status.json.tmp")
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump({"github": res}, f)
+        os.replace(tmp, os.path.join(self.paths.state_dir, "backup_status.json"))
+
+    def push_failed(self, why):
+        """Record a push that never ran, so Studio shows the reason (INV-B8)."""
+        self.record_push({"ok": False, "code": None, "time": self.now(), "tail": [why]})
+
+    def push_github(self, msg="", timeout=180, lock_wait=200):
+        """Run klipper-backup if it's installed and record the result (INV-B8: never claim a push that failed).
+        One push at a time: two runs in the same working folder would trip over each other."""
         st = github_status(self.paths.state_dir, self.home)
         if st["state"] in ("not_installed", "no_env"):
             return st
+        lock = self._push_lock(lock_wait)
+        if lock is None:
+            self.push_failed("Another push was still running, so this one didn't start. Back up again in a few minutes.")
+            return github_status(self.paths.state_dir, self.home)
+        try:
+            return self._push(msg, timeout)
+        finally:
+            lock.close()
+
+    def _push(self, msg, timeout):
         cmd = ["bash", os.path.join(self.home, "klipper-backup", "script.sh")]
         if msg:  # klipper-backup takes the message as --commit_message; a bare argument is refused (its usage error)
             cmd += ["--commit_message", re.sub(r"[^A-Za-z0-9_.:-]", "_", msg)[:60]]
@@ -554,11 +595,7 @@ class BackupService:
                    "tail": [_no_secrets(line) for line in tail]}
         except (OSError, subprocess.TimeoutExpired) as e:
             res = {"ok": False, "code": None, "time": self.now(), "tail": [str(e)]}
-        os.makedirs(self.paths.state_dir, exist_ok=True)
-        tmp = os.path.join(self.paths.state_dir, "backup_status.json.tmp")
-        with open(tmp, "w", encoding="utf-8") as f:
-            json.dump({"github": res}, f)
-        os.replace(tmp, os.path.join(self.paths.state_dir, "backup_status.json"))
+        self.record_push(res)
         return github_status(self.paths.state_dir, self.home)
 
     def _push_problem(self, lines):
@@ -582,12 +619,29 @@ class BackupService:
             return "the latest commit didn't reach GitHub"
         return None
 
-    def wait_then_create(self, reason, poll=30, max_wait=12 * 3600):
-        """For BACKUP_CFG at the end of a long job: wait until the job is over, then back up."""
+    def clearly_idle(self):
+        """True only when Moonraker says no job is running. Not knowing counts as a job: guessing wrong holds a print."""
+        st = self.mr.status()
+        if not st.get("online") or st.get("print_state") in BUSY_STATES:
+            return False
+        return not (st.get("klippy") == "ready" and st.get("print_state") == "unknown")
+
+    def claim_after_job(self):
+        """-> a held lock while this process waits for the job to end, or None if another one is already waiting."""
+        os.makedirs(self.dir, exist_ok=True)
+        f = open(os.path.join(self.dir, ".after-job-lock"), "w")
+        try:
+            fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError:
+            f.close()
+            return None
+        return f
+
+    def wait_until_idle(self, poll=30, max_wait=7 * 24 * 3600):
+        """For BACKUP_CFG during a job. -> True once the job is over, False if it's still going after max_wait."""
         end = self.now() + max_wait
         while self.now() < end:
-            st = self.mr.status()
-            if st.get("online") and st.get("print_state") not in BUSY_STATES:
-                return self.create(reason)
+            if self.clearly_idle():
+                return True
             time.sleep(poll)
-        raise Fail("Gave up waiting for the job to finish")
+        return False

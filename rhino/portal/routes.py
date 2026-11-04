@@ -85,6 +85,37 @@ def index():
     return render_template("index.html", token=security.TOKEN, version=__version__)
 
 
+@bp.get("/theme-media/<filename>")
+def theme_image(filename):
+    p = media.theme_path(_paths(), filename)
+    if not os.path.isfile(p):
+        return security.error("No such picture", 404)
+    return send_file(p)
+
+
+@bp.get("/api/theme-images")
+def theme_images():
+    return jsonify({"ok": True, "images": media.theme_list(_paths()), "max": media.MAX_THEME_IMAGES, "max_bytes": media.MAX_BYTES})
+
+
+@bp.post("/api/theme-images")
+def add_theme_image():
+    def go():
+        up = request.files.get("image")
+        if up is None:
+            raise Fail("No picture was sent")
+        return {"ok": True, "name": media.theme_save(_paths(), up), "images": media.theme_list(_paths())}
+    return _write(go)
+
+
+@bp.delete("/api/theme-images/<filename>")
+def delete_theme_image(filename):
+    def go():
+        media.theme_delete(_paths(), filename)
+        return {"ok": True, "images": media.theme_list(_paths())}
+    return _write(go)
+
+
 @bp.get("/media/<tool>/<filename>")
 def photo(tool, filename):
     p = media.path_for(_paths(), tool, filename)

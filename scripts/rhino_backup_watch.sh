@@ -20,6 +20,7 @@ KB="${RHINO_KB_DIR:-$HOME/klipper-backup}"
 QUIET="${RHINO_WATCH_QUIET:-60}"
 MAX_WAIT="${RHINO_WATCH_MAX:-900}"
 JOB_POLL="${RHINO_WATCH_JOB_POLL:-60}"
+LOCK_WAIT="${RHINO_PUSH_LOCK_WAIT:-200}"
 MOONRAKER="${RHINO_MOONRAKER:-http://localhost:7125}"
 # rsync's temporary names are a dot, the file's name, a dot and six random characters
 EXCLUDE='\.swp|\.tmp|printer-[0-9]*_[0-9]*\.cfg|\.bak|\.bkp|/\.[^/]+\.[A-Za-z0-9]{6}$|/myrhino/maintenance/meters\.json$'
@@ -52,7 +53,10 @@ last=0
 run_backup() {
   echo "rhino_backup_watch: backing up $count change(s), latest $last_file"
   # stdin from /dev/null: anything that reads it would otherwise eat the waiting file events
-  bash "$KB/script.sh" --commit_message "$count changes, latest $last_file - $(date +'%x %X')" </dev/null 2>&1 | tail -n 3
+  # One push at a time, shared with rhino/backup.py. -o: git's background cleanup mustn't keep the lock after the push
+  flock -o -E 75 -w "$LOCK_WAIT" "$HOME/.rhino-push.lock" \
+    bash "$KB/script.sh" --commit_message "$count changes, latest $last_file - $(date +'%x %X')" </dev/null 2>&1 | tail -n 3
+  [ "${PIPESTATUS[0]}" = 75 ] && echo "rhino_backup_watch: another push ran too long, so these changes go up with the next backup"
   count=0
 }
 

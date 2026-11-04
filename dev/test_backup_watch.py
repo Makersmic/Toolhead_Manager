@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """The backup watcher (scripts/rhino_backup_watch.sh), run for real with a pretend inotifywait, curl and klipper-backup."""
+import fcntl
 import os
 import re
 import shutil
@@ -99,6 +100,27 @@ try:
 
     lines, out, rc = watch(events(5) + "sleep 6\n", state="printing", during=finish_job)
     ok(len(lines) == 1 and "5 changes" in lines[0], "what changed during a job is backed up once when it's over")
+
+    # One push at a time, with the lock rhino/backup.py takes
+    held = open(os.path.join(ROOT, ".rhino-push.lock"), "a")
+    fcntl.flock(held, fcntl.LOCK_EX)
+    seen_while_held = []
+
+    def release_later():
+        time.sleep(3)
+        seen_while_held.append(os.path.exists(LOG))
+        held.close()
+
+    lines, out, rc = watch(events(5) + "sleep 5\n", during=release_later)
+    ok(seen_while_held == [False] and len(lines) == 1, "the watcher waits while another push runs, then pushes")
+
+    held = open(os.path.join(ROOT, ".rhino-push.lock"), "a")
+    fcntl.flock(held, fcntl.LOCK_EX)
+    os.environ["RHINO_PUSH_LOCK_WAIT"] = "1"
+    lines, out, rc = watch(events(5) + "sleep 3\n")
+    del os.environ["RHINO_PUSH_LOCK_WAIT"]
+    held.close()
+    ok(not lines and "another push ran too long" in out, "if the other push never ends, it says so instead of waiting for ever")
 
     # What it watches
     lines, out, rc = watch("true\n")
