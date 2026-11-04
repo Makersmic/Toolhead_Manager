@@ -69,14 +69,35 @@ def section(title):
     print(f"\n{B}{title}{N}")
 
 
-def config_lines():
-    """(file, section, key, value) for every key in every .cfg under the config folder."""
-    for path in sorted(glob.glob(os.path.join(CFG, "**", "*.cfg"), recursive=True)):
-        sec = ""
+def loaded_configs():
+    """(path, text) for printer.cfg and everything it includes: what Klipper reads, not every .cfg in the folder.
+    A leftover copy of printer.cfg would otherwise list a board twice, or fail on a board that's long gone."""
+    seen, out = set(), []
+
+    def read(path):
+        real = os.path.realpath(path)
+        if real in seen:
+            return
+        seen.add(real)
         try:
             text = open(path, encoding="utf-8", errors="replace").read()
         except OSError:
-            continue
+            return
+        out.append((path, text))
+        for line in text.splitlines():
+            m = re.match(r"^\[include\s+([^\]]+)\]", line.split("#", 1)[0].strip())
+            if m:
+                for inc in sorted(glob.glob(os.path.join(os.path.dirname(path), m.group(1).strip()))):
+                    read(inc)
+
+    read(os.path.join(CFG, "printer.cfg"))
+    return out
+
+
+def config_lines():
+    """(file, section, key, value) for every key in the files Klipper loads."""
+    for path, text in loaded_configs():
+        sec = ""
         for line in text.splitlines():
             s = line.split("#", 1)[0].strip()
             m = re.match(r"^\[([^\]]+)\]", s)
@@ -197,8 +218,14 @@ def board_usb_devices():
 
 def check_board_and_camera():
     section("Board and camera")
-    serials = [(f, sec, v) for f, sec, k, v in config_lines() if sec.startswith("mcu") and k == "serial"]
-    canbus = [(f, sec, v) for f, sec, k, v in config_lines() if sec.startswith("mcu") and k == "canbus_uuid"]
+    def once(key):      # the same board named in two loaded files is still one board
+        found = {}
+        for f, sec, k, v in config_lines():
+            if sec.startswith("mcu") and k == key:
+                found.setdefault((sec, v), f)
+        return [(f, sec, v) for (sec, v), f in found.items()]
+
+    serials, canbus = once("serial"), once("canbus_uuid")
     fact("boards", sorted([f"[{sec}] {os.path.basename(v)} ({'connected' if os.path.exists(sysfs(v)) else 'NOT connected'})"
                            for _, sec, v in serials] + [f"[{sec}] CAN {v}" for _, sec, v in canbus]))
     if not serials and not canbus:
@@ -250,9 +277,10 @@ def check_services():
 
 def check_rhino():
     section("Rhino files")
-    ver = ""
+    ver = ""            # install.sh leaves VERSION out of the config folder, so ask the program files themselves
     try:
-        ver = open(os.path.join(CFG, "VERSION")).read().strip()
+        m = re.search(r'^__version__\s*=\s*"([^"]+)"', open(os.path.join(CFG, "rhino", "__init__.py")).read(), re.M)
+        ver = m.group(1) if m else ""
     except OSError:
         pass
     inst = ""
@@ -266,7 +294,8 @@ def check_rhino():
     elif ver:
         say("PASS", f"Tool Manager {ver}")
     else:
-        say("FAIL", "No VERSION in the config folder", "Tool Manager isn't installed here")
+        say("FAIL", "Tool Manager's program files aren't in the config folder", "rhino/__init__.py is missing or has no "
+            "version. Install from the menu (option 3) to put them back")
     printer_cfg = os.path.join(CFG, "printer.cfg")
     text = open(printer_cfg, errors="replace").read() if os.path.isfile(printer_cfg) else ""
     for rel in ("myrhino/custom_tools.cfg", "myrhino/job_hooks.cfg"):
