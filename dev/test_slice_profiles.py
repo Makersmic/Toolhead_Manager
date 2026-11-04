@@ -131,6 +131,11 @@ job = {"profileId": pid, "profileRev": 9, "process": "fdm", "engine": "kiri", "t
 r = post("/api/prepare-jobs", {"file": "benchy.stl", "job": job})
 ok(r.status_code == 200 and os.path.isfile(JOBS), "a Prepare job is saved on the Rhino, in rhino_data")
 ok(c.get("/api/prepare-jobs").get_json()["jobs"]["benchy.stl"]["overrides"] == {"infill": 0.35}, "the job keeps only its overrides")
+tilted = dict(job, placement={"x": 100, "y": 80, "rotate": 0, "scale": 1, "tiltX": 90, "tiltY": -45.5})
+ok(post("/api/prepare-jobs", {"file": "tilted.stl", "job": tilted}).status_code == 200, "a job with a tilted part is saved")
+ok(c.get("/api/prepare-jobs").get_json()["jobs"]["tilted.stl"]["placement"]["tiltY"] == -45.5, "and its tilt comes back")
+ok(post("/api/prepare-jobs", {"file": "a.stl", "job": dict(job, placement={"x": 1, "y": 1, "rotate": 0, "scale": 1, "tiltX": "up"})}).status_code == 400, "a tilt that isn't a number is refused")
+ok(post("/api/prepare-jobs", {"file": "a.stl", "job": dict(job, placement={"x": 1, "y": 1, "rotate": 0, "scale": 1, "spin": 5})}).status_code == 400, "an unknown placement value is still refused")
 ok(post("/api/prepare-jobs", {"file": "../x.stl", "job": job}).status_code == 400, "a job name that climbs folders is refused")
 ok(post("/api/prepare-jobs", {"file": "a.stl", "job": dict(job, overrides={"walls": -1})}).status_code == 400, "job overrides are checked like a profile")
 ok(c.delete("/api/prepare-jobs", json={"file": "benchy.stl"}, headers=HDR).status_code == 200

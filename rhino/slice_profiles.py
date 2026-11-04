@@ -441,6 +441,7 @@ def _clean_job(job):
     out["overrides"] = copy.deepcopy(ov)
     pl = job.get("placement", {})
     _check_keys("Job placement", pl, {"x": _num(-5000, 5000), "y": _num(-5000, 5000), "rotate": _num(-3600, 3600),
+                                      "tiltX": _num(-3600, 3600), "tiltY": _num(-3600, 3600),
                                       "scale": _num(0.001, 1000)})
     out["placement"] = dict(pl)
     return out

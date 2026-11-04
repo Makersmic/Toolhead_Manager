@@ -404,9 +404,12 @@ Needs Rhino Studio 0.8.0 for the Settings › Host › Backups panel. The Portal
   with `rm ~/config_backup/.git/hooks/pre-push` and back up again: it says "pushed", and GitHub's newest commit matches
   `git -C ~/config_backup rev-parse --short HEAD`. *Stop if:* it says "pushed" while the hook is in place, or still
   says "failed" with the hook gone and GitHub showing the commit.
+- [ ] **B3p Photos are in the backup.** After the next release, add a photo to a tool and a background picture, then Back up now. Run `unzip -l ~/rhino-backups/<newest>.zip | grep images/`. *Pass if:* both are listed. Restore › Toolhead photos on a copy puts them back. *Stop if:* either is missing.
 - [ ] **B3 BACKUP_CFG.** Type `BACKUP_CFG` in the console: "backup rhino-... made", then the klipper-backup result.
-  During a print, `BACKUP_CFG` says the backup will be made when the job is finished; after the job it's in the list.
-  *Stop if:* the print stutters or klippy.log shows "Timer too close" while it runs.
+  During a print, run `BACKUP_CFG` several times (next release; don't try this on 1.9.9). *Pass:* the console answers at
+  once that the backup and push will run when the job is finished, and the head doesn't pause. After the job, one new
+  backup is in the list and Studio's GitHub line says pushed. *Stop if:* the print stutters or klippy.log shows "Timer too
+  close" while it runs.
 - [ ] **B4 Restore one item.** Log a maintenance task, then Restore… › Maintenance from the backup before it ›
   Show what changes (one file goes back) › Restore. The task log is as it was, and a "before restore" backup is listed.
 - [ ] **B5 Full restore (do this on the 7050, not the Pi).** Install the same Tool Manager version, Add a backup from
@@ -448,6 +451,9 @@ supply before the real load: the simulator is not real Klipper.
   shows its rpm. Hold the blades still (or unplug the yellow wire) with it set to 100 %: within about 15 s the Dashboard
   says "<name> fan isn't turning" in red. Let go: it clears. A 4-wire fan with a power pin stops at 0 %.
   *Stop if:* the fan runs at full speed whatever it's set to (tick "The speed input is inverted").
+- [ ] **HC1 Health check reads the real version and board.** After the next release, run option **7**. *Pass:* `PASS Tool
+  Manager <version>` matches Settings › Software, with no "No VERSION" line, and `[mcu] is connected` appears once. *Stop if:*
+  a board that's really plugged in shows as not connected, or a board Klipper uses is missing from the list.
 - [ ] **HC0 Health check (1.9.5).** `bash ~/rhino-manager/rhino.sh`, option **7**. It lists PASS / WARN / FAIL and
   says where it saved `~/rhino-health-<host>-<date>.json`. *Pass if:* no FAIL on the working Pi; the board line says
   connected; Klipper, Moonraker and the Portal pass. Run it twice: the second run offers to compare with the first,

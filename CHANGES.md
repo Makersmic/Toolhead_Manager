@@ -1,5 +1,35 @@
 # What changed
 
+## Next release - 3D workspace in Job setup
+
+- **Place parts in 3D** (Rhino Studio). Print jobs open on a 3D bed: drag the part, turn it on any axis, or lay it flat by
+  clicking a face. It warns if the part is off the bed, too tall, or over a keep-out. Laser, knife, CNC and ready-made
+  files can switch between the view from above and 3D. Checks PW1-PW6 in Studio's `docs/testing.md`.
+- **Saved jobs can hold a tilted part.** The Portal now accepts `tiltX` and `tiltY` in a job's placement, checked like its
+  other values. Plain jobs are saved exactly as before.
+- **Several parts in a job** (Rhino Studio). Print, laser and knife jobs can hold several parts: Add file, or drop one on the
+  bed. A list beside the bed shows each part, and the selected one has an outline. Each has its own position and way up, and
+  all share the job's settings. Overlapping parts warn but don't block. A CNC job stays one part. Checks PW7-PW10.
+- **Right-click menu on a part** (Rhino Studio): Duplicate, Lay flat, Centre, Reset way up and Delete from job. Long-press on a
+  phone, or the ⋯ in the list. Right-drag still pans. A duplicate goes 5 mm to the right, else the next free spot.
+- **Themes can set their own style** (Rhino Studio). As well as a panel's background, text and border, a theme can now set filled
+  buttons, the selected colour, control edges, titles, big numbers and the page, top bar and rail. Stop, Cancel and the unlocked
+  red panel never change. Existing themes look as they did. Check TH1.
+- **`BACKUP_CFG` no longer stops a print.** The GitHub push ran while Klipper's G-code queue waited, which left the head
+  stopped on the part. During a job, or if the job state can't be read, the backup and push now wait until the job is over,
+  and several requests make one backup. A failed push shows in Studio, not the console. The wait now lasts up to 7 days,
+  not 12 hours. Check B3.
+- **One GitHub push at a time.** `BACKUP_CFG`, Back up now and the backup watcher now take turns.
+- **Background picture options and a text colour** (Rhino Studio). A background picture can fill the page, fit, stretch, show at actual size or tile. Appearance also sets one text colour across the screen, for day and night separately. Checks TH2, TH3.
+- **Toolhead photos are now in Rhino backups.** The backup only took files at the top of the images folder, and photos sit in
+  one folder per tool, so no backup ever held them, and a restore couldn't bring them back. Take a new backup after updating.
+- **Background pictures for themes.** Studio can show a picture behind the page. The Portal keeps up to 12, checked like photos,
+  outside the config folder, and they're backed up with the photos.
+- **Health check: no more false VERSION failure.** It looked for a file the installer leaves out, so every install showed
+  "No VERSION" and `tool manager ?`. It now reads the version from the installed program files.
+- **Health check: reads the config Klipper loads.** It follows `printer.cfg` and its includes, not every `.cfg` in the folder.
+  The boards line no longer lists a board twice, and a leftover copy naming an old board can't fail the check.
+
 ## 1.9.9 - 3D G-code preview; one backup per burst of changes
 
 - **3D Preview** (Rhino Studio 0.10.0). Files and Job setup can now open a G-code file in 3D, with layer and move
