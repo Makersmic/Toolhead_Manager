@@ -138,6 +138,15 @@ ok(post("/api/prepare-jobs", {"file": "a.stl", "job": dict(job, placement={"x": 
 ok(post("/api/prepare-jobs", {"file": "a.stl", "job": dict(job, placement={"x": 1, "y": 1, "rotate": 0, "scale": 1, "spin": 5})}).status_code == 400, "an unknown placement value is still refused")
 ok(post("/api/prepare-jobs", {"file": "../x.stl", "job": job}).status_code == 400, "a job name that climbs folders is refused")
 ok(post("/api/prepare-jobs", {"file": "a.stl", "job": dict(job, overrides={"walls": -1})}).status_code == 400, "job overrides are checked like a profile")
+marks = {"marks": [{"part": "benchy.stl", "x": 12.5, "y": -3, "z": 20, "r": 4}]}
+ok(post("/api/prepare-jobs", {"file": "marked.stl", "job": dict(job, supportMarks=marks)}).status_code == 200, "a job with support marks is saved")
+ok(c.get("/api/prepare-jobs").get_json()["jobs"]["marked.stl"]["supportMarks"] == marks, "and its marks come back")
+ok(post("/api/prepare-jobs", {"file": "none.stl", "job": dict(job, supportMarks={"marks": []})}).status_code == 200, "only-where-marked with no marks yet is kept")
+ok("supportMarks" not in c.get("/api/prepare-jobs").get_json()["jobs"]["benchy.stl"], "a job without marks has none")
+bad = [{"marks": [{"part": "a.stl", "x": 1, "y": 1, "z": 1}]}, {"marks": [{"part": "a.stl", "x": 1, "y": 1, "z": 1, "r": 99}]},
+       {"marks": [{"part": "../a", "x": 1, "y": 1, "z": 1, "r": 4}]}, {"marks": [{"part": "a.stl", "x": "1", "y": 1, "z": 1, "r": 4}]},
+       {"marks": [], "extra": 1}, {"marks": [{"part": "a.stl", "x": 1, "y": 1, "z": 1, "r": 4}] * 501}]
+ok(all(post("/api/prepare-jobs", {"file": "a.stl", "job": dict(job, supportMarks=b)}).status_code == 400 for b in bad), "bad support marks are refused")
 ok(c.delete("/api/prepare-jobs", json={"file": "benchy.stl"}, headers=HDR).status_code == 200
    and "benchy.stl" not in c.get("/api/prepare-jobs").get_json()["jobs"], "a saved job can be deleted")
 post("/api/prepare-jobs", {"file": "benchy.stl", "job": job})

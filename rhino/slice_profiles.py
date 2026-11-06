@@ -39,6 +39,8 @@ _ID = re.compile(r"^p_[a-z0-9]{5,12}$")
 _NAME = re.compile(r"^[^\x00-\x1f<>]{1,60}$")
 _TOKEN = re.compile(r"^[A-Za-z0-9_.-]{1,40}$")      # toolhead and material keys
 _FILE = re.compile(r"^[A-Za-z0-9_.\-/ ]{1,200}$")
+# a part's name is its file's name as loaded: no folders, no control characters
+_PART = re.compile(r"^[^/\\\x00-\x1f]{1,200}$")
 _INI_KEY = re.compile(r"^[a-z0-9_]{1,64}$")
 
 
@@ -417,7 +419,7 @@ class SliceProfiles:
 
 
 def _clean_job(job):
-    """{profileId, profileRev, process, engine, toolhead, material, overrides, placement}. Overrides are
+    """{profileId, profileRev, process, engine, toolhead, material, overrides, placement, supportMarks?}. Overrides are
     checked like a profile's settings, so a job can't smuggle in what a profile couldn't hold."""
     if not isinstance(job, dict):
         raise Fail("Expected a job")
@@ -444,4 +446,32 @@ def _clean_job(job):
                                       "tiltX": _num(-3600, 3600), "tiltY": _num(-3600, 3600),
                                       "scale": _num(0.001, 1000)})
     out["placement"] = dict(pl)
+    if "supportMarks" in job:
+        out["supportMarks"] = _clean_marks(job["supportMarks"])
     return out
+
+
+MAX_MARKS = 500
+_MARK = {"part": None, "x": _num(-5000, 5000), "y": _num(-5000, 5000), "z": _num(-5000, 5000), "r": _num(0.5, 50)}
+
+
+def _clean_marks(marks):
+    """Supports placed by hand (Studio 0.12+): only where these marks are, on the parts they name, each a point in that
+    part's own coordinates as loaded and a radius in mm. Its presence means "only where I mark", even with none placed.
+    {"marks": [{"part", "x", "y", "z", "r"}]}"""
+    if not isinstance(marks, dict) or set(marks) - {"marks"}:
+        raise Fail("Support marks: expected {marks: [...]}")
+    lst = marks.get("marks", [])
+    if not isinstance(lst, list) or len(lst) > MAX_MARKS:
+        raise Fail(f"Support marks: a list of at most {MAX_MARKS}")
+    out = []
+    for m in lst:
+        if not isinstance(m, dict) or set(m) != set(_MARK):
+            raise Fail("Support marks: each needs part, x, y, z and r")
+        if not (isinstance(m["part"], str) and _PART.match(m["part"]) and not m["part"].startswith(".")):
+            raise Fail("Support marks: a part name isn't valid")
+        for k, spec in _MARK.items():
+            if spec:
+                _check_value("Support marks", k, spec, m[k])
+        out.append({k: m[k] for k in _MARK})
+    return {"marks": out}

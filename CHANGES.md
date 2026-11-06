@@ -1,6 +1,16 @@
 # What changed
 
-## Next release - Typefaces
+## Next release - Typefaces, the Dashboard hologram, supports where you mark
+
+- **Supports only where you mark them** (Rhino Studio, Kiri:Moto). Job setup > Supports: Off, Automatic or Only where I mark.
+  With marks, **Mark supports** and click the part above where it needs holding up: the mark goes on the overhang below,
+  and Kiri builds support there and nowhere else. Overhangs are tinted amber while supports are on. Marks follow the part
+  when it's turned or moved, and are saved with that file's job. The Portal now keeps a job's `supportMarks`, checked:
+  at most 500, each a part name, a point and a reach of 0.5-50 mm. Check SM1-SM3 in Studio's `docs/testing.md`.
+- **The job as a hologram** (Rhino Studio). While a job runs, the Dashboard shows its outer walls as turquoise light over the
+  camera: done, the layer being made now, and still to make, with a dial for progress, speed and material, a scan line,
+  and a little rhino. It reads the job's file once per job, and asks first over 40 MB. Checks HG1-HG3.
+- **Several files at once in Job setup** (Rhino Studio): the ones that fit become parts of one job; the rest are named.
 
 - **Choose the typefaces** (Rhino Studio). Settings > Appearance > Typefaces sets a font for category titles, subcategories and
   regular text, from 16 open-licensed fonts inside Studio, so no internet is needed. Sizes don't change. Big numbers, positions,
