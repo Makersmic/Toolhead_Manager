@@ -147,6 +147,10 @@ bad = [{"marks": [{"part": "a.stl", "x": 1, "y": 1, "z": 1}]}, {"marks": [{"part
        {"marks": [{"part": "../a", "x": 1, "y": 1, "z": 1, "r": 4}]}, {"marks": [{"part": "a.stl", "x": "1", "y": 1, "z": 1, "r": 4}]},
        {"marks": [], "extra": 1}, {"marks": [{"part": "a.stl", "x": 1, "y": 1, "z": 1, "r": 4}] * 501}]
 ok(all(post("/api/prepare-jobs", {"file": "a.stl", "job": dict(job, supportMarks=b)}).status_code == 400 for b in bad), "bad support marks are refused")
+blocked = {"marks": [{"part": "a.stl", "x": 1, "y": 1, "z": 1, "r": 4, "kind": "block"}]}
+ok(post("/api/prepare-jobs", {"file": "blocked.stl", "job": dict(job, supportMarks=blocked)}).status_code == 200
+   and c.get("/api/prepare-jobs").get_json()["jobs"]["blocked.stl"]["supportMarks"] == blocked, "a block is saved as a block")
+ok(post("/api/prepare-jobs", {"file": "a.stl", "job": dict(job, supportMarks={"marks": [dict(blocked["marks"][0], kind="paint")]})}).status_code == 400, "an unknown kind is refused")
 ok(c.delete("/api/prepare-jobs", json={"file": "benchy.stl"}, headers=HDR).status_code == 200
    and "benchy.stl" not in c.get("/api/prepare-jobs").get_json()["jobs"], "a saved job can be deleted")
 post("/api/prepare-jobs", {"file": "benchy.stl", "job": job})

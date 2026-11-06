@@ -34,7 +34,7 @@ def slice_():
     if not model or not config:
         raise Fail("Send the part (model) and the settings (config).")
     job = _svc().submit(model.read(), config.read().decode("utf-8", "replace"), request.form.get("name", "part"),
-                        request.form.get("center", ""))
+                        request.form.get("center", ""), request.form.get("supports"))
     return jsonify({"ok": True, **job})
 
 

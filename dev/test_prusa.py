@@ -4,7 +4,7 @@ downloaded and no real slicing happens; the real engine is checked on the machin
 
 The stand-in behaves like the real thing where it matters: `flatpak run` starts the slicer as a grandchild in a
 session of its own (as bubblewrap can), and the slicer can only write inside the --filesystem folders it was given."""
-import io, json, os, shutil, sys, tempfile, time
+import zipfile, io, json, os, shutil, sys, tempfile, time
 sys.dont_write_bytecode = True
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
@@ -197,6 +197,32 @@ j3 = s.submit(STL, "layer_height = 0.2\nperimeters = 4\n", "part", "275,187.5")
 wait(lambda: s.job(j3["id"])["state"] == "done")
 ok("--threads 4" in open(os.path.join(s.base, "jobs", j3["id"], "argv.txt")).read(), "during a print: half the cores")
 STATE["p"] = "standby"
+
+# ---------------------------------------------------------------- supports placed by hand (prusa_3mf.py)
+from rhino.prusa_3mf import clean_supports, write_3mf
+jm = s.submit(STL, "layer_height = 0.2\nperimeters = 3\n", "part", "275,187.5", '{"enforce": [[1, 2, 3, 4]], "block": [[0, 0, 5, 6]]}')
+ok(not jm["cached"], "the same part with marks isn't taken from the plain part's cache")
+ok(wait(lambda: s.job(jm["id"])["state"] == "done"), "a slice with marks finishes")
+mdir = os.path.join(s.base, "jobs", jm["id"])
+ok(open(os.path.join(mdir, "argv.txt")).read().rstrip().endswith("part.3mf"), "with marks, PrusaSlicer gets the 3MF the Portal built")
+ok(not os.path.exists(os.path.join(mdir, "part.3mf")), "and it's deleted after slicing")
+ok(raises(lambda: s.submit(STL, "", "part", "275,187.5", '{"enforce": [[1, 2, 3, 99]]}'), "out of range"), "a mark too big is refused")
+ok(raises(lambda: s.submit(STL, "", "part", "275,187.5", '{"paint": []}'), "enforce and block"), "anything but enforce and block is refused")
+ok(raises(lambda: s.submit(STL, "", "part", "275,187.5", '{"enforce": [[1, 2, "3", 4]]}'), "numbers only"), "a mark that isn't numbers is refused")
+ok(raises(lambda: s.submit(STL, "", "part", "275,187.5", json.dumps({"enforce": [[0, 0, 0, 1]] * 501})), "At most"), "more than 500 marks are refused")
+ok(clean_supports("") is None and clean_supports('{"enforce": [], "block": []}') is None, "no marks: a plain STL, as before")
+three = os.path.join(TMP, "check.3mf")
+counts = write_3mf(STL, clean_supports('{"enforce": [[1, 2, 3, 4]], "block": [[0, 0, 5, 6], [9, 9, 9, 1]]}'), three)
+with zipfile.ZipFile(three) as z:
+    names = sorted(z.namelist())
+    cfg = z.read("Metadata/Slic3r_PE_model.config").decode()
+    mod = z.read("3D/3dmodel.model").decode()
+ok(names == ["3D/3dmodel.model", "Metadata/Slic3r_PE_model.config", "[Content_Types].xml", "_rels/.rels"], "the 3MF holds the four files PrusaSlicer reads, nothing else")
+ok(counts == {"enforce": 1, "block": 2} and 'value="SupportEnforcer"' in cfg and 'value="SupportBlocker"' in cfg and 'value="ModelPart"' in cfg,
+   "the part, its enforcer and its blockers are separate volumes")
+ok(mod.count("<triangle ") == 1 + 3 * 144 and 'firstid="0" lastid="0"' in cfg, "every triangle is written, the part's first")
+ok(raises(lambda: write_3mf(b"\0" * 84 + b"x", {"enforce": [[0, 0, 0, 1]]}, three), "binary STL"), "a part that isn't a binary STL is refused")
+
 j = s.submit(STL, "layer_height = 9\n", "part", "275,187.5")
 ok(wait(lambda: s.job(j["id"])["state"] == "failed") and "layer height too big" in s.job(j["id"])["error"], "engine errors come back in its own words")
 ok(raises(lambda: s.submit(STL, "", "x", "9999,1"), "outside"), "a position off the bed is refused")

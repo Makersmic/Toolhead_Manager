@@ -42,6 +42,7 @@ import time
 import uuid
 
 from .errors import Fail
+from .prusa_3mf import clean_supports, write_3mf
 
 APP = "com.prusa3d.PrusaSlicer"
 REMOTE = "flathub"
@@ -179,6 +180,7 @@ class Job:
         self.started = time.time()
         self.finished = None
         self.cached = False
+        self.model_file = "part.stl"
         self.proc = None
         self.cancel = False
 
@@ -635,7 +637,7 @@ class PrusaService:
         self._install(on_done=note)
 
     # ------------------------------------------------------------ slicing
-    def submit(self, model, ini, name, center):
+    def submit(self, model, ini, name, center, supports=None):
         why = self.refuse()
         if why:
             raise Fail(why)
@@ -649,9 +651,11 @@ class PrusaService:
             raise Fail("Bad part position")
         if not (0 <= cx <= 2000 and 0 <= cy <= 2000):
             raise Fail("Part position outside the bed")
+        # supports placed by hand: checked numbers, built into a 3MF here (prusa_3mf.py), never a file from outside
+        marks = clean_supports(supports)
         known = set(self.keys())
         ini = clean_ini(ini, known)
-        key = hashlib.sha256(model + ini.encode() + f"{cx:.3f},{cy:.3f}|{self.info()['commit']}".encode()).hexdigest()[:32]
+        key = hashlib.sha256(model + ini.encode() + f"{cx:.3f},{cy:.3f}|{self.info()['commit']}|{json.dumps(marks, sort_keys=True)}".encode()).hexdigest()[:32]
         with self.lock:
             # Studio sends a new request when its settings change: the older ones are no longer wanted
             for j in self.jobs.values():
@@ -668,8 +672,17 @@ class PrusaService:
                 job.state, job.phase, job.progress, job.cached, job.finished = "done", "Done", 1.0, True, time.time()
                 os.utime(cached)
                 return job.view()
-            with open(os.path.join(d, "part.stl"), "wb") as f:
-                f.write(model)
+            if marks:
+                try:
+                    write_3mf(model, marks, os.path.join(d, "part.3mf"))
+                except Exception:
+                    shutil.rmtree(d, ignore_errors=True)
+                    del self.jobs[jid]
+                    raise
+                job.model_file = "part.3mf"
+            else:
+                with open(os.path.join(d, "part.stl"), "wb") as f:
+                    f.write(model)
             with open(os.path.join(d, "rhino.ini"), "w") as f:
                 f.write(ini)
             job.center = (cx, cy)
@@ -740,7 +753,7 @@ class PrusaService:
         out = os.path.join(job.dir, "out.gcode")
         cmd = [*self._low(), *job.cmd, "--export-gcode", "--load", os.path.join(job.dir, "rhino.ini"),
                 "--center", f"{job.center[0]:.3f},{job.center[1]:.3f}", "--threads", str(threads),
-                "--loglevel", "3", "--output", out, os.path.join(job.dir, "part.stl")]
+                "--loglevel", "3", "--output", out, os.path.join(job.dir, job.model_file)]
         env = self._env()
         log = []
         try:
@@ -786,7 +799,7 @@ class PrusaService:
             job.state, job.phase, job.error = "failed", "Failed", str(e)
         finally:
             job.finished = time.time()
-            for f in ("part.stl",):
+            for f in ("part.stl", "part.3mf"):
                 try:
                     os.remove(os.path.join(job.dir, f))
                 except OSError:

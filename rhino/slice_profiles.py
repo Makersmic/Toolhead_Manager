@@ -457,8 +457,8 @@ _MARK = {"part": None, "x": _num(-5000, 5000), "y": _num(-5000, 5000), "z": _num
 
 def _clean_marks(marks):
     """Supports placed by hand (Studio 0.12+): only where these marks are, on the parts they name, each a point in that
-    part's own coordinates as loaded and a radius in mm. Its presence means "only where I mark", even with none placed.
-    {"marks": [{"part", "x", "y", "z", "r"}]}"""
+    part's own coordinates as loaded and a radius in mm; "kind": "block" stops support there (PrusaSlicer only). Its
+    presence means "only where I mark", even with none placed. {"marks": [{"part", "x", "y", "z", "r", "kind"?}]}"""
     if not isinstance(marks, dict) or set(marks) - {"marks"}:
         raise Fail("Support marks: expected {marks: [...]}")
     lst = marks.get("marks", [])
@@ -466,12 +466,14 @@ def _clean_marks(marks):
         raise Fail(f"Support marks: a list of at most {MAX_MARKS}")
     out = []
     for m in lst:
-        if not isinstance(m, dict) or set(m) != set(_MARK):
+        if not isinstance(m, dict) or set(m) - {"kind"} != set(_MARK):
             raise Fail("Support marks: each needs part, x, y, z and r")
+        if "kind" in m and m["kind"] not in ("enforce", "block"):
+            raise Fail("Support marks: kind is enforce or block")
         if not (isinstance(m["part"], str) and _PART.match(m["part"]) and not m["part"].startswith(".")):
             raise Fail("Support marks: a part name isn't valid")
         for k, spec in _MARK.items():
             if spec:
                 _check_value("Support marks", k, spec, m[k])
-        out.append({k: m[k] for k in _MARK})
+        out.append({k: m[k] for k in _MARK} | ({"kind": "block"} if m.get("kind") == "block" else {}))
     return {"marks": out}
