@@ -1,6 +1,11 @@
 # What changed
 
-## Next release - Typefaces, the Dashboard hologram, supports where you mark
+## 1.9.11 - Typefaces, the Dashboard hologram, supports where you mark; PrusaSlicer 2.9.7 slices again
+
+Rhino Studio 0.12.0. These changes pass the automated tests, but none has run on a real machine yet. The PrusaSlicer fix
+was checked on 2.8.1 and against a stand-in for 2.9.7's fault, not on 2.9.7 itself. Block supports for PrusaSlicer are
+built but hidden: small blocks had no effect in PrusaSlicer. The checks to run are in docs/testing.md (P10, SM1-SM4,
+SJ1-SJ3, HG1-HG3, TH5).
 
 - **Supports only where you mark them** (Rhino Studio, Kiri:Moto). Job setup > Supports: Off, Automatic or Only where I mark.
   With marks, **Mark supports** and click the part above where it needs holding up: the mark goes on the overhang below,
