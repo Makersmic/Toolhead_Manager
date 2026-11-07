@@ -115,6 +115,23 @@ def test_cube_stl(size=20.0):
     return bytes(out)
 
 
+def fail_reason(log):
+    """The lines that say why a slice failed. On a template error PrusaSlicer names the template and the parse
+    error, then ends with "Please inspect ... !!!!! Failed to process ... for all macro processing errors." lines
+    that also say "error": a plain keyword filter keeps that ending and loses the cause, so take the cause."""
+    for i, l in enumerate(log):
+        if "invalid custom G-code sections" in l:
+            inner = []
+            for m in log[i + 1:]:
+                if m.lstrip().startswith("Please inspect"):
+                    break
+                if m.strip() and m.strip() != "^":
+                    inner.append(m.strip())
+            return ("Invalid custom G-code: " + " / ".join(inner))[:400] if inner else "Invalid custom G-code"
+    tail = [l for l in log if re.search(r"error|fail|invalid|cannot|outside", l, re.I)][-3:] or log[-3:]
+    return " / ".join(x.strip() for x in tail)
+
+
 def clean_ini(text, known):
     """Only `key = value` lines for options the engine knows; forced safety values win."""
     if len(text) > MAX_INI:
@@ -790,8 +807,7 @@ class PrusaService:
                 job.phase = "Stopped"
             elif rc != 0 or not os.path.exists(out) or os.path.getsize(out) == 0:
                 job.state, job.phase = "failed", "Failed"
-                tail = [l for l in log if re.search(r"error|fail|invalid|cannot|outside", l, re.I)][-3:] or log[-3:]
-                job.error = "PrusaSlicer stopped: " + (" / ".join(tail).strip() or f"exit code {rc}")
+                job.error = "PrusaSlicer stopped: " + (fail_reason(log) or f"exit code {rc}")
             else:
                 job.state, job.phase, job.progress = "done", "Done", 1.0
                 shutil.copyfile(out, os.path.join(self.base, "cache", job.key + ".gcode"))

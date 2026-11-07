@@ -8,7 +8,7 @@ import zipfile, io, json, os, shutil, sys, tempfile, time
 sys.dont_write_bytecode = True
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
-from rhino.prusa import PrusaService, clean_ini, parse_info, test_cube_stl, SANDBOX, SMALL_MSG, NO_FLATPAK, _tree
+from rhino.prusa import PrusaService, clean_ini, fail_reason, parse_info, test_cube_stl, SANDBOX, SMALL_MSG, NO_FLATPAK, _tree
 from rhino.errors import Fail
 
 fails = []
@@ -115,6 +115,15 @@ def fresh(s): s._info["at"] = 0; return s
 inf = parse_info("PrusaSlicer\n\n          ID: com.prusa3d.PrusaSlicer\n     Version: 2.9.6\n      Commit: " + "f" * 64 + "\n Parent: -\n")
 ok(inf == {"version": "2.9.6", "commit": "f" * 64}, "version and commit read from flatpak info")
 ok(len(test_cube_stl()) == 84 + 12 * 50, "test cube is a 12-facet binary STL")
+# a template error: the cause, not the "Please inspect ... !!!!!" ending (PrusaSlicer 2.8.1's real output)
+tmpl_log = ["90 => Exporting G-code to /x/out.gcode", "G-code export to /x/out.gcode failed due to invalid custom G-code sections:", "",
+            "start_gcode", "Parsing error at line 2: Not a variable name", "{if no_such_key}G1{endif}", "    ^", "", "",
+            "Please inspect the file /x/out.gcode.tmp for error messages enclosed between",
+            "        !!!!! Failed to process the custom G-code template ...", "and",
+            "        !!!!! End of an error report for the custom G-code template ...", "for all macro processing errors."]
+why = fail_reason(tmpl_log)
+ok(why.startswith("Invalid custom G-code: start_gcode / Parsing error at line 2: Not a variable name") and "!!!!!" not in why, f"template error names the template and the cause ({why})")
+ok(fail_reason(["a", "Error: Object too tall", "b"]) == "Error: Object too tall", "other failures keep the keyword lines")
 
 # ---------------------------------------------------------------- who can install
 fp_state()
