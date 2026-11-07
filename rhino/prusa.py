@@ -58,7 +58,10 @@ MAX_INI = 512 * 1024
 KEY_RE = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
 # Forced whatever Studio sends: these run programs or change lines after Studio's checks
 FORCED = {"post_process": "", "gcode_substitutions": "", "binary_gcode": "0", "output_filename_format": "{input_filename_base}.gcode",
-          "thumbnails": ""}
+          "thumbnails": "",
+          # Per-filament lists: a bare `=` is a list with no entries, and PrusaSlicer 2.9.7 then reads past the end
+          # ("Invalid utf8 sequence" in start_filament_gcode). `""` is one empty template, as PrusaSlicer saves it.
+          "start_filament_gcode": '""', "end_filament_gcode": '""'}
 # Phases PrusaSlicer logs, roughly in order, for a progress bar
 PHASES = [("Processing triangulated mesh", 0.05, "Reading the part"), ("Generating perimeters", 0.2, "Walls"),
           ("Preparing infill", 0.45, "Infill"), ("Generating support", 0.6, "Supports"), ("Generating skirt", 0.75, "Skirt and brim"),

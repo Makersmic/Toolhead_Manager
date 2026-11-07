@@ -187,6 +187,9 @@ fp_state(**{**fp_get(), "arch_ok": True})
 ini = clean_ini("layer_height = 0.2\npost_process = /bin/rm -rf ~\nnot_known = 1\nBad Key = 2\ntemperature = 215\nlayer_height = 0.3\n", set(k.replace("-", "_") for k in KEYS))
 ok("layer_height = 0.2" in ini and "layer_height = 0.3" not in ini and "not_known" not in ini and "Bad Key" not in ini, "only known, well-formed options, first value wins")
 ok("post_process = \n" in ini and "gcode_substitutions = \n" in ini and "binary_gcode = 0" in ini, "scripts and substitutions forced empty, plain G-code forced")
+ini = clean_ini("start_filament_gcode = \nend_filament_gcode = M104 S0\n", set(k.replace("-", "_") for k in KEYS) | {"start_filament_gcode", "end_filament_gcode"})
+ok('start_filament_gcode = ""\n' in ini and 'end_filament_gcode = ""\n' in ini and "M104" not in ini,
+   "per-filament templates sent as one empty entry, never an empty list (PrusaSlicer 2.9.7 reads garbage)")
 
 # ---------------------------------------------------------------- slicing
 j = s.submit(STL, "layer_height = 0.2\nperimeters = 3\n", "part", "275,187.5")
