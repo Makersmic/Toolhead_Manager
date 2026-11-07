@@ -29,7 +29,7 @@ def wait(fn, t=10):
 TMP = tempfile.mkdtemp(prefix="rhino-prusa-")
 STATE_FILE = os.path.join(TMP, "flatpak-state.json")
 KEYS = ["layer-height", "perimeters", "fill-density", "post-process", "gcode-substitutions", "binary-gcode", "thumbnails",
-        "output-filename-format", "temperature"] + [f"opt-{i}" for i in range(60)]
+        "output-filename-format", "temperature", "start-gcode", "start-filament-gcode", "end-filament-gcode"] + [f"opt-{i}" for i in range(60)]
 V1, V2, V3 = ({"version": v, "commit": c * 64} for v, c in (("2.9.4", "a"), ("2.9.6", "b"), ("2.9.7", "c")))
 SLICER = os.path.join(TMP, "fake-prusa-slicer")
 open(SLICER, "w").write(f'''#!{sys.executable}
@@ -44,6 +44,9 @@ if not any(os.path.realpath(out).startswith(os.path.realpath(d) + os.sep) for d 
     print("Error: Permission denied: " + out, flush=True); sys.exit(1)
 ini = open(a[a.index("--load") + 1]).read() if "--load" in a else ""
 open(os.path.join(os.path.dirname(out), "argv.txt"), "w").write(" ".join(sys.argv))
+if ".selftest-" in out: open({os.path.join(TMP, "selftest.ini")!r}, "w").write(ini)
+if "\\nstart_filament_gcode = \\n" in "\\n" + ini:   # 2.9.7 with an empty per-filament list
+    print("!!!!! Failed to process the custom G-code template start_filament_gcode", flush=True); sys.exit(1)
 print("Processing triangulated mesh", flush=True)
 if "layer_height = 9" in ini: print("Error: layer height too big", flush=True); sys.exit(1)
 if "perimeters = 999" in ini: x = bytearray(400 * 1024 * 1024); x[::4096] = b"x" * len(x[::4096]); time.sleep(5)
@@ -155,6 +158,9 @@ ok("remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatp
 ok(all("--user" in l for l in log.splitlines() if not l.startswith("run")) and all(" --user " in f" {l} " for l in log.splitlines() if l.startswith("run")),
    "every flatpak call is --user")
 ok("--help-fff" in log and log.count("--export-gcode") >= 1, "after installing: --help-fff and a test slice in the sandbox")
+st_ini = open(os.path.join(TMP, "selftest.ini")).read()
+ok("start_gcode = \n" in st_ini and 'start_filament_gcode = ""' in st_ini and "post_process = \n" in st_ini,
+   "the test slice sends Studio's empty templates, cleaned and forced like a real slice")
 ok(len(s.keys()) == len(KEYS) and "layer_height" in s.keys(), "option names read from the engine's own --help-fff")
 ok(not s.state()["engine"]["update_available"] and s.state()["engine"]["latest"] == "2.9.6", "up to date afterwards")
 

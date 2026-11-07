@@ -62,6 +62,10 @@ FORCED = {"post_process": "", "gcode_substitutions": "", "binary_gcode": "0", "o
           # Per-filament lists: a bare `=` is a list with no entries, and PrusaSlicer 2.9.7 then reads past the end
           # ("Invalid utf8 sequence" in start_filament_gcode). `""` is one empty template, as PrusaSlicer saves it.
           "start_filament_gcode": '""', "end_filament_gcode": '""'}
+# The custom G-code templates Studio sends empty (Studio's prusa/config.ts locks). The test slice sends them the same
+# way, so an engine update that can't take Studio's settings fails its test and is put back.
+TEMPLATES = ("start_gcode", "end_gcode", "before_layer_gcode", "layer_gcode", "toolchange_gcode", "between_objects_gcode",
+             "color_change_gcode", "pause_print_gcode", "template_custom_gcode", "start_filament_gcode", "end_filament_gcode")
 # Phases PrusaSlicer logs, roughly in order, for a progress bar
 PHASES = [("Processing triangulated mesh", 0.05, "Reading the part"), ("Generating perimeters", 0.2, "Walls"),
           ("Preparing infill", 0.45, "Infill"), ("Generating support", 0.6, "Supports"), ("Generating skirt", 0.75, "Skirt and brim"),
@@ -538,11 +542,13 @@ class PrusaService:
             return "it didn't start without a screen"
         d = tempfile.mkdtemp(prefix=".selftest-", dir=self.base)
         try:
-            part, out = os.path.join(d, "cube.stl"), os.path.join(d, "cube.gcode")
+            part, out, ini = (os.path.join(d, n) for n in ("cube.stl", "cube.gcode", "test.ini"))
             with open(part, "wb") as f:
                 f.write(test_cube_stl())
-            p = self.Popen([*self._low(), *self.engine_cmd(d), "--export-gcode", "--center", "100,100", "--threads", "1",
-                            "--output", out, part], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+            with open(ini, "w") as f:                # Studio's empty templates, cleaned and forced like a real slice
+                f.write(clean_ini("".join(f"{k} = \n" for k in TEMPLATES), {k.replace("-", "_") for k in keys}))
+            p = self.Popen([*self._low(), *self.engine_cmd(d), "--export-gcode", "--load", ini, "--center", "100,100",
+                            "--threads", "1", "--output", out, part], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
                            env=self._env(), start_new_session=True)
             try:
                 log, _ = p.communicate(timeout=600)
