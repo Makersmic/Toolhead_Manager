@@ -291,6 +291,19 @@ The `boards` line lists the same `[mcu]` twice on both machines, which is a coun
 
 Still open after Nov 3: the rest of §8 (data, motion, a short print with BW4), PrusaSlicer (§7.6), the load test (§9).
 
+**Nov 6:** back on with a second adapter of the same non-Dell model used since the move. Clock under load on all
+4 cores: **2800 MHz** (§9.1 passes; no 800 MHz throttle). Still to check: whether the BIOS shows an adapter warning
+at power-on that waits for F1, which would block AC Recovery after a power cut.
+
+**Nov 7, §8 and §9:** health check passes (only the known VERSION false alarm); boards match the Pi's report, Octopus
+connected. Studio on PC and phone, profiles and history there. Home, bed mesh (saved), swaps both ways, extruder after
+a resoldered stepper wire. Mike moved the X/Y endstop physically after a laser-head crash during homing; homing and
+swaps checked again after. **Load test passed:** a BlockOne print with all four cores loaded (`nice -n 10 yes`, 10 min,
+20 min in) in place of the PrusaSlicer slices: no layer shift or stall, no visible change in the part, and the
+`timer too close|lost communication|shutdown` count in klippy.log stayed at 41. **The 7050 is accepted.**
+PrusaSlicer on the Rhino isn't decided yet: on the 7050 it fails with a custom G-code template error (cause being
+found), so its half of §9 waits for that fix.
+
 ## Mike's answers (Oct 26)
 
 1. **Network:** A, NetworkManager on the 7050 (§4).
