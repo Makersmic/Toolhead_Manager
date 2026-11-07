@@ -281,6 +281,9 @@ Install `rhino-config-1.5.2.zip`, then use Rhino Studio. Keep `htop` open in an 
   then the new version, and a **Go back to <old version>** line under the row.
 - [ ] **P9 Go back.** Press Go back. *Pass:* the old version shows again and slices; the line now offers the newer one.
   (It needs Flathub to still hold that build: if it says it no longer has it, that's a pass too, and Update works.)
+- [ ] **P10 2.9.7 slices (next release after 1.9.10).** With PrusaSlicer 2.9.7 or newer (Settings / Software), Prepare a
+  small part with PrusaSlicer. *Pass:* it slices, and the file has no `!!!!!` line
+  (`grep -c '!!!!!' <file>` prints 0). *Stop if:* "Failed to process the custom G-code template": copy the whole message.
 
 ### E. Set Z zero (new in 1.3.6)
 

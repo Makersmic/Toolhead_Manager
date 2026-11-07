@@ -11,6 +11,18 @@
   camera: done, the layer being made now, and still to make, with a dial for progress, speed and material, a scan line,
   and a little rhino. It reads the job's file once per job, and asks first over 40 MB. Checks HG1-HG3.
 - **Several files at once in Job setup** (Rhino Studio): the ones that fit become parts of one job; the rest are named.
+- **Start a job from Job setup** (Rhino Studio). After Send to Rhino, the "Sent as" line has **Start job**: the same check and
+  confirm as Files, or **Swap to <tool>** when another tool is mounted. Studio then opens Control. While a job runs there is no
+  Start, only **Open in Files**: nothing queues. Checks SJ1-SJ3.
+- **Supports where you mark them, with PrusaSlicer too** (Rhino Studio, Portal). One Supports control for both engines. With
+  PrusaSlicer, marks go to the Portal with the part and become support enforcers in the project PrusaSlicer slices. Check SM4.
+
+- **PrusaSlicer 2.9.7 slices again.** Flathub's 2.9.7 misread Studio's empty per-filament start template and every slice
+  failed with "Failed to process the custom G-code template start_filament_gcode". The Portal now sends it as one empty
+  template, the way PrusaSlicer saves it. Check P10.
+- **PrusaSlicer's test slice uses Studio's settings.** After an install or update, the test slice now loads the same empty
+  templates and forced values as a real slice, so a build that can't take them fails its test and the old one is put back.
+- **A failed slice says why.** The message names the template and the parse error instead of PrusaSlicer's closing lines.
 
 - **Choose the typefaces** (Rhino Studio). Settings > Appearance > Typefaces sets a font for category titles, subcategories and
   regular text, from 16 open-licensed fonts inside Studio, so no internet is needed. Sizes don't change. Big numbers, positions,
