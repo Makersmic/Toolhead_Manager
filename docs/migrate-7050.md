@@ -181,6 +181,7 @@ If `http://rhino.local` shows **403**, run `chmod o+x ~`.
   the Pi, and a restore wants the same version on both (1.9.9).
 - **Once it's accepted:** make a **one-time Clonezilla image of the 7050's SSD** (boot Clonezilla Live from a USB stick,
   device-image, save to a USB drive or the PC, and check it). Recovery is then the image plus the newest backup zip.
+  Steps, stop rules and rollback: `docs/clonezilla-7050.md`.
 - The Pi's SD card stays as it is, frozen at 1.9.9, for a month after acceptance, then it's retired (Mike, Oct 26).
   Releases after that target the 7050 (x86) only.
 - I add 7050 notes to the manual's install chapter (it's being rewritten anyway).
