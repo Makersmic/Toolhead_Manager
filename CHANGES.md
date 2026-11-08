@@ -1,5 +1,22 @@
 # What changed
 
+## Next release - Your macros, start and end G-code; white fields and build plate
+
+- **Your macros** (Rhino Studio, Portal). Settings › Your macros builds short routines from steps: home, move to, move by,
+  set a temperature, heat for a material, part fan, wait, run one of Klipper's macros, a message, and (if you turn it on)
+  one line of G-code. They're saved on the Rhino (`config/myrhino/user_macros.json`, in backups, restorable on their own)
+  and run from Control › System Macros through the console's own check: moves ask first, heat-only doesn't. Building
+  refuses a job running, the wrong or an unconfirmed toolhead, unhomed axes, moves past the travel and a hotend without
+  a print head; M112, SAVE_CONFIG, restarts, SET_KINEMATIC_POSITION, FORCE_MOVE and SET_STEPPER_ENABLE are refused even
+  as a G-code line. Three starters: park the head, heat for PLA, cool down. Checks MB1-MB5, MB8.
+- **Start and end G-code from your macros** (Rhino Studio, Portal). A toolhead's page picks a macro as its start G-code
+  (after START_JOB homes and heats) and end G-code (before END_PRINT cools and parks). The steps are copied into the
+  tool's job hooks; when the macro changes, the page offers Update. Job setup says which run. Live after a Klipper
+  restart. Checks MB6, MB7.
+- **Fields are white** (Rhino Studio). Every field you type into or pick from is white with dark text in day, night and
+  every theme; a locked one is light grey.
+- **A white build plate** in Job setup's 3D view, with grey grid lines.
+
 ## 1.9.12 - A 3D rhino on the hologram; PrusaSlicer fields fixed
 
 Rhino Studio 0.13.0. These changes pass the automated tests but haven't run on a real machine yet. The checks to run
