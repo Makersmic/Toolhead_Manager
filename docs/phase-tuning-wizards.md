@@ -1,6 +1,6 @@
 # Tuning wizards for print heads (design draft)
 
-Nov 8 2026. **Draft for Mike's review. No code yet.** Mike asked for guided wizards, based on Ellis' Print Tuning Guide,
+Nov 8 2026. **Decided Nov 8 (Mike: "whatever is most cohesive with the current build"); building, 3D printing first.** Mike asked for guided wizards, based on Ellis' Print Tuning Guide,
 that walk through tuning a print head and store the results.
 
 ## What it's for
@@ -111,7 +111,37 @@ test it came from. Then:
 - Out of scope: motor currents, max speeds/accelerations (`TEST_SPEED`), input shaper. They touch working machine values
   and the guide marks them optional.
 
-## Questions for Mike
+## Decided (Nov 8)
+
+Mike: "do whatever is going to be most cohesive with the current build"; the backup must capture every save; each
+toolhead's information panel shows which tests have been run; plan for the laser and other heads too; 3D printing first.
+
+1. **Results** live in a Portal-owned `myrhino/tuning.json` (rhino/tuning.py; revisions and history like job hooks).
+   It's in the config folder, so the backup watcher backs it up after every save, and "Print head tuning results"
+   restores on its own. Per head: rotation distance. Per head + nozzle + material: pressure advance, extrusion
+   multiplier, the first-layer fine-tune. Every run is listed with its date.
+2. **Applying them** uses what already runs: Studio writes each prepared file's start (`rhinoFile.ts`). A tuned pressure
+   advance replaces the `CALCULATE_PA` estimate after START_JOB with `SET_PRESSURE_ADVANCE`; a calibrated head adds
+   `SET_EXTRUDER_ROTATION_DISTANCE`. No macro change, no restart, printer.cfg untouched (its values stay the default for
+   anything not tuned). The first-layer result is Klipper's existing per head + material fine-tune
+   (`rhino_zfine_<tool>_<material>`, applied by `_RHINO_APPLY_Z`), saved with `SAVE_VARIABLE`.
+3. **Rotation distance:** the calibration wizard finds the head's true value and saves it per head; the per-nozzle
+   difference belongs in the extrusion multiplier wizard. printer.cfg's own value isn't touched.
+4. **Order:** extruder calibration, first-layer squish, pressure advance, extrusion multiplier; retraction and max flow later.
+5. **Test G-code** is made by Studio and runs as a normal job (Job setup's checks, START_JOB, END_PRINT).
+6. **Tool page:** a Tuning panel lists each test with a tick and its date, per material, and a Tune button.
+
+## Other toolheads (later)
+
+- **Laser:** focus height (a ramp of lines at stepped Z, pick the thinnest), power/speed matrix on the material (pick
+  the cleanest square), kerf (cut a known square, measure). Saved per material, like the laser material table.
+- **CNC spindle:** tool length / Z zero is already Set Z zero; a feeds test (slots at stepped feed, judge finish and
+  sound); spindle warm-up. Saved per tool and material.
+- **Drag knife:** blade offset (cut a square at stepped offsets, pick the sharpest corner) and depth/pressure per
+  material.
+- **Added tools:** whatever their kind's wizard declares, from the same framework (steps, judge, save).
+
+## Questions for Mike (answered above)
 
 1. **Where results live:** OK with a Portal-owned `tuning.json` per toolhead + nozzle + material, with PA and rotation
    distance applied at job start (the mechanism to be proposed separately)?

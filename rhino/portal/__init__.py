@@ -14,7 +14,8 @@ from ..paths import resolve
 from ..service import ToolService
 from ..slice_profiles import SliceProfiles
 from ..user_macros import UserMacros
-from . import backup_routes, hw_routes, macro_routes, maint_routes, net_routes, profile_routes, routes, security, slicer_routes, trust_routes, update_routes
+from ..tuning import Tuning
+from . import backup_routes, hw_routes, macro_routes, tuning_routes, maint_routes, net_routes, profile_routes, routes, security, slicer_routes, trust_routes, update_routes
 from .access import Access
 
 
@@ -39,6 +40,7 @@ def create_app(config_dir=None, moonraker_url=None, start_monitor=False):
     app.config["BACKUP"] = BackupService(paths, mr, backup_dir=os.environ.get("RHINO_BACKUP_DIR") or None)
     app.config["PROFILES"] = SliceProfiles(paths)
     app.config["MACROS"] = UserMacros(paths)
+    app.config["TUNING"] = Tuning(paths)
     app.config["PRUSA"] = PrusaService(os.path.join(paths.state_dir, "prusaslicer"), slicer_routes.printer_state_from(mr))
     mon.listeners.append(slicer_routes.AutoUpdater(app.config["PRUSA"]))   # PrusaSlicer updates itself while in use (1.5.8)
     if start_monitor:
@@ -52,6 +54,7 @@ def create_app(config_dir=None, moonraker_url=None, start_monitor=False):
     app.register_blueprint(backup_routes.bp)
     app.register_blueprint(profile_routes.bp)
     app.register_blueprint(macro_routes.bp)
+    app.register_blueprint(tuning_routes.bp)
     app.register_blueprint(hw_routes.bp)
     app.before_request(app.config["ACCESS"].gate)      # Moonraker's trusted_clients decides who may use /api (1.5.4)
     app.before_request(security.limit_upload)
