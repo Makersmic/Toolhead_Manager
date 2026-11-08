@@ -1,6 +1,9 @@
 # What changed
 
-## Next release
+## 1.9.16 - Print head tuning wizards
+
+Rhino Studio 0.17.0. These changes pass the automated tests but haven't printed on a real machine yet: run TU1-TU6 in
+Studio's docs/testing.md, in order, watching each test print.
 
 - **Print head tuning wizards** (Rhino Studio, Portal), after Ellis' Print Tuning Guide. A print head's page has **Tune**:
   the tests in his order, each saying why it comes there. **Extruder calibration** is the first: it walks through
