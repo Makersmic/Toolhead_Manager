@@ -1,5 +1,21 @@
 # What changed
 
+## 1.9.12 - A 3D rhino on the hologram; PrusaSlicer fields fixed
+
+Rhino Studio 0.13.0. These changes pass the automated tests but haven't run on a real machine yet. The checks to run
+are HG4 and HG5 in Studio's docs/testing.md.
+
+- **PrusaSlicer settings keep what you type** (Rhino Studio). In Job setup, a PrusaSlicer field jumped back to its old
+  value while you typed, because the live machine status kept redrawing it. It now holds what you type until you leave
+  the field or press Enter.
+- **The hologram's rhino is 3D** (Rhino Studio). An original rhino made in Studio itself: one smooth, see-through
+  turquoise skin with folds at the shoulders, hips and neck, a hump, wrinkled legs and face, and horns that grow out of
+  the head. During a print it trots at the front of the dial. When the print finishes it runs up the right side going
+  away, across the back and down the left side head-on, then faces you, rears, hops and stands proud. Settings > Style
+  guide shows it large, to turn and play. Check HG4.
+- **The hologram turns again after you touch it** (Rhino Studio). A click or drag stops the turn; it starts again
+  3 seconds after you let go. Check HG5.
+
 ## 1.9.11 - Typefaces, the Dashboard hologram, supports where you mark; PrusaSlicer 2.9.7 slices again
 
 Rhino Studio 0.12.0. These changes pass the automated tests, but none has run on a real machine yet. The PrusaSlicer fix

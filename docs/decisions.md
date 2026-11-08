@@ -81,3 +81,8 @@ Append-only. Each entry is dated and gives its reason. An entry is never edited;
   because PrusaSlicer fills small holes in support back in. The button would mislead, so it's hidden (`SHOW_BLOCKS` in
   Studio). Marks ship. The store, the request and the Portal still carry blocks. *Next:* block the whole overhang that's
   clicked, then show the button again.
+- **2026-11-07: The hologram's rhino is an original model built in Studio's code** (Mike). It's a smooth distance-field
+  skin with the same joints and trot as before. Free "CC-BY" rhinos were looked at and turned down: the one downloaded
+  looked like a model ripped from a mobile game (bulk uploads, game rig with dizzy-star bones), the CC0 options were
+  cartoons, and paid models' licences don't allow shipping the file in a public repo. *Reason:* nothing in a public GPL
+  repo should carry doubt about who made it.
