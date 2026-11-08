@@ -1,5 +1,14 @@
 # What changed
 
+## Next release
+
+- **Paint support marks** (Rhino Studio). In Job setup's Mark supports, a ring in the theme's accent shows where support
+  would go as you point at the part; click to mark, or press and drag to size the mark. Click a mark to select it and
+  change its size or remove it; Erase marks wipes them by dragging. Marks are painted on the part's underside and shown
+  as rings through it, so they're visible from above. Check SM5.
+- **See under the part** (Rhino Studio). Settings › Appearance › 3D view sets how see-through Job setup's white build
+  plate is when you look from below (75 % to start).
+
 ## 1.9.14 - Job setup in five steps, supports coloured in Preview
 
 Rhino Studio 0.15.0. These changes pass the automated tests but haven't run on a real machine yet: check Job setup's
