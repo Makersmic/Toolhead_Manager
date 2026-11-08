@@ -7,8 +7,9 @@
   marking and pushing 100 mm (asks first), works out the rotation distance, repeats until two runs agree, and saves it
   for that head. Results are kept on the Rhino (`config/myrhino/tuning.json`, backed up after every save, restorable on
   its own); prints Studio prepares use them after START_JOB. printer.cfg isn't changed. The page's **Tuning** panel shows
-  which tests have been run, per material. First-layer squish, pressure advance and extrusion multiplier follow.
-  Checks TU1-TU3.
+  which tests have been run, per material. **First-layer squish** prints five patches around the bed and lets you
+  move the nozzle closer or farther live (behind the padlock); Keep saves it as that head and material's fine-tune
+  over the paper test, which START_JOB already applies. Pressure advance and extrusion multiplier follow. Checks TU1-TU4.
 
 ## 1.9.15 - Paint support marks; see under the part
 
