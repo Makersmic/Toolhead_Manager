@@ -153,3 +153,23 @@ toolhead's information panel shows which tests have been run; plan for the laser
    extrusion multiplier. Retraction and max flow after.
 4. **Test G-code:** generate it in Studio (no slicer, fits every toolhead), or slice Ellis' STL test prints with
    PrusaSlicer/Kiri? Generating is more work but avoids the slicer differences users trip over.
+
+## 1.9.17: stored on the Rhino, applied by Klipper (Mike, Nov 8)
+
+Mike: "It's either the stored value if it is present and if not then calculate it", for PA, and the same "stored else
+default" rule for rotation distance and the extrusion multiplier; provisions for a material name that doesn't match
+and for no head mapped.
+
+- The Portal's `tuning.json` stays the record (tool page ticks, dates, history, backups). What Klipper applies is a save
+  variable per value, written by Studio when a wizard saves: `rhino_rd_<head>`, `rhino_pa_<head>_<material>_<nozzle>`,
+  `rhino_em_<head>_<material>_<nozzle>` (short material name, nozzle as `0_4`, no SwitchFly path: one extruder).
+- `SET_PRINT` (every print-head job start) calls `_RHINO_APPLY_TUNING`: rotation distance, PA and M221 from the stored
+  values, or printer.cfg's and 100 %. So nothing carries over between jobs, and every file gets them.
+- `CALCULATE_PA` (the file's next line): a stored PA is kept (set again only if it differs); otherwise the estimate.
+  - Name mismatch: in a job it uses the material START_JOB validated (`set_material_*`), not the slicer's MATERIAL=,
+    and says when they differ. Studio's Tune page shows the START_JOB line a file needs to match.
+  - No head mapped: no lookup; it calculates and says why. TOOLHEAD= names a head by hand.
+  - Unknown material: its base (PLA-CF as PLA), else printer.cfg's PA stays; never stops the job.
+- Values out of range (rotation distance 0.1-100, PA 0-1, flow 0.5-1.5) are ignored and reported.
+- Studio-prepared files carry only `CALCULATE_PA`; test files carry nothing tuned (START_JOB applies it).
+- Results saved under 1.9.16 are offered on the Tune page ("Not on the Rhino yet"), never stored silently.

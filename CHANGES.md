@@ -1,5 +1,32 @@
 # What changed
 
+## 1.9.17 - Tuning applied from the Rhino; Bed › Configuration
+
+Rhino Studio 0.18.0. These changes pass the automated tests (macros in the simulator, not real Klipper) but haven't run
+on a real machine yet: run TA1-TA5 below and BC1-BC6 in Studio's docs/testing.md.
+
+- **Tuned values: stored if there is one, else the default** (Klipper macros, Rhino Studio). The tuning wizards' results
+  are now stored on the Rhino as save variables (`rhino_rd_<head>`, `rhino_pa_<head>_<material>_<nozzle>`,
+  `rhino_em_<head>_<material>_<nozzle>`), and Klipper applies them, so every job gets them whichever slicer made the
+  file. At job start, SET_PRINT now sets the extruder from scratch (`_RHINO_APPLY_TUNING`): the head's tuned rotation
+  distance, and the material's tuned pressure advance and flow (M221), or printer.cfg's values and 100 % where nothing
+  is tuned. Nothing carries over from the last job any more (before, a tuned flow or rotation distance stayed set
+  until Klipper restarted). A SwitchFly path change applies its material's values the same way.
+- **CALCULATE_PA uses the tuned value when there is one** and works it out as before when there isn't, saying which in
+  the console. In a job it uses the head, material and nozzle START_JOB checked, so a slicer naming the filament
+  differently (PLA+ for PLA) still gets PLA's value, with a console note that the names differ. With no head known (the
+  tool slot isn't mapped) it calculates and says why; TOOLHEAD= names one by hand. A material it has no estimate for
+  uses its base (PLA-CF as PLA), or keeps printer.cfg's value instead of stopping the job. A stored value out of range
+  is ignored and reported. Studio-prepared files now carry only the CALCULATE_PA line; Studio's Tune page offers to
+  store results saved before this version ("Not on the Rhino yet").
+- **Extruder calibration pushes 100 mm as two 50 mm moves** (Rhino Studio). Klipper's default
+  `max_extrude_only_distance` (50, which the Rhino keeps) refused one 100 mm move. No printer.cfg change.
+- **Bed › Configuration** (Rhino Studio). The rail's Bed mesh is now Bed, with Bed mesh and Configuration. Configuration
+  draws the bed with each Z lead screw from `[z_tilt]` and moves the ticked ones on their own (FORCE_MOVE, red padlock,
+  up to 5 mm a step) or releases them to turn by hand, for when Z_TILT_ADJUST faults out because the bed is too far
+  off level. Z is marked not homed and the saved park height dropped before anything moves. Home and level runs
+  Z_TILT_ADJUST and shows each pass. Checks BC1-BC6.
+
 ## 1.9.16 - Print head tuning wizards
 
 Rhino Studio 0.17.0. These changes pass the automated tests but haven't printed on a real machine yet: run TU1-TU6 in

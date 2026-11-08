@@ -598,6 +598,65 @@ s = restore(2, {"set_material_toolhead": "BlockOne", "set_material_extruder_inde
 ok(s.save_vars["set_material_toolhead"] == "SwitchFly" and abs(s.pins["SERVO_LASER"] - P0) < 1e-9,
    "restart, SwitchFly picked while the record said BlockOne: selector turned to path 1 to match")
 
+# ---------------------------------------------------------------- 1.9.17: stored tuning, else printer.cfg / the estimate
+def says(s, text): return any(text in str(x[1]) for x in s.log)
+def pa_now(s): return s.objects["extruder"].get("pressure_advance")
+def rd_now(s): return s.objects["extruder"].get("rotation_distance")
+TUNED = dict(rhino_rd_blockone=4.3125, rhino_pa_blockone_pla_0_4=0.032, rhino_em_blockone_pla_0_4=0.965)
+def job_start(slot=1, name="BlockOne", mat="PLA", saved=None):
+    s = fresh(slot); s.save_vars.update(saved or {})
+    s.run_script(f"SET_PRINT TOOLHEAD={name} MATERIAL={mat} NOZZLE_SIZE=0.4 EXTRUDER=0")
+    s.objects["print_stats"]["state"] = "printing"; return s
+CALC = "CALCULATE_PA BOWDEN_LENGTH=5.9 MATERIAL={m} LAYER_HEIGHT=0.2 NOZZLE_SIZE=0.4 PRINT_SPEED=60 FILAMENT_DIAMETER=1.75 LINE_WIDTH=0.4"
+
+s = job_start(saved=TUNED)
+c = cmds(s)
+ok("SET_EXTRUDER_ROTATION_DISTANCE EXTRUDER=extruder DISTANCE=4.3125" in c and "M221 S96.5" in c and pa_now(s) == 0.032,
+   "job start: the head's stored rotation distance, and the material's stored PA and flow")
+n = len([x for x in cmds(s) if x.startswith("SET_PRESSURE_ADVANCE")]); s.run_script(CALC.format(m="PLA"))
+ok(pa_now(s) == 0.032 and len([x for x in cmds(s) if x.startswith("SET_PRESSURE_ADVANCE")]) == n and says(s, "0.032 for BlockOne PLA 0.4 mm (tuned)"),
+   "CALCULATE_PA keeps the tuned PA, sets nothing twice, and says it's tuned")
+
+s = job_start()
+c = cmds(s)
+ok("SET_EXTRUDER_ROTATION_DISTANCE EXTRUDER=extruder DISTANCE=4.487" in c and "M221 S100" in c and pa_now(s) == 0.024,
+   "nothing stored: printer.cfg's rotation distance and PA, flow 100 % (a tuned job before doesn't carry over)")
+s.run_script(CALC.format(m="PLA"))
+ok(abs(pa_now(s) - (0.4 * 0.2 * 60 * 0.59) / (85 * 3.14159 * 0.875 ** 2)) < 1e-9 and says(s, "calculated for PLA 0.4 mm: nothing tuned for BlockOne"),
+   "nothing stored: CALCULATE_PA works it out as before, and says so")
+
+s = job_start(saved=TUNED); s.run_script(CALC.format(m="PLA+"))
+ok(pa_now(s) == 0.032 and says(s, "the slicer says MATERIAL=PLA+, but this job started BlockOne with PLA"),
+   "name mismatch: the job's checked material wins (PLA's tuned value), and the console says the names differ")
+s = job_start(mat="PETG"); s.run_script(CALC.format(m="PETG-CF"))
+ok(says(s, "the slicer says MATERIAL=PETG-CF") and says(s, "calculated for PETG"), "name mismatch, nothing tuned: the job's material is estimated")
+s = fresh(1); s.run_script(CALC.format(m="PLA-CF"))
+ok(says(s, "calculated for PLA-CF (as PLA)"), "outside a job, a material with no constant uses its base (PLA-CF as PLA)")
+s = fresh(1); s.objects["extruder"]["pressure_advance"] = 0.024; s.run_script(CALC.format(m="WOODFILL"))
+ok(pa_now(s) == 0.024 and says(s, "no estimate for WOODFILL: pressure advance stays 0.024"), "an unknown material doesn't stop the job: PA stays")
+
+s = fresh(1); s.save_vars.update(TUNED); s.macro_vars["SWAP_TOOL"]["current_tool"] = 9
+s.run_script(CALC.format(m="PLA"))
+ok(says(s, "no print head is known (tool slot 9 isn't mapped to a tool)") and pa_now(s) != 0.032 and pa_now(s) is not None,
+   "no head mapped: no lookup, it calculates, and says why")
+s = fresh(1); s.save_vars.update(TUNED); s.macro_vars["SWAP_TOOL"]["current_tool"] = 9
+s.run_script("CALCULATE_PA TOOLHEAD=BlockOne MATERIAL=PLA NOZZLE_SIZE=0.4")
+ok(pa_now(s) == 0.032, "no head mapped, TOOLHEAD= given by hand: the tuned value")
+s = fresh(1); s.save_vars.update(TUNED); s.run_script(CALC.format(m="PLA"))
+ok(pa_now(s) == 0.032, "outside a job: the mounted head and MATERIAL= find the tuned value")
+s = job_start(saved=dict(TUNED, set_material_toolhead="SwitchFly")); s.save_vars["set_material_toolhead"] = "SwitchFly"; s.run_script(CALC.format(m="PLA"))
+ok(pa_now(s) == 0.032 and not says(s, "but this job started"), "a material record for another head isn't used: MATERIAL= is")
+
+s = job_start(saved=dict(rhino_rd_blockone=400.0, rhino_pa_blockone_pla_0_4=3.0, rhino_em_blockone_pla_0_4=0.2))
+ok(rd_now(s) == 4.487 and pa_now(s) == 0.024 and "M221 S100" in cmds(s) and says(s, "rhino_rd_blockone = 400.0 is out of range"),
+   "a stored value out of range is ignored and reported: printer.cfg's is used")
+s = job_start(saved=dict(rhino_pa_blockone_pla_0_4=None))
+ok(pa_now(s) == 0.024, "a forgotten value (None) reads as not tuned")
+
+s = sf(); s.save_vars.update(rhino_pa_switchfly_petg_0_4=0.05, rhino_em_switchfly_petg_0_4=0.95, switchfly_material_t1="PETG")
+s.run_script("SWITCH_T1")
+ok(pa_now(s) == 0.05 and "M221 S95.0" in cmds(s), "SwitchFly path change: the new path's material gets its tuned PA and flow")
+
 shutil.rmtree(ROOT, ignore_errors=True)
 print("\nFAILED:" if fails else "\nALL PASSED", fails or "")
 sys.exit(1 if fails else 0)

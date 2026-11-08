@@ -436,12 +436,18 @@ class Sim:
         known_noops = {"SET_VELOCITY_LIMIT", "SET_TMC_CURRENT",
                        "SET_STEPPER_ENABLE", "TEMPERATURE_WAIT", "SAVE_GCODE_STATE",
                        "RESTORE_GCODE_STATE", "RESTART", "FIRMWARE_RESTART",
-                       "Z_TILT_ADJUST", "SET_PRESSURE_ADVANCE", "SET_IDLE_TIMEOUT"}
+                       "Z_TILT_ADJUST", "SET_IDLE_TIMEOUT"}
         if cmd in known_noops:
             return
         raise KlipperError(f"Unknown command: {cmd}")
 
     # ---------------- builtin commands ----------------
+    def cmd_SET_PRESSURE_ADVANCE(self, p, rest):
+        self.objects["extruder"]["pressure_advance"] = float(p["ADVANCE"])
+
+    def cmd_SET_EXTRUDER_ROTATION_DISTANCE(self, p, rest):
+        self.objects["extruder"]["rotation_distance"] = float(p["DISTANCE"])
+
     def cmd_RESPOND(self, p, rest):
         msg = p.get("MSG", "")
         typ = p.get("TYPE", "echo")

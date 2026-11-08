@@ -480,3 +480,22 @@ The simulator tests use a pretend `inotifywait`. These prove it on the real host
 Checks **LM1-LM2** are in Rhino Studio's `docs/testing.md`. On the Rhino, after LM2:
 - [ ] **LM3** `python3 -m json.tool ~/printer_data/rhino_data/prepare_jobs.json > /dev/null && echo OK` prints OK, and
   `ls -a ~/printer_data/rhino_data | grep tmp` prints nothing. *Stop if:* the file can't be read: don't delete it, send it.
+
+## 1.9.17: tuning applied from the Rhino
+
+Watch the console at each job start. BlockOne mounted and confirmed.
+- [ ] **TA1 Nothing tuned.** Before storing anything, start a small PLA print. *Pass if:* the console shows "Extruder for
+  BlockOne PLA 0.4 mm: rotation distance 4.487 (printer.cfg), pressure advance 0.024 (printer.cfg until CALCULATE_PA),
+  flow 100% (not tuned)", then "Pressure advance 0.0... calculated for PLA 0.4 mm: nothing tuned for BlockOne".
+  *Stop if:* the job stops with an error at START_JOB or CALCULATE_PA: cancel and send the console.
+- [ ] **TA2 Store.** Studio › BlockOne › Tune: if "Not on the Rhino yet" lists anything, Store on the Rhino. *Pass if:*
+  `rhino_rd_blockone` (and `rhino_pa_…` / `rhino_em_…` for what's tuned) appear in
+  `~/printer_data/config/variables.cfg` (`grep rhino_ ~/printer_data/config/variables.cfg`), and the panel goes away.
+- [ ] **TA3 Tuned.** Start the same PLA print again. *Pass if:* the console says "(tuned)" for each stored value and
+  CALCULATE_PA says "Pressure advance … (tuned)", with no second "calculated" line. *Stop if:* a value looks wrong
+  (rotation distance far from 4.4, PA above 0.1, flow outside 90-105 %): cancel.
+- [ ] **TA4 Doesn't carry over.** Then start a PETG (or any untuned) print. *Pass if:* flow 100 % and printer.cfg's
+  values come back at job start. *Stop if:* the PLA flow or PA is still in use.
+- [ ] **TA5 Desktop slicer.** Start a file from your Orca/PrusaSlicer profile for a tuned material. *Pass if:* it gets
+  the tuned PA. If its filament type differs from the material name (PLA+ against PLA), the console says so in red
+  and uses the job's material. *Stop if:* it silently calculates for a tuned material: send the console lines.
