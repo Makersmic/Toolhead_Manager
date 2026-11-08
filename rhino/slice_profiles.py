@@ -16,21 +16,14 @@ Rules:
 - Profiles never send G-code, start anything or change tool state.
 """
 import copy
-import functools
-import json
 import math
 import os
 import re
-import secrets
-import tempfile
-import threading
 import time
 
 from .errors import Fail
+from .versioned_store import KEEP_REVISIONS, SCHEMA, VersionedStore, _locked, _read, _write  # noqa: F401 (KEEP_REVISIONS: tests)
 
-SCHEMA = 1
-KEEP_REVISIONS = 5
-KEEP_DELETED_S = 30 * 86400
 MAX_PROFILES = 200
 MAX_JOBS = 2000
 ENGINES = ("kiri", "prusa")
@@ -174,217 +167,27 @@ def clean(raw, where="Profile"):
     return out
 
 
-# ---------------------------------------------------------------- files
-def _read(path, empty):
-    """(data, ok). Missing = empty and ok. Present but unreadable = (None, False): never overwrite it."""
-    if not os.path.exists(path):
-        return copy.deepcopy(empty), True
-    try:
-        with open(path, encoding="utf-8") as f:
-            d = json.load(f)
-        if not isinstance(d, dict) or d.get("schema") != SCHEMA:
-            return None, False
-        return d, True
-    except (OSError, ValueError):
-        return None, False
+# ---------------------------------------------------------------- the store (rhino/versioned_store.py)
+class SliceProfiles(VersionedStore):
+    NAME, KEY, PREFIX, NOUN, NOUNS, EXPORT_KEY = "slice_profiles", "profiles", "p_", "profile", "profiles", "rhino_slice_profiles"
+    MAX = MAX_PROFILES
+    LIST_KEYS = ("id", "name", "engine", "process", "toolhead", "material", "header", "notes", "created", "updated", "rev")
+    DELETED_KEYS = ("id", "name", "engine", "process", "deleted_at")
+    EXPORT_FIELDS = ("name", "engine", "process", "toolhead", "material", "settings", "notes")
 
-
-def _write(path, data):
-    """Atomic: a temp file of its own (two writers never share one), flushed to disk, then renamed over."""
-    d = os.path.dirname(path)
-    os.makedirs(d, exist_ok=True)
-    fd, tmp = tempfile.mkstemp(dir=d, prefix="." + os.path.basename(path) + ".", suffix=".tmp")
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=1, sort_keys=True)
-            f.write("\n")
-            f.flush()
-            os.fsync(f.fileno())
-        os.chmod(tmp, 0o644)   # mkstemp makes 0600; keep what the old writer gave
-        os.replace(tmp, path)
-    except BaseException:
-        try:
-            os.unlink(tmp)
-        except OSError:
-            pass
-        raise
-
-
-# One change at a time. Studio saves a job under its toolhead and under its file name in the same instant;
-# Flask serves them on two threads, and an unlocked read -> change -> write lost one, or crashed (Oct 27).
-_LOCK = threading.RLock()
-
-
-def _locked(fn):
-    @functools.wraps(fn)
-    def run(*a, **kw):
-        with _LOCK:
-            return fn(*a, **kw)
-    return run
-
-
-class SliceProfiles:
     def __init__(self, paths, now=time.time):
-        self.paths, self.now = paths, now
-        my = os.path.join(paths.cfg, "myrhino")
-        self.file = os.path.join(my, "slice_profiles.json")
-        self.hist_file = os.path.join(my, "slice_profiles.history.json")
+        super().__init__(paths, now)
         self.jobs_file = os.path.join(paths.state_dir, "prepare_jobs.json")
 
-    # ---- reading
+    def clean(self, raw):
+        return clean(raw)
+
     def _profiles(self):
-        d, ok = _read(self.file, {"schema": SCHEMA, "profiles": []})
-        if not ok:
-            raise Fail("myrhino/slice_profiles.json can't be read, so it's kept as it is. Fix or remove it by hand "
-                       "(a backup has the last good copy), then try again.")
-        return d
-
-    def _history(self):
-        d, ok = _read(self.hist_file, {"schema": SCHEMA, "revisions": {}, "deleted": []})
-        if not ok:
-            raise Fail("myrhino/slice_profiles.history.json can't be read, so it's kept as it is. Fix or remove it by hand.")
-        cut = self.now() - KEEP_DELETED_S
-        d["deleted"] = [p for p in d.get("deleted", []) if p.get("deleted_at", 0) >= cut]
-        return d
-
-    def state(self, full=False):
-        """For the list screen (full: with settings, for Prepare): profiles, or why the file can't be read."""
-        try:
-            return {"ok": True, "profiles": self.list(full)}
-        except Fail as e:
-            return {"ok": False, "error": str(e), "profiles": []}
+        return self._items()
 
     def list(self, full=False):
-        keys = ("id", "name", "engine", "process", "toolhead", "material", "header", "notes", "created", "updated", "rev")
-        return [{k: p[k] for k in keys + (("settings",) if full else ())} for p in self._profiles()["profiles"]]
-
-    def get(self, pid):
-        for p in self._profiles()["profiles"]:
-            if p["id"] == pid:
-                return p
-        raise Fail("That profile isn't on the Rhino (deleted, or never saved)")
-
-    # ---- writing
-    def _unique_name(self, profiles, name, skip=None):
-        taken = {p["name"].lower() for p in profiles if p["id"] != skip}
-        if name.lower() not in taken:
-            return name
-        n = 2
-        while f"{name} ({n})".lower() in taken:
-            n += 1
-        return f"{name} ({n})"[:60]
-
-    @_locked
-    def create(self, raw):
-        d = self._profiles()
-        if len(d["profiles"]) >= MAX_PROFILES:
-            raise Fail(f"The Rhino keeps up to {MAX_PROFILES} profiles. Delete some first.")
-        p = clean(raw)
-        p["name"] = self._unique_name(d["profiles"], p["name"])
-        t = int(self.now())
-        p.update(id="p_" + secrets.token_hex(4), created=t, updated=t, rev=1)
-        d["profiles"].append(p)
-        _write(self.file, d)
-        return p
-
-    @_locked
-    def save(self, pid, raw, rev):
-        d = self._profiles()
-        h = self._history()
-        for i, old in enumerate(d["profiles"]):
-            if old["id"] != pid:
-                continue
-            if rev != old["rev"]:
-                raise Fail(f"{old['name']} was changed on another device (now revision {old['rev']}). Reload it, then save again.")
-            p = clean(raw)
-            if p["name"].lower() != old["name"].lower():
-                p["name"] = self._unique_name(d["profiles"], p["name"], skip=pid)
-            p.update(id=pid, created=old["created"], updated=int(self.now()), rev=old["rev"] + 1)
-            revs = h["revisions"].setdefault(pid, [])
-            revs.insert(0, old)
-            del revs[KEEP_REVISIONS:]
-            d["profiles"][i] = p
-            _write(self.hist_file, h)
-            _write(self.file, d)
-            return p
-        raise Fail("That profile isn't on the Rhino (deleted, or never saved)")
-
-    @_locked
-    def delete(self, pid):
-        d = self._profiles()
-        h = self._history()
-        keep = [p for p in d["profiles"] if p["id"] != pid]
-        if len(keep) == len(d["profiles"]):
-            raise Fail("That profile isn't on the Rhino")
-        gone = next(p for p in d["profiles"] if p["id"] == pid)
-        h["deleted"].insert(0, dict(gone, deleted_at=int(self.now())))
-        d["profiles"] = keep
-        _write(self.hist_file, h)
-        _write(self.file, d)
-        return {"deleted": pid, "name": gone["name"]}
-
-    def history(self, pid):
-        return self._history()["revisions"].get(pid, [])
-
-    @_locked
-    def revert(self, pid, to_rev):
-        """Save an old revision as the newest one (history keeps what it replaces)."""
-        cur = self.get(pid)
-        old = next((r for r in self.history(pid) if r["rev"] == to_rev), None)
-        if old is None:
-            raise Fail(f"Revision {to_rev} isn't kept any more (the last {KEEP_REVISIONS} are)")
-        return self.save(pid, old, cur["rev"])
-
-    def deleted(self):
-        return [{k: p.get(k) for k in ("id", "name", "engine", "process", "deleted_at")} for p in self._history()["deleted"]]
-
-    @_locked
-    def undelete(self, pid):
-        h = self._history()
-        p = next((x for x in h["deleted"] if x["id"] == pid), None)
-        if p is None:
-            raise Fail("That profile isn't in the deleted list any more")
-        d = self._profiles()
-        if any(x["id"] == pid for x in d["profiles"]):
-            raise Fail("That profile is already back")
-        p = {k: v for k, v in p.items() if k != "deleted_at"}
-        p["name"] = self._unique_name(d["profiles"], p["name"])
-        d["profiles"].append(p)
-        h["deleted"] = [x for x in h["deleted"] if x["id"] != pid]
-        _write(self.file, d)
-        _write(self.hist_file, h)
-        return p
-
-    # ---- export / import
-    def export(self, pid=None):
-        ps = [self.get(pid)] if pid else self._profiles()["profiles"]
-        return {"rhino_slice_profiles": SCHEMA, "exported": int(self.now()),
-                "profiles": [{k: p[k] for k in ("name", "engine", "process", "toolhead", "material", "settings", "notes")}
-                             for p in ps]}
-
-    @_locked
-    def import_(self, data):
-        """Every profile is checked before any is added; a clashing name gets " (2)"."""
-        if not isinstance(data, dict) or data.get("rhino_slice_profiles") != SCHEMA or not isinstance(data.get("profiles"), list):
-            raise Fail("That isn't a Rhino slice profiles export")
-        cleaned = []
-        for i, p in enumerate(data["profiles"]):
-            try:
-                cleaned.append(clean(p))
-            except Fail as e:
-                raise Fail(f"Profile {i + 1} in the file: {e}. Nothing was imported.")
-        d = self._profiles()
-        if len(d["profiles"]) + len(cleaned) > MAX_PROFILES:
-            raise Fail(f"The Rhino keeps up to {MAX_PROFILES} profiles; this file would go over")
-        t = int(self.now())
-        added = []
-        for p in cleaned:
-            p["name"] = self._unique_name(d["profiles"], p["name"])
-            p.update(id="p_" + secrets.token_hex(4), created=t, updated=t, rev=1)
-            d["profiles"].append(p)
-            added.append({"id": p["id"], "name": p["name"]})
-        _write(self.file, d)
-        return added
+        keys = self.LIST_KEYS + (("settings",) if full else ())
+        return [{k: p[k] for k in keys} for p in self._items()["profiles"]]
 
     # ---- per-file jobs (rhino_data: in the backup zip, never pushed to GitHub)
     def _jobs(self):
