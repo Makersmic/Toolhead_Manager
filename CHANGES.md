@@ -1,6 +1,9 @@
 # What changed
 
-## Next release - Your macros, start and end G-code; white fields and build plate
+## 1.9.13 - Your macros, start and end G-code; white fields and build plate
+
+Rhino Studio 0.14.0. These changes pass the automated tests but haven't run on a real machine yet. The checks to run are
+MB1-MB8 in Studio's docs/testing.md; MB6 is the first real print with a start G-code: watch the first layer.
 
 - **Your macros** (Rhino Studio, Portal). Settings › Your macros builds short routines from steps: home, move to, move by,
   set a temperature, heat for a material, part fan, wait, run one of Klipper's macros, a message, and (if you turn it on)
