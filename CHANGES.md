@@ -1,6 +1,9 @@
 # What changed
 
-## Next release
+## 1.9.14 - Job setup in five steps, supports coloured in Preview
+
+Rhino Studio 0.15.0. These changes pass the automated tests but haven't run on a real machine yet: check Job setup's
+steps on the 7050 and Preview with a theme applied.
 
 - **Job setup in five steps** (Rhino Studio): File, Process, Setup, Preview, Job file. Preview is now a step of Job setup
   (it prepares the file when the setup changed) and Job file (checks, Send, Start) its own; move between Setup, Preview
