@@ -86,3 +86,8 @@ Append-only. Each entry is dated and gives its reason. An entry is never edited;
   looked like a model ripped from a mobile game (bulk uploads, game rig with dizzy-star bones), the CC0 options were
   cartoons, and paid models' licences don't allow shipping the file in a public repo. *Reason:* nothing in a public GPL
   repo should carry doubt about who made it.
+- **2026-11-07: The macro builder makes Studio-only macros, with an advanced G-code step** (Mike). Macros are stored
+  by the Portal and run from Studio through the console's check; Klipper doesn't load them, so editing needs no
+  restart and the generated config stays small. The advanced step takes one typed line, which goes through the same
+  check and confirm as the console. Starter routines are simple moves and heating: park, heat for the mounted
+  material, cool down. *Reason:* that's what Mike types by hand most, and nothing in it can do more than the console.

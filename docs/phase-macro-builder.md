@@ -1,6 +1,6 @@
 # Macro builder (one-page design draft)
 
-Oct 25 2026. **Draft for Mike's review. No code before the 7050 migration is accepted.**
+Oct 25 2026, questions answered Nov 7. **Ready to build** (the 7050 was accepted on Nov 7).
 This un-parks the visual macro builder (decisions.md, 2026-10-25) in a durable form.
 
 ## What it's for
@@ -74,10 +74,16 @@ device and the 7050 move. They can't do anything the console wouldn't ask about 
   - Studio: each step's G-code, the gate's classification of every step type, travel limits, and the tool and job rules.
 - **On the machine:** MB1–MB8: build, run, edit on the phone, refused during a job, refused on the wrong tool, back up and restore.
 
-## Questions for Mike
+## Decided (Mike, Nov 7)
 
-1. **Studio-only macros** (lean): they run from Studio's buttons, but Klipper doesn't know them, so `END_PRINT` or Mainsail can't call them.
-   The alternative is the Portal writing them into a generated `user_macros.cfg` that Klipper loads. Anything could call them
-   then, but every edit needs a Klipper restart, and generated Klipper config is what we've kept small on purpose.
-2. Do you want the **advanced G-code line** step at all, or only the fixed steps?
-3. Any routines you want built in as starting examples? List two or three you do by hand most.
+1. **Studio-only macros.** They're stored by the Portal and run from Studio's buttons through the console's check.
+   Klipper doesn't know them, so there's no generated config and no restart on edit. If `END_PRINT` ever needs to call
+   one, that single macro can be promoted on its own later.
+2. **Yes to the advanced G-code line step**, clearly marked as advanced. Its line goes through the same `check()` and
+   confirm as the console; it widens nothing.
+3. **Starter routines: simple moves and heating**, which is what Mike types by hand most:
+   - **Park the head:** home if needed, then move to the park spot.
+   - **Heat for the mounted material:** hotend and bed from the material table, then wait.
+   - **Cool down:** hotend and bed off, part fan off.
+
+The gate in the header (no code before the 7050 is accepted) is met: the 7050 was accepted on Nov 7.
