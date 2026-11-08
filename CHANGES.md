@@ -1,5 +1,14 @@
 # What changed
 
+## Next release
+
+- **Job setup in five steps** (Rhino Studio): File, Process, Setup, Preview, Job file. Preview is now a step of Job setup
+  (it prepares the file when the setup changed) and Job file (checks, Send, Start) its own; move between Setup, Preview
+  and Job file without losing anything. Files' Preview still opens the full page.
+- **Supports stand out in Preview** (Rhino Studio): the model in the theme's own colour, supports in its second one (a
+  lighter tint in the plain look).
+- **Macro fields keep what you type** (Rhino Studio): a number in the macro editor no longer jumps back while you type.
+
 ## 1.9.13 - Your macros, start and end G-code; white fields and build plate
 
 Rhino Studio 0.14.0. These changes pass the automated tests but haven't run on a real machine yet. The checks to run are
