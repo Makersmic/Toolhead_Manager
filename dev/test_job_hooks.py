@@ -3,7 +3,7 @@
 Storage, validation and the generated _RHINO_HOOKS text. The macros don't call it yet (job_hooks.LIVE is False):
 the macros call it since Mike approved the change (2026-10-26, docs/proposal-macro-hooks.md), so these tests also
 check myrhino/job_hooks.cfg: always there, rewritten on hooks and hardware saves, every call site in place."""
-import os, sys
+import json, os, sys
 sys.dont_write_bytecode = True
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
@@ -162,6 +162,30 @@ st = J(c.get("/api/hooks"))
 c.post("/api/hooks", json={"rev": st["rev"], "hooks": {}}, headers=H)
 r = c.delete("/api/hardware/devices/dust", headers=H)
 ok(r.status_code == 200, "with the hook gone, it can be removed")
+
+# ---- start/end G-code copied from one of your macros (1.9.13): where it came from is kept with the lines
+st = J(c.get("/api/hooks"))
+src = {"tool:LightSaber": {"after_start": {"macro": "m_abc123", "rev": 3, "name": "Park the head"}}}
+lines = {"tool:LightSaber": {"after_start": ["G91", "G1 Z10 F600", "G90"], "before_end": ["M107"]}}
+r = c.post("/api/hooks", json={"rev": st["rev"], "hooks": lines, "sources": src}, headers=H)
+ok(r.status_code == 200 and J(r)["sources"] == src, f"a source is saved with the lines it came from {J(r).get('error', '')}")
+ok(J(c.get("/api/hooks"))["sources"] == src, "and comes back with the hooks")
+st = J(c.get("/api/hooks"))
+r = c.post("/api/hooks", json={"rev": st["rev"], "hooks": lines}, headers=H)
+ok(J(r).get("sources") == src, "a save without sources (the hooks editor) keeps them while the lines are unchanged")
+st = J(c.get("/api/hooks"))
+edited = {"tool:LightSaber": {"after_start": ["G91", "G1 Z20 F600", "G90"], "before_end": ["M107"]}}
+r = c.post("/api/hooks", json={"rev": st["rev"], "hooks": edited}, headers=H)
+ok(J(r).get("sources") == {}, "editing those lines by hand drops the source, so Update can't overwrite them")
+st = J(c.get("/api/hooks"))
+for bad in ({"tool:LightSaber": {"after_start": {"macro": "../x", "rev": 1, "name": "x"}}},
+            {"tool:LightSaber": {"after_start": {"macro": "m_abc123", "rev": True, "name": "x"}}}):
+    r = c.post("/api/hooks", json={"rev": st["rev"], "hooks": edited, "sources": bad}, headers=H)
+    ok(r.status_code == 400 and "a source is" in J(r).get("error", ""), f"a bad source is refused {json.dumps(bad)[:60]}")
+r = c.post("/api/hooks", json={"rev": st["rev"], "hooks": edited, "sources": {"tool:LightSaber": {"on_pause": {"macro": "m_abc123", "rev": 1, "name": "x"}}}}, headers=H)
+ok(r.status_code == 200 and J(r)["sources"] == {}, "a source for a slot with no lines is dropped")
+st = J(c.get("/api/hooks"))
+c.post("/api/hooks", json={"rev": st["rev"], "hooks": {}}, headers=H)
 
 print(f"\n{'ALL PASS' if not fails else str(len(fails)) + ' FAILED'}")
 fake.shutdown()

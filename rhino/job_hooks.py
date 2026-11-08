@@ -1,6 +1,7 @@
 """Job hooks (Add hardware wizard, step 4). Design: docs/hardware-coverage.md section 6.
 
-    myrhino/job_hooks.json           {"schema": 1, "rev": n, "updated": t, "hooks": {scope: {slot: [line, ...]}}}
+    myrhino/job_hooks.json           {"schema": 1, "rev": n, "updated": t, "hooks": {scope: {slot: [line, ...]}},
+                                      "sources": {scope: {slot: {"macro", "rev", "name"}}}}   (1.9.13: copied from)
     myrhino/job_hooks.history.json   {"schema": 1, "revisions": [old file, ...]}   (newest first, KEEP_REVISIONS)
 
 scope: "machine", "category:<additive|subtractive|passive>" or "tool:<ToolName>".
@@ -258,6 +259,34 @@ def render(hooks, known):
     return "\n".join(out) + "\n"
 
 
+_MACRO_ID = re.compile(r"^m_[a-z0-9]{5,12}$")
+
+
+def clean_sources(raw, hooks, old_hooks=None, old_sources=None):
+    """Where a tool's start or end lines were copied from (one of your macros), so Studio can offer Update when that
+    macro changes (Mike, Nov 7: copy, offer Update). {scope: {slot: {"macro", "rev", "name"}}}, kept only for a
+    scope and slot that has lines. raw None (a hooks editor that doesn't send it): keep the old ones whose lines
+    are unchanged, so a hand-edited hook stops offering an Update that would overwrite it."""
+    if raw is None:
+        raw = {sc: {sl: v for sl, v in slots.items() if (old_hooks or {}).get(sc, {}).get(sl) == hooks.get(sc, {}).get(sl)}
+               for sc, slots in (old_sources or {}).items()}
+    if not isinstance(raw, dict):
+        raise Fail("sources must be an object")
+    out = {}
+    for scope, slots in raw.items():
+        if not isinstance(slots, dict):
+            raise Fail(f"{scope}: sources must be an object")
+        for slot, src in slots.items():
+            if slot not in SLOTS or not hooks.get(scope, {}).get(slot):
+                continue
+            if (not isinstance(src, dict) or not isinstance(src.get("macro"), str) or not _MACRO_ID.match(src["macro"])
+                    or isinstance(src.get("rev"), bool) or not isinstance(src.get("rev"), int) or src["rev"] < 1
+                    or not isinstance(src.get("name"), str) or not 0 < len(src["name"]) <= 60):
+                raise Fail(f"{_label(scope)}, {slot.replace('_', ' ')}: a source is a macro id, revision and name")
+            out.setdefault(scope, {})[slot] = {"macro": src["macro"], "rev": src["rev"], "name": src["name"]}
+    return out
+
+
 class JobHooks:
     def __init__(self, paths, now=time.time):
         self.paths, self.now = paths, now
@@ -278,7 +307,7 @@ class JobHooks:
             _, warnings = clean(hooks, known)
         except Fail as e:               # a tool was removed or a macro renamed since the save: say so, don't hide it
             warnings = [f"Needs attention: {e}"]
-        return {"ok": True, "rev": d["rev"], "updated": d["updated"], "hooks": hooks, "warnings": warnings,
+        return {"ok": True, "rev": d["rev"], "updated": d["updated"], "hooks": hooks, "sources": d.get("sources", {}), "warnings": warnings,
                 "slots": SLOTS, "scopes": [{"id": k, "label": v} for k, v in scopes(known)],
                 "macro": render(hooks, known) if not warnings or not warnings[0].startswith("Needs") else "",
                 "live": LIVE}
@@ -288,19 +317,20 @@ class JobHooks:
         if raw.get("rev") != d["rev"]:
             raise Fail(f"Job hooks were changed on another device (now revision {d['rev']}). Reload, then save again.")
         hooks, warnings = clean(raw.get("hooks") or {}, known)
+        sources = clean_sources(raw.get("sources"), hooks, d.get("hooks", {}), d.get("sources", {}))
         text = render(hooks, known)
         if dry_run:
-            return {"ok": True, "hooks": hooks, "warnings": warnings, "macro": text}
+            return {"ok": True, "hooks": hooks, "sources": sources, "warnings": warnings, "macro": text}
         h, ok = _read(self.hist_file, {"schema": SCHEMA, "revisions": []})
         if not ok:
             raise Fail("myrhino/job_hooks.history.json can't be read, so it's kept as it is. Fix or remove it by hand.")
         if d["rev"]:
             h["revisions"].insert(0, d)
             del h["revisions"][KEEP_REVISIONS:]
-        new = {"schema": SCHEMA, "rev": d["rev"] + 1, "updated": int(self.now()), "hooks": hooks}
+        new = {"schema": SCHEMA, "rev": d["rev"] + 1, "updated": int(self.now()), "hooks": hooks, "sources": sources}
         _write(self.hist_file, h)
         _write(self.file, new)
-        return {"ok": True, "rev": new["rev"], "hooks": hooks, "warnings": warnings, "macro": text,
+        return {"ok": True, "rev": new["rev"], "hooks": hooks, "sources": sources, "warnings": warnings, "macro": text,
                 "restart_needed": LIVE}
 
     def history(self):
