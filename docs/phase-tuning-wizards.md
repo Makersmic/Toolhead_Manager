@@ -1,6 +1,7 @@
 # Tuning wizards for print heads (design draft)
 
-Nov 8 2026. **Decided Nov 8 (Mike: "whatever is most cohesive with the current build"); building, 3D printing first.** Mike asked for guided wizards, based on Ellis' Print Tuning Guide,
+Nov 8 2026. **Decided Nov 8; the four print head wizards are built** (extruder calibration, first-layer squish,
+pressure advance, extrusion multiplier). Laser and other heads later. Mike asked for guided wizards, based on Ellis' Print Tuning Guide,
 that walk through tuning a print head and store the results.
 
 ## What it's for

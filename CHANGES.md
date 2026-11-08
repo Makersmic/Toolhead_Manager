@@ -11,7 +11,8 @@
   move the nozzle closer or farther live (behind the padlock); Keep saves it as that head and material's fine-tune
   over the paper test, which START_JOB already applies. **Pressure advance** prints Ellis' pattern (corner columns at
   stepped values); pick the sharpest, Refine for finer steps, and prints use it instead of the CALCULATE_PA estimate.
-  The extrusion multiplier follows. Checks TU1-TU5.
+  **Extrusion multiplier** prints a row of cubes at stepped flow with Ellis' judging tips on screen; prints get the
+  saved flow as M221 after START_JOB, whichever slicer. Checks TU1-TU6.
 
 ## 1.9.15 - Paint support marks; see under the part
 
