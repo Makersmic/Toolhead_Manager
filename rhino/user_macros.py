@@ -82,8 +82,13 @@ def clean_step(st, where):
         return {"kind": k, "heater": st["heater"], "target": _num(st.get("target"), 0, top, f"{where}: temperature"),
                 "wait": _bool(st.get("wait", False), f"{where}: wait")}
     if k == "heatMaterial":
-        _only(st, ("wait",), where)
-        return {"kind": k, "wait": _bool(st.get("wait", True), f"{where}: wait")}
+        # a material by name; its temperatures come from the mounted toolhead's table when it runs (Klipper keeps no
+        # record of which material is loaded, so the step says which)
+        _only(st, ("material", "wait"), where)
+        m = st.get("material")
+        if not isinstance(m, str) or not _TOKEN.match(m):
+            raise Fail(f"{where}: pick a material")
+        return {"kind": k, "material": m, "wait": _bool(st.get("wait", True), f"{where}: wait")}
     if k == "fan":
         _only(st, ("percent",), where)
         return {"kind": k, "percent": _num(st.get("percent"), 0, 100, f"{where}: fan")}

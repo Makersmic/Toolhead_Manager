@@ -48,7 +48,7 @@ ok(r.status_code == 400 and "Reload the page" in r.get_json()["error"], "a write
 ALL = {"name": "Every step", "toolheads": ["BlockOne"], "notes": "test", "steps": [
     {"kind": "home", "axes": "xy"}, {"kind": "moveTo", "x": 10, "speed": 50}, {"kind": "moveBy", "dz": -2.5, "speed": 5},
     {"kind": "temp", "heater": "hotend", "target": 210, "wait": True}, {"kind": "temp", "heater": "bed", "target": 60},
-    {"kind": "heatMaterial", "wait": True}, {"kind": "fan", "percent": 50}, {"kind": "wait", "seconds": 5},
+    {"kind": "heatMaterial", "material": "PLA", "wait": True}, {"kind": "fan", "percent": 50}, {"kind": "wait", "seconds": 5},
     {"kind": "macro", "name": "clean_nozzle"}, {"kind": "message", "text": "  Done  "}, {"kind": "gcode", "line": " G1 X1 "}]}
 r = post("/api/user-macros", ALL)
 s = (r.get_json().get("macro") or {}).get("steps", [])
@@ -79,6 +79,7 @@ BAD = [
     ({"kind": "message", "text": 'say "hi"'}, "without quotes"),
     ({"kind": "message", "text": "x" * 121}, "up to 120"),
     ({"kind": "fan", "percent": 10, "extra": 1}, "unknown field extra"),
+    ({"kind": "heatMaterial", "wait": True}, "pick a material"),
 ]
 for step, why in BAD:
     r = post("/api/user-macros", {"name": "Bad", "steps": [step]})
