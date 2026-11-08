@@ -1,5 +1,15 @@
 # What changed
 
+## Next release
+
+- **Print head tuning wizards** (Rhino Studio, Portal), after Ellis' Print Tuning Guide. A print head's page has **Tune**:
+  the tests in his order, each saying why it comes there. **Extruder calibration** is the first: it walks through
+  marking and pushing 100 mm (asks first), works out the rotation distance, repeats until two runs agree, and saves it
+  for that head. Results are kept on the Rhino (`config/myrhino/tuning.json`, backed up after every save, restorable on
+  its own); prints Studio prepares use them after START_JOB. printer.cfg isn't changed. The page's **Tuning** panel shows
+  which tests have been run, per material. First-layer squish, pressure advance and extrusion multiplier follow.
+  Checks TU1-TU3.
+
 ## 1.9.15 - Paint support marks; see under the part
 
 Rhino Studio 0.16.0. These changes pass the automated tests but haven't run on a real machine yet: check SM5 in
