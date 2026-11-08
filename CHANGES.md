@@ -1,6 +1,9 @@
 # What changed
 
-## Next release
+## 1.9.15 - Paint support marks; see under the part
+
+Rhino Studio 0.16.0. These changes pass the automated tests but haven't run on a real machine yet: check SM5 in
+Studio's docs/testing.md, and the plate from below on a real screen.
 
 - **Paint support marks** (Rhino Studio). In Job setup's Mark supports, a ring in the theme's accent shows where support
   would go as you point at the part; click to mark, or press and drag to size the mark. Click a mark to select it and
