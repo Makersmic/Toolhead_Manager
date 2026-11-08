@@ -9,7 +9,9 @@
   its own); prints Studio prepares use them after START_JOB. printer.cfg isn't changed. The page's **Tuning** panel shows
   which tests have been run, per material. **First-layer squish** prints five patches around the bed and lets you
   move the nozzle closer or farther live (behind the padlock); Keep saves it as that head and material's fine-tune
-  over the paper test, which START_JOB already applies. Pressure advance and extrusion multiplier follow. Checks TU1-TU4.
+  over the paper test, which START_JOB already applies. **Pressure advance** prints Ellis' pattern (corner columns at
+  stepped values); pick the sharpest, Refine for finer steps, and prints use it instead of the CALCULATE_PA estimate.
+  The extrusion multiplier follows. Checks TU1-TU5.
 
 ## 1.9.15 - Paint support marks; see under the part
 
