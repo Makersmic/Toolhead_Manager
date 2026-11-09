@@ -1,21 +1,26 @@
 <h2 id="install-and-first-start">Install and first start</h2>
-<p>The Rhino software installs from a menu on the Pi, in the style of KIAUH: you upload the zip in Mainsail, type three short commands, then pick numbered options. Every option says what it is about to do and asks before changing anything, and every install backs up your config folder first.</p>
-<p><strong>Before you start:</strong> the printer idle, and a <strong>print head (BlockOne or SwitchFly) mounted</strong>. The Z check after the first start homes Z, and only a print head can do that. You need the Pi&#39;s address (the one you open Mainsail with) and its login and password; on most Klipper installs the login is <code>pi</code>.</p>
+<p>The Rhino's software comes as one release zip, <code>rhino-config-&lt;version&gt;.zip</code>, which holds the Tool Manager, the Portal and Rhino Studio. The first install goes in once by hand, from a menu on the host. After that, every update goes in from Rhino Studio, with no terminal and no Mainsail.</p>
+<h3>The host</h3>
+<p>The host is a Dell OptiPlex 7050 Micro running Debian 12, with Klipper, Moonraker and Mainsail installed through KIAUH. Its name on the network is <code>rhino</code>. The Raspberry Pi 3B it replaced keeps its SD card as a spare. Setting up a new host, from the BIOS to the first print, is written out step by step in <code>docs/migrate-7050.md</code>; read its section <i>The move, Nov 3</i> before you start.</p>
+<div class="callout info"><p>Only one host may talk to the controller board. To go back to the spare, shut the 7050 down, move the USB cables to the Pi and start it. Its SD card is unchanged.</p></div>
+<h3>The first install, from the menu</h3>
+<p><strong>Before you start:</strong> nothing printing, and a <strong>print head (BlockOne or SwitchFly) mounted</strong>. The Z check after the first start homes Z, and only a print head can do that. You need the host's address and its login (<code>pi</code>).</p>
 <ol>
-<li><p><strong>Upload the zip.</strong> In Mainsail open <strong>Machine</strong>, press <strong>Upload</strong> and choose <code>rhino-config-&lt;version&gt;.zip</code> (for example <code>rhino-config-1.4.8.zip</code>). Check the file list shows exactly that name; if the browser renamed it (<code>... (1).zip</code>), fix the name and upload again.</p></li>
-<li><p><strong>Open a terminal on the Pi.</strong> On Windows open <strong>PowerShell</strong>, on a Mac open <strong>Terminal</strong>, and log in with your login and the Pi&#39;s address. Answer <code>yes</code> the first time, then type the password (it stays invisible).</p>
-<pre class="code">ssh pi@192.168.1.50</pre></li>
-<li><p><strong>Open the Rhino menu.</strong> Paste one line at a time:</p>
+<li><p><strong>Copy the zip to the host.</strong> In Mainsail open <strong>Machine</strong> and press <strong>Upload</strong>, or copy it with <code>scp</code>. Check that the name is exactly <code>rhino-config-&lt;version&gt;.zip</code>; a browser sometimes adds <code>(1)</code>.</p></li>
+<li><p><strong>Log in to the host</strong> from PowerShell, Terminal or PuTTY:</p>
+<pre class="code">ssh pi@rhino.local</pre></li>
+<li><p><strong>Open the Rhino menu.</strong> Paste one line at a time, with your version in place of 1.9.18:</p>
 <pre class="code">cd ~/printer_data/config</pre>
-<pre class="code">unzip -o rhino-config-1.4.8.zip -d ~/rhino-1.4.8</pre>
-<pre class="code">bash ~/rhino-1.4.8/rhino.sh</pre>
-<p>If <code>unzip</code> is missing, run <code>sudo apt install -y unzip</code> first. The menu looks like this:</p>
+<pre class="code">unzip -o rhino-config-1.9.18.zip -d ~/rhino-1.9.18</pre>
+<pre class="code">bash ~/rhino-1.9.18/rhino.sh</pre>
 <pre class="code">/==========================================================\
 |             ~~~~ [ Rhino Tool Manager ] ~~~~             |
 |----------------------------------------------------------|
-| Installed version : not installed                        |
-| This folder has   : 1.4.8   (/home/pi/rhino-1.4.8)       |
-| Portal            : not installed                        |
+| Installed version : 1.9.17                               |
+| This folder has   : 1.9.18   (/home/pi/rhino-1.9.18)     |
+| Portal            : running                              |
+| Rhino Studio      : http://rhino.local:5001              |
+|                    by name  http://rhinostudio.local     |
 |----------------------------------------------------------|
 | 1) Preview the install       (changes nothing)           |
 | 2) Install / update from this folder                     |
@@ -23,30 +28,38 @@
 | 4) Undo an install            (pick a backup)            |
 | 5) Portal status and recent log                          |
 | 6) Restart the portal                                    |
+| 7) Health check  (before and after a move)               |
 |                                                          |
 | Q) Quit                                                  |
 \==========================================================/
 Perform action:</pre></li>
-<li><p><strong>Preview: option 1.</strong> It checks your login and config folder, whether a job is running, whether something else uses port 5000 and whether an earlier portal is installed, then lists every step without changing anything. It ends with <em>Dry run finished</em>, or with <strong>STOPPED:</strong> and what to do.</p></li>
-<li><p><strong>Install: option 2</strong>, then <code>y</code>. It asks for the password once and works through its stages, each ending in <strong>OK</strong> (a few only run when needed):</p>
+<li><p><strong>Preview: option 1.</strong> It checks your login, the config folder, whether a job is running and whether port 5000 is free, then lists every step without changing anything. It ends with <em>Dry run finished</em>, or with <strong>STOPPED:</strong> and what to do.</p></li>
+<li><p><strong>Install: option 2</strong>, then <code>y</code>. It asks for the password once and works through its stages, each ending in <strong>OK</strong>:</p>
 <ul>
 <li><p>backs up the config folder to <code>~/rhino-backup-&lt;date&gt;</code>;</p></li>
-<li><p>copies the new files, never touching <code>variables.cfg</code>, <code>variables.save</code>, your positions (<code>myrhino/positions.cfg</code>) or the tool files the portal generates;</p></li>
-<li><p>keeps the SAVE_CONFIG section at the bottom of <code>printer.cfg</code>, and never doubles it;</p></li>
-<li><p>fixes <code>/home/pi</code> paths if your login is different;</p></li>
-<li><p>installs Flask from the Pi&#39;s own packages, plus Waitress when it is available;</p></li>
-<li><p>replaces any earlier portal service (its settings are saved in the backup), starts the portal at every boot, and checks it answers.</p></li>
+<li><p>copies the new files, never touching <code>variables.cfg</code>, <code>variables.save</code>, your positions (<code>myrhino/positions.cfg</code>) or the files the Portal writes;</p></li>
+<li><p>keeps the SAVE_CONFIG section at the bottom of <code>printer.cfg</code>, and fixes <code>/home/pi</code> paths if your login is different;</p></li>
+<li><p>starts the Portal at every boot, and serves Rhino Studio at <code>http://rhino.local:5001</code> and <code>http://rhinostudio.local</code>.</p></li>
 </ul>
-<p>It finishes with the portal&#39;s address, <code>http://&lt;printer address&gt;:5000</code>. Afterwards the menu is always at <code>bash ~/rhino-manager/rhino.sh</code>.</p></li>
-<li><p><strong>First start, in Mainsail.</strong> With the print head still mounted:</p>
-<ul>
-<li><p>Run <code>FIRMWARE_RESTART</code> and wait for <em>Ready</em>. A red box names the file and line Klipper did not accept.</p></li>
-<li><p>Answer the pop-up asking which tool is mounted (or run <code>RESTORE_TOOL</code>).</p></li>
-<li><p>Run <code>CHECK_TOOLHEADS</code>. When the console line starting <code>rhino:</code> says OK, press <strong>Restart now</strong>.</p></li>
-</ul></li>
-<li><p><strong>Check Z before the first job.</strong> After any update, check Z (the Rhino uses <code>gear_ratio: 2:1</code> on all three Z steppers). Home with the print head, move Z 10 mm and measure it, then run <code>Z_TILT_ADJUST</code> and re-check your Z offsets.</p></li>
+<p>Afterwards the menu is always at <code>bash ~/rhino-manager/rhino.sh</code>.</p></li>
 </ol>
-<div class="callout tip"><p><strong>A good place to stop</strong> is after the preview (nothing has changed) or after the first start. Avoid stopping between the install and the first start.</p></div>
-<p><strong>Updating:</strong> upload the new zip, open the menu, choose <strong>3</strong> and pick it. It unpacks the zip, shows the preview and asks whether to install; answer <code>y</code>, then do the first start again. Your tools, photos and maintenance history are kept. <strong>Undoing:</strong> option <strong>4</strong> lists your backups (the oldest is your setup from before the first install), previews the restore and asks first; anything added since is moved aside to <code>~/rhino-undone-&lt;date&gt;</code>, not deleted.</p>
+<h3>First start</h3>
+<p>Open Rhino Studio at <code>http://rhinostudio.local</code> (or <code>http://rhino.local:5001</code>; some Android phones need the address in numbers). With the print head still mounted:</p>
+<ol>
+<li><p><strong>Restart Klipper</strong> from the banner, or <b>Settings › Host</b>, and wait for <em>Ready</em>. If Klipper doesn't accept the config, the message names the file and line.</p></li>
+<li><p><strong>Answer which tool is mounted.</strong> The question appears on <b>Control</b>, and the top bar shows a confirm button until it is answered (see <i>Rhino Studio at a glance</i>).</p></li>
+<li><p><strong>Run <code>CHECK_TOOLHEADS</code></strong> in the console on <b>Control</b>. When the line starting <code>rhino:</code> says OK, the tools are loaded.</p></li>
+<li><p><strong>Check Z before the first job.</strong> All three Z steppers use <code>gear_ratio: 2:1</code>. Home with the print head, move Z 10 mm and measure it, then <b>Level the gantry</b> (Bed › Configuration) and check your Z offset.</p></li>
+</ol>
+<div class="callout tip"><p><strong>A good place to stop</strong> is after the preview (nothing has changed yet) or after the first start. Avoid stopping between the install and the first start.</p></div>
+<h3>Updating from Rhino Studio</h3>
+<p>Every later release goes in from <b>Settings › Software</b> (see <i>Settings</i>):</p>
+<ul>
+<li><p><b>Update</b> on the Rhino Tool Manager row downloads the newest release from GitHub onto the Rhino and installs it. <b>Check now</b> looks again.</p></li>
+<li><p><b>Install from zip</b> takes a zip you downloaded, for a Rhino without internet. Drop it on the panel: it is checked before anything happens, and nothing installs until you press <b>Install</b>.</p></li>
+</ul>
+<p>Both are refused while a job runs. The install shows each step with a tick; the Portal restarts part-way, which is expected, and Studio reloads itself on the new version when it's done. Rhino Studio is in the same zip, so it updates with the Tool Manager. Your tools, photos, tuning, maintenance history and settings are kept. Restart Klipper afterwards if the banner asks.</p>
+<p><img src="blob/st_se_software" alt="Settings › Software: Update, or Install from zip"></p>
+<p><strong>Going back:</strong> <b>Go back to …</b> under the drop area installs the zip kept from the version before. If Studio itself won't open, the menu's option <strong>4</strong> lists the backups, previews the restore and asks first; anything added since is moved aside to <code>~/rhino-undone-&lt;date&gt;</code>, not deleted. Option <strong>7</strong> is a health check that changes nothing, for before and after a move.</p>
 <div class="callout warn"><p><strong>Never home Z with the laser, spindle or drag knife mounted.</strong> Homing Z brings the bed up to the tool. Their macros refuse to, and jobs end with the bed lowered to the safe park height, so X and Y can be homed after a restart without the tool touching anything.</p></div>
-<div class="callout info"><p>The portal has no login. Anyone who can reach port 5000 can add or remove tools, but it cannot run G-code and refuses to restart Klipper during a job. Keep it on your home network, or start it with <code>--host 127.0.0.1</code> and reach it through an SSH tunnel.</p></div>
+<div class="callout info"><p>Moonraker and the Portal let in only the addresses on the trusted list (<b>Settings › Trusted addresses</b>). Keep the Rhino on your home network: the Portal has no login of its own, and anyone on that list can add or remove tools. It can't run G-code, and it refuses to restart Klipper during a job.</p></div>

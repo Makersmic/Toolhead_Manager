@@ -472,21 +472,13 @@ def tools_log():
 def portal():
     P = []
     a = P.append
-    a('<p>Open <code>http://&lt;printer address&gt;:5000</code>. The portal adds, edits, renames and deletes your own tools, records '
-      'which umbilical contacts each one uses, sets up system hardware, tracks maintenance, and restarts Klipper when changes '
-      'need loading. The sidebar groups it into <b>Tools</b>, <b>Hardware</b>, <b>Maintenance</b> and <b>Admin</b>; click a group\'s '
-      'name to fold it away. The screenshots come from a test run with three example tools (FoamWire, PenPlotter, Needle), three '
-      'pieces of system hardware and placeholder photos.</p>')
-    a(step('<h3>Dashboard</h3><p>The portal opens on the Dashboard: the machine\'s state and mounted tool, production hours, jobs, '
-           'filament used and tool swaps, and anything overdue or due soon. Below are charts of hours and jobs by toolhead (each has a '
-           '<b>Table</b> button for the numbers), the maintenance task status and the most urgent tasks next. The portal follows '
-           'Mainsail\'s dark or light theme within 15 seconds.</p>', "dashboard", "Dashboard after a year of use (demo data)", h=4.0))
-    a(step('<h3>Tool library</h3><p>Every tool is a card with its picture, name, slot, kind and number of materials; the mounted tool '
-           'is outlined and marked <b>Mounted</b>. The chips at the top right show Klipper\'s state, the job state, the mounted tool '
-           'and any maintenance due. Select a card to open the tool\'s own page.</p>', "library", "Tool library with the built-in and added tools", h=3.05))
-    a(step('<p class="st">A tool\'s page shows what it does, how to set up a job with it, its outputs, its connector with the contacts '
-           'it uses, its materials and its maintenance tasks. Built-in tools are read-only here (they live in <code>variables.cfg</code>); '
-           'your own tools have <b>Edit tool</b>.</p>', "toolpage", "A tool's page (FoamWire, an added tool)", h=3.05))
+    a('<p>The Portal is the Rhino\'s record keeper and judge. It runs on the host at port 5000 and keeps what Klipper '
+      'doesn\'t: the tools you add, system hardware, maintenance, backups, slice profiles and updates. Every change is '
+      'checked against your whole Klipper config before it is written. <b>Rhino Studio is where you use it</b>: '
+      '<i>Assets</i> for tools, hardware, pins and parts, <i>Care</i> for maintenance and <i>Settings</i> for backups and '
+      'updates (Part 4). The Portal\'s own pages at <code>http://rhino.local:5000</code> still work, as a fallback.</p>'
+      '<p>This chapter covers what the Portal does behind those screens: the steps of adding a tool, which are the same in '
+      'Studio, the restart rule, and slicing on the Rhino. The pictures are from the Portal\'s own pages.</p>')
     a('<h3>Adding a tool</h3><p>Press <b>+ Add a tool</b>. The wizard\'s steps depend on the kind of tool: powered tools get all '
       'seven, passive tools get a Connector step instead of Outputs and Limits, print-head clones get Hardware. Every kind gets '
       'Controls and Macros.</p>')
@@ -551,7 +543,7 @@ def portal():
            'written to <code>custom_tools.cfg</code> with the tool and removed with it. Macros your controls made are listed underneath.</p>',
            "w6_macros", "Step 6: the tool's macros", h=2.6))
     a(step('<p class="st">Press <b>+ Add a macro</b>. <b>Macro name</b>: letters, digits and <code>_</code>, saved in capitals because '
-           'Klipper ignores letter case. <b>Purpose</b>: one line, shown in Mainsail\'s macro list. <b>Only run when this tool is '
+           'Klipper ignores letter case. <b>Purpose</b>: one line, shown in the macro lists. <b>Only run when this tool is '
            'mounted</b>: with another tool on the machine the macro refuses with a message. <b>Macro</b>: Klipper G-code and Jinja '
            'exactly as in a <code>[gcode_macro]</code>. The box underneath shows exactly what will be written.</p>'
            '<p class="st small"><b>Refused:</b> a name used by any macro or Klipper command (<code>SET_PIN</code>, <code>SWAP_TOOL</code>, '
@@ -563,7 +555,7 @@ def portal():
            'outputs, and tells you the slot the tool will get. Add up to six photos here, then <b>Create tool</b>.</p>', "w7_review",
            "Step 7: review, with the outputs, controls and macros listed", h=3.8))
     a(step('<p class="st">Press <b>Add maintenance tasks</b> on the confirmation and the portal offers the Task Book that fits the new '
-           'tool (see <em>Task Library and Task Books</em> in Part 4).</p>', "mt_assign_new", "The Task Book offered for a new needle cutter", h=1.8))
+           'tool (see <em>Task Library and Task Books</em> in Part 5).</p>', "mt_assign_new", "The Task Book offered for a new needle cutter", h=1.8))
     a(step('<h3>Restarting Klipper to load changes</h3><p>A new or changed tool is saved immediately but is not live until Klipper '
            'restarts. A yellow banner lists what is waiting, from the portal or the console; press <b>Restart Klipper</b> when the '
            'machine is idle. Changes Klipper never sees – notes, photos, the pin map – are saved without asking for a restart.</p>',
@@ -572,27 +564,11 @@ def portal():
            'file name, a progress bar, time elapsed and time left, and the clock time when a restart becomes possible. Changes made '
            'during a job are saved and queued; only the restart waits, so it can never kill a job.</p>', "b_job",
            "A print running: progress, time left and when a restart is possible", h=1.6))
-    a(step('<p class="st">Paused, the countdown stops and the banner shows how long the job has been paused.</p>', "b_paused",
-           "The same job paused", h=1.6))
-    a(step('<p class="st">Time left comes from the slicer\'s estimate for 3D prints. Laser, CNC and cutter files usually carry none, so '
-           'the portal works it out from file progress, the way Mainsail does, and says so.</p>', "b_laser",
-           "A laser job: time left estimated from file progress", h=1.7))
     a('<p><b>Restart automatically when this job finishes</b> is off by default. Tick it and the portal restarts Klipper 30 seconds '
       'after the job completes or is cancelled, which leaves time for <code>END_PRINT</code> or <code>CANCEL_PRINT</code> to finish. '
-      'After an error it does not restart, so you can see what happened. A restart started anywhere else (Mainsail, '
+      'After an error it does not restart, so you can see what happened. A restart started anywhere else (Studio, Mainsail, '
       '<code>RESTART_FOR_TOOLS</code>) also clears the banner. The console commands (<code>ADD_TOOLHEAD</code> and the rest) stay '
       'refused during a job: they run a shell command that Klipper waits for, which would stall the job\'s G-code.</p>')
-    a(step('<h3>Editing a tool</h3><p>Open the tool\'s page and press <b>Edit tool</b>. On the <b>Settings</b> tab you can rename it and change its '
-           'power limits and materials; the legend above the limits lists its outputs and the contacts they use.</p>',
-           "e_settings", "Edit window: name, outputs, limits and materials", h=4.0))
-    a(step('<p class="st">Further down are the checklist, the contacts the tool uses (tick more as you wire them), notes and photos. '
-           '<b>x</b> on a photo deletes it; <b>Choose Files</b> adds more. Photos are kept in <code>~/printer_data/rhino_data/images/</code>, '
-           'outside the config folder, so config backups stay small.</p>', "e_lower", "Edit window: checklist, contacts, notes and photos", h=4.6))
-    a(step('<p class="st">The <b>Controls</b> and <b>Macros</b> tabs work exactly like steps 5 and 6 of the wizard; their changes are '
-           'saved with <b>Save changes</b> and are live after the restart.</p>', "e_controls", "Edit window, Controls tab", h=2.4))
-    a(step('<h3>Deleting a tool</h3><p>In the edit window press <b>Delete tool</b>. The button changes to <b>Click again to delete '
-           '&lt;name&gt;</b>; press it within 4 seconds to confirm. The tool\'s pins are freed, its photos removed and its maintenance '
-           'tasks archived. Restart Klipper afterwards.</p>', "e_delete", "Two-click delete confirmation", h=0.6))
     a('<h3>Slicing for Rhino Studio</h3><p>The portal can run <b>PrusaSlicer</b> on the Rhino for Rhino Studio\'s Prepare, so a '
       'phone or tablet can slice a 3D model without a PC. Prusa ships its Linux build only through Flathub, so the host needs '
       'Flatpak once: over SSH, <code>sudo apt install flatpak</code> (the portal never runs sudo itself). Then install PrusaSlicer '
@@ -605,59 +581,10 @@ def portal():
       'with an engine put there by hand) waits until the job is finished. Whatever settings Studio sends, the Rhino\'s start and end G-code, temperatures, bed and nozzle are '
       'always its own. PrusaSlicer is © Prusa Research and the Slic3r authors, under the AGPL-3.0 licence, and is downloaded '
       'from Flathub on the machine.</p>')
-    a('<h3>Rhino Studio from the Rhino</h3><p>The install also serves <b>Rhino Studio</b> from the Pi, at '
-      '<code>http://&lt;pi&gt;:5001</code>: open it from any PC, phone or tablet on your network, with nothing to install on it. '
-      'The nginx that serves Mainsail serves it on a port of its own, and Mainsail\'s site is left as it is. Updating the Tool '
-      'Manager from its zip updates Studio too; undo takes it back out. The menu\'s header shows the address.</p>')
-    a(keep('<h3>On a phone</h3><p>The portal works on a phone: the menu folds behind <b>☰</b>, and the status chips scroll sideways in '
-           'the top bar.</p><div class="phones">' + fig("phone_library", "Tool library") + fig("phone_menu", "Menu") +
-           fig("phone_maint", "Maintenance") + "</div>"))
+    a('<h3>Editing and deleting</h3><p>Change a tool you added on its page in <b>Assets</b> (<b>Edit</b>), which opens the '
+      'same steps with its answers filled in. Deleting it frees its pins, removes its photos and archives its maintenance tasks; '
+      'restart Klipper afterwards. Built-in tools live in <code>variables.cfg</code> and are read-only.</p>')
     return section("The Tool Manager portal", "".join(P))
-
-
-def pins_and_hardware():
-    P = []
-    a = P.append
-    a(step('<p><b>Hardware › Pins &amp; outputs</b> starts with the tool connector: all 21 contacts of the umbilical, the board pin '
-           'behind each, what drives it in the Klipper config and which tools use it. A contact whose board pin nothing in the config '
-           'uses is highlighted – it means the pin map and <code>printer.cfg</code> disagree (contact 20 here; see <em>Still to check on '
-           'the machine</em>). The contacts come from the Rhino pin map; describe different wiring with <code>"contacts"</code> in '
-           '<code>myrhino/umbilical.json</code>.</p>', "pins_contacts", "The 21 contacts, what drives them and which tools use them", h=6.6))
-    a(step('<p class="st">Further down: the spare pins a new tool output may claim (Free, In use with the file and section, or '
-           'Reserved by a tool), the outputs tools can share with their contact and idle level, and the system hardware.</p>',
-           "pins_channels", "Output channels tools can share", h=2.0))
-    a(step('<h3>System hardware</h3><p>Some hardware belongs to the machine rather than a tool: enclosure fans and lights, an air or '
-           'vacuum pump, a door switch, a sensor. It is wired to board pins that are <i>not</i> on the umbilical and works whatever '
-           'tool is mounted. <b>Hardware › System hardware</b> lists it by category; <b>+ Add system hardware</b> opens the same guide '
-           'as a tool control.</p>', "hw_list", "System hardware, grouped by category", h=4.0))
-    a(step('<p class="st">The differences from a tool control: the pin list offers free <b>board headers</b> (FAN5, HE2, DIAG4...) and '
-           'refuses any pin on the umbilical; you can type another free pin; you choose a <b>category</b> (edited under <b>Admin › '
-           'Tool lists</b>); and its macros have no mounted-tool guard. <b>Switch it off whenever the machine is made safe</b> is '
-           'off by default, since lights and fans usually stay on. A powered tool can switch a piece of system hardware on with '
-           'itself – a shop vacuum with a cutter – by choosing it as a <b>Switch on with the tool</b> output in step 2. Each piece can '
-           'carry maintenance tasks (<b>Maintenance</b> on its card).</p>', "hw_editor", "An enclosure door switch that pauses the job", h=5.2))
-    return section("Pins, outputs and system hardware", "".join(P))
-
-
-def admin():
-    P = []
-    a = P.append
-    a('<p>The <b>Admin</b> group sets what the portal\'s drop-down menus offer. Every list is checked as you save: a kind of tool, '
-      'category or kind of work that something still uses cannot be removed (rename it instead).</p>')
-    a(step('<h3>Tool lists</h3><p><b>Kinds of tool</b> are grouped under Additive, Subtractive and Passive – what step 1 of Add a tool '
-           'offers. Each has a name, the help line shown in the wizard and what it needs: a print head (copies an extruder), a power '
-           'output, or nothing. What it needs is fixed once the kind exists; built-in kinds can be renamed but not removed.</p>',
-           "admin_tools", "Admin › Tool lists: kinds of tool by category", h=6.0))
-    a(step('<p class="st">Open <b>Starting values for new tools of this kind</b> to set the power cap, maximum on-time, materials '
-           '(one per line: name, power %, feed) and pre-job checklist that a new tool of this kind starts with.</p>', "admin_kind",
-           "Starting values of the hot-wire kind", h=2.0))
-    a(step('<p class="st">The same page holds the material names suggested in the material tables, by category; the nozzle sizes '
-           'offered when you add a print head; and the system hardware categories.</p>', "admin_materials",
-           "Material name suggestions by category", h=1.4))
-    a(step('<h3>Maintenance lists</h3><p>The machine areas tasks are grouped by, the kinds of work (Inspect, Clean...) with how many '
-           'tasks use each, and the names of the four priority levels.</p>', "admin_maint", "Admin › Maintenance lists", h=5.2))
-    a('<p><b>Status codes</b> are described with maintenance tracking in Part 4.</p>')
-    return section("Admin lists", "".join(P))
 
 
 def maintenance():
@@ -739,8 +666,8 @@ def maintenance():
            'the machine had hours before that, press <b>Set</b> on a meter and note why; the change goes in the work log. Jobs that ran '
            'while the portal was stopped are filled in from the history the next time it starts. System hardware tasks count the '
            'machine\'s meters. The page also has the start-up reminder switch.</p>'))
-    a(keep('<h3>Reminders in Mainsail</h3><p>After Klipper starts, once you answer <i>which toolhead is mounted?</i>, Mainsail shows a '
-           '<b>Maintenance due</b> pop-up with up to eight overdue and due-soon tasks, overdue first. It appears once per start; close it '
+    a(keep('<h3>The Mainsail reminder</h3><p>After Klipper starts, once you answer <i>which toolhead is mounted?</i>, Klipper asks a '
+           '<b>Maintenance due</b> question, shown on Control in Studio (and in Mainsail), with up to eight overdue and due-soon tasks, overdue first. It appears once per start; close it '
            'with <b>OK</b>. Snoozed tasks, tasks with the reminder unticked and tasks set to a status code that leaves them out of the '
            'reminder are not shown.</p><p>The portal keeps <code>myrhino/maintenance_status.cfg</code> up to date, and Klipper reads it '
            'when it starts. At any other time, type <code>PM_STATUS</code> in the console for the live list, or <code>PM_REMINDER</code> '
@@ -823,7 +750,7 @@ def still_to_check():
              'lists 24 V power activate on contacts 11–12, while its servo wiring diagram feeds the regulator from 12 V activate.</p></li>'
              '<li data-checked="false"><p><input type="checkbox" disabled> <strong>Fan labels.</strong> On the Octopus v1.1 PA8 is FAN0 '
              'and PE5 is FAN1; the pin sheets label them Fan5 and Fan0. The pins are right; only the labels differ.</p></li></ul>')
-    last = "the macros that call it (cancel, emergency stop).</p></li></ul>"   # end of the chapter's last list
+    last = "<b>Level the gantry</b> succeed.</p></li></ul>"   # end of the chapter's last list
     return xsec("17_still-to-check-on-the-machine.html", [(last, last + "<h3>Wiring to confirm</h3><ul>" + extra)])
 
 
@@ -869,9 +796,9 @@ def build():
     body.append(tools_added())
     TOC.append((3, "Rhino tools log", "toolslog"))
     body.append(tools_log())
-    body.append(part(3, "Software and Operation", "Installing the software, changing tools, running jobs and the Tool Manager portal.",
+    body.append(part(3, "Software and Operation", "Installing the software, changing tools, running jobs, and what the Portal does behind Rhino Studio.",
                      ["How the software fits together", "Install and first start", "Swapping tools", "Running a job",
-                      "Pause, resume and cancel", "The Tool Manager portal", "Pins, outputs and system hardware", "Admin lists",
+                      "Pause, resume and cancel", "The Tool Manager portal",
                       "Console commands", "Safety systems"]))
     body.append(xsec("04_how-the-software-fits-together.html"))
     body.append(xsec("05_install-and-first-start.html"))
@@ -879,8 +806,6 @@ def build():
     body.append(xsec("07_running-a-job.html", [(ORCA_OLD, ORCA_NEW)]))
     body.append(xsec("08_pause-resume-and-cancel.html"))
     body.append(portal())
-    body.append(pins_and_hardware())
-    body.append(admin())
     body.append(xsec("10_console-commands.html"))
     body.append(xsec("11_safety-systems.html"))
     body.append(part(4, "Rhino Studio", "The Rhino's main screen: running the machine, preparing jobs, tuning, the bed, assets, care and settings.",
