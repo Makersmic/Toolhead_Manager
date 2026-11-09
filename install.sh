@@ -46,6 +46,7 @@ STUDIO_PORT="${RHINO_STUDIO_PORT:-5001}"
 # Studio by name (1.5.3): http://rhinostudio.local on port 80. Only dev/test_install.py changes these.
 STUDIO_NAME="${RHINO_STUDIO_NAME:-rhinostudio}"
 NAME_PORT="${RHINO_STUDIO_NAME_PORT:-80}"
+MAINSAIL_PORT="${RHINO_MAINSAIL_PORT:-8090}"   # 1.9.19: Mainsail moves here; Studio takes the bare address
 AVAHI_SOCK="${RHINO_AVAHI_SOCKET:-/run/avahi-daemon/socket}"   # there while avahi-daemon runs
 # The updater (1.5.3): the Portal drops zips here; only dev/test_install.py changes these.
 UPD="$(dirname "$CFG")/rhino_data/update"
@@ -484,6 +485,83 @@ else
   fi
 fi
 
+# ------------------------------------------------------------------ Studio on the bare address (1.9.19)
+# http://rhino.local (any name, no port) opens Studio; Mainsail moves to port $MAINSAIL_PORT as a spare until it is
+# removed (Mike, Nov 9 2026). Mainsail's KIAUH site is copied into the backup first and only its port-80 listen lines
+# change. Same rules as above: nginx is reloaded only after "nginx -t", and if Studio doesn't answer the bare address
+# afterwards, Mainsail's site goes back as it was and the default site comes out. Undo puts both back.
+say "Rhino Studio on the bare address (Mainsail to port $MAINSAIL_PORT)"
+DSITE="$NGX/sites-available/rhino-studio-default"; DLINK="$NGX/sites-enabled/rhino-studio-default"
+msite=""; bare_url=""
+for f in "$NGX"/sites-enabled/*; do
+  [ -e "$f" ] || continue
+  grep -Eqs '^[[:space:]]*root[[:space:]]+[^;]*/mainsail/?;' "$f" && msite="$(readlink -f "$f")" && break
+done
+default_out() {
+  sudo rm -f "$DLINK" "$DSITE"
+  [ -f "$BACKUP/_rhino_install/old-rhino-studio-default.nginx" ] && sudo install -m 644 "$BACKUP/_rhino_install/old-rhino-studio-default.nginx" "$DSITE" \
+    && sudo ln -sfn "$DSITE" "$DLINK"
+  if [ -n "$msite" ] && [ -f "$BACKUP/_rhino_install/old-mainsail.nginx" ]; then sudo install -m 644 "$BACKUP/_rhino_install/old-mainsail.nginx" "$msite"; fi
+  return 0
+}
+studio_at() { py "import urllib.request as u;assert b'Rhino Studio' in u.urlopen(u.Request('http://127.0.0.1:$NAME_PORT/',headers={'Host':'$1'}),timeout=3).read()"; }
+if ! printf '%s' "$MAINSAIL_PORT" | grep -Eq '^[0-9]{2,5}$'; then
+  note "RHINO_MAINSAIL_PORT must be a port number - left as it is"
+elif [ $DRY = 0 ] && [ -z "$studio_url" ]; then
+  note "skipped: Studio isn't served by nginx on this host (see above)"
+elif [ -n "$msite" ] && grep -Eqs "^[[:space:]]*listen[[:space:]]+([^;[:space:]]*:)?$MAINSAIL_PORT([[:space:];]|\$)" "$msite" && [ -f "$DSITE" ]; then
+  bare_url=1
+  do_ cp "$DSITE" "$BACKUP/_rhino_install/old-rhino-studio-default.nginx"   # so undoing this install keeps it
+  ok "already done: Studio answers the bare address, Mainsail is on port $MAINSAIL_PORT"
+elif [ -n "$msite" ] && py "import socket;s=socket.socket();s.settimeout(1);s.connect(('127.0.0.1',$MAINSAIL_PORT))"; then
+  note "port $MAINSAIL_PORT is already in use, so Mainsail stays on port $NAME_PORT (see it with:  sudo ss -ltnp | grep :$MAINSAIL_PORT)"
+else
+  mport=$(sed -n '/^\[server\]/,/^\[/s/^port[[:space:]]*[:=][[:space:]]*\([0-9]*\).*/\1/p' "$CFG/moonraker.conf" 2>/dev/null | head -n1)
+  mport="${mport:-7125}"
+  [ -f "$DSITE" ] && do_ cp "$DSITE" "$BACKUP/_rhino_install/old-rhino-studio-default.nginx"
+  if [ -n "$msite" ]; then
+    do_ cp "$msite" "$BACKUP/_rhino_install/old-mainsail.nginx"
+    [ $DRY = 0 ] && printf '%s\n' "$msite" > "$BACKUP/_rhino_install/old-mainsail.path"
+    tmp="$(mktemp)"
+    # only "listen 80" and "listen [::]:80" (with default_server or not) change
+    sed -E "s/^([[:space:]]*listen[[:space:]]+(\[::\]:)?)$NAME_PORT([[:space:];])/\1$MAINSAIL_PORT\3/" "$msite" > "$tmp"
+    do_ sudo install -m 644 "$tmp" "$msite"
+    rm -f "$tmp"
+  else
+    note "no Mainsail site in $NGX/sites-enabled - Studio takes the bare address on its own"
+  fi
+  tmp="$(mktemp)"
+  sed "s#@PORT@#$NAME_PORT default_server#g; s#@NAME@#_#g; s#@ROOT@#$STUDIO_DIR#g; s#@MOONRAKER@#$mport#g; s#rhino-studio-error.log#rhino-studio-default-error.log#g" \
+    "$SRC/service/rhino-studio.nginx" > "$tmp"
+  do_ sudo install -m 644 "$tmp" "$DSITE"
+  do_ sudo ln -sfn "$DSITE" "$DLINK"
+  rm -f "$tmp"
+  if [ $DRY = 1 ]; then
+    printf '   would run: sudo %s -t, reload nginx, then check Studio answers the bare address and Mainsail port %s\n' "$NGINX_BIN" "$MAINSAIL_PORT"
+  elif sudo "$NGINX_BIN" -t >/dev/null 2>&1; then
+    sudo systemctl reload nginx
+    sleep 1
+    if studio_at 127.0.0.1; then
+      bare_url=1
+      ok "http://$(hostname 2>/dev/null || echo rhino).local opens Rhino Studio"
+      if [ -n "$msite" ]; then
+        if py "import urllib.request as u;u.urlopen('http://127.0.0.1:$MAINSAIL_PORT/',timeout=3).read()"; then ok "Mainsail answers on port $MAINSAIL_PORT, as a spare"
+        else note "Mainsail didn't answer on port $MAINSAIL_PORT yet. Check with:  curl -sI http://127.0.0.1:$MAINSAIL_PORT/"; fi
+      fi
+    else
+      default_out
+      sudo "$NGINX_BIN" -t >/dev/null 2>&1 && sudo systemctl reload nginx
+      note "Studio didn't answer the bare address, so Mainsail's site was put back as it was"
+    fi
+  else
+    why=$(sudo "$NGINX_BIN" -t 2>&1 | tail -n 3)
+    default_out
+    sudo "$NGINX_BIN" -t >/dev/null 2>&1 && sudo systemctl reload nginx
+    note "nginx did not accept the change, so Mainsail's site was put back as it was:"
+    printf '%s\n' "$why" | sed 's/^/        /'
+  fi
+fi
+
 # ------------------------------------------------------------------ klipper-backup's file watcher
 # One backup per burst of changes, not one per file event. Only if klipper-backup's watcher is set up here. The restart
 # also drops any backups the old watcher had queued, including those this install's own copying just caused.
@@ -528,11 +606,12 @@ cat <<EOF
 Portal:  $url
 ${studio_url:+Studio:  $studio_url   (on a phone or tablet too)
 }${name_url:+         http://$STUDIO_NAME.local   (the same Studio by name; some Android phones do not resolve .local names: use the address above on those)
+}${bare_url:+         http://$(hostname 2>/dev/null || echo rhino).local   (Studio on the bare address; Mainsail is a spare on port $MAINSAIL_PORT)
 }Backup:  $BACKUP   (undo: menu option 4, or  bash $SRC/uninstall.sh)
 
-Next, in Mainsail:
+Next, in Rhino Studio (Control):
   1. Mount a PRINT HEAD (BlockOne or SwitchFly) before you home or move Z.
-  2. FIRMWARE_RESTART and wait for Ready. A red error box names the file and line - send it for help.
+  2. Restart Klipper (the banner, or Settings > Host) and wait for Ready. An error names the file and line - send it for help.
   3. Answer the "which toolhead is mounted?" question.
   4. CHECK_TOOLHEADS, then press Restart now when the console shows "rhino: OK".
 EOF

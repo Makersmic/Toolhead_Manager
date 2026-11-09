@@ -86,6 +86,26 @@ if [ -f "$B/_rhino_install/old-rhino-studio-name.nginx" ] || [ -e "$NSITE" ]; th
     else echo "nginx -t found a problem - not reloading nginx. See:  sudo nginx -t"; fi
   fi
 fi
+# 1.9.19+: Studio on the bare address - Mainsail's site and Studio's default site, as they were before that install
+DSITE="$NGX/sites-available/rhino-studio-default"
+if [ -f "$B/_rhino_install/old-mainsail.nginx" ] || [ -f "$B/_rhino_install/old-rhino-studio-default.nginx" ] || [ -e "$DSITE" ]; then
+  echo "Putting Mainsail back on the bare address as it was"
+  if [ -f "$B/_rhino_install/old-rhino-studio-default.nginx" ]; then
+    do_ sudo install -m 644 "$B/_rhino_install/old-rhino-studio-default.nginx" "$DSITE"
+    do_ sudo ln -sfn "$DSITE" "$NGX/sites-enabled/rhino-studio-default"
+  else
+    do_ sudo rm -f "$NGX/sites-enabled/rhino-studio-default" "$DSITE"
+  fi
+  mpath="$(cat "$B/_rhino_install/old-mainsail.path" 2>/dev/null)"
+  if [ -f "$B/_rhino_install/old-mainsail.nginx" ] && [ -n "$mpath" ] && [ -f "$mpath" ]; then
+    do_ sudo install -m 644 "$B/_rhino_install/old-mainsail.nginx" "$mpath"
+  fi
+  if [ $DRY = 1 ]; then echo "   would run: sudo $NGINX_BIN -t, then reload nginx"
+  elif [ -x "$NGINX_BIN" ]; then
+    if sudo "$NGINX_BIN" -t >/dev/null 2>&1; then sudo systemctl reload nginx
+    else echo "nginx -t found a problem - not reloading nginx. See:  sudo nginx -t"; fi
+  fi
+fi
 if [ -f "$B/_rhino_install/old-rhino-studio-name.service" ]; then
   do_ sudo install -m 644 "$B/_rhino_install/old-rhino-studio-name.service" "$NUNIT"
   do_ sudo systemctl daemon-reload

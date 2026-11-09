@@ -133,6 +133,11 @@ with socket.socket() as s_:
 with socket.socket() as s_:
     s_.bind(("127.0.0.1", 0))
     NAME_PORT = s_.getsockname()[1]   # stands in for port 80 (1.5.3)
+with socket.socket() as s_:
+    s_.bind(("127.0.0.1", 0))
+    MS_PORT = s_.getsockname()[1]     # where Mainsail moves (1.9.19)
+DSITE = os.path.join(NGX, "sites-available", "rhino-studio-default")
+DLINK = os.path.join(NGX, "sites-enabled", "rhino-studio-default")
 NSITE = os.path.join(NGX, "sites-available", "rhino-studio-name")
 NLINK = os.path.join(NGX, "sites-enabled", "rhino-studio-name")
 UNITS0 = os.path.join(ROOT, "units-default")
@@ -161,7 +166,7 @@ def env(**extra):
          "RHINO_SERVICE_FILE": SERVICE, "RHINO_MOONRAKER": f"http://127.0.0.1:{moon.server_port}",
          "PORTAL_LOG": os.path.join(ROOT, "portal.log"), "TERM": "dumb", "LANG": "C.UTF-8",
          "RHINO_NGINX_DIR": NGX, "RHINO_NGINX_BIN": os.path.join(BIN, "nginx"), "RHINO_STUDIO_DIR": STUDIO,
-         "RHINO_STUDIO_PORT": str(STUDIO_PORT), "RHINO_STUDIO_NAME_PORT": str(NAME_PORT), "RHINO_UNIT_DIR": UNITS0, "RHINO_AVAHI_SOCKET": AVAHI_SOCK,
+         "RHINO_STUDIO_PORT": str(STUDIO_PORT), "RHINO_STUDIO_NAME_PORT": str(NAME_PORT), "RHINO_MAINSAIL_PORT": str(MS_PORT), "RHINO_UNIT_DIR": UNITS0, "RHINO_AVAHI_SOCKET": AVAHI_SOCK,
          "RHINO_SNAPSHOT_URL": f"http://127.0.0.1:{_snap.server_port}", "SNAP_SHA256": _hl.sha256(_SNAP_DEB).hexdigest(), "TMPDIR": ROOT}
     e.update(extra)
     return e
@@ -303,7 +308,9 @@ try:
     ok("systemctl enable rhino-studio-name" in calls and "rhinostudio.local announced (127.0.0.1)" in out and "http://rhinostudio.local" in out,
        "...enabled; the install checks the name resolves and the finish names http://rhinostudio.local")
     lines = calls.splitlines()
-    ok(lines.count("systemctl reload nginx") == 2 and lines.count("nginx -t") == 2, "the name site has its own nginx -t before its reload")
+    ok(lines.count("systemctl reload nginx") == lines.count("nginx -t") >= 2, "the name site has its own nginx -t before its reload")
+    ok("Studio didn't answer the bare address" in out and not os.path.lexists(DLINK) and not os.path.exists(DSITE),
+       "nothing on port 80 to check against: the bare-address site is taken out again, install finishes")
     open(os.path.join(STUDIO, "from-first-install"), "w").write("1")
 
     # ============================================================ update over the top
@@ -407,6 +414,8 @@ try:
                 b = b"<title>Rhino Studio</title>"
             elif mode["bad"] and os.path.lexists(NLINK):
                 b = b"<title>Rhino Studio</title> took the bare address"
+            elif os.path.lexists(DLINK) and not (os.path.exists(ms_site) and f"listen {NAME_PORT}" in open(ms_site).read()):
+                b = b"<title>Rhino Studio</title>"   # 1.9.19: Mainsail moved off port 80, Studio's default site answers
             else:
                 b = b"<title>Mainsail</title>"
             self.send_response(200)
@@ -415,6 +424,7 @@ try:
             self.wfile.write(b)
     os.makedirs(os.path.join(PKG, "studio"), exist_ok=True)   # the test above took Studio out of the zip
     open(os.path.join(PKG, "studio", "index.html"), "w").write("<!doctype html><title>Rhino Studio</title>")
+    ms_site = os.path.join(NGX, "sites-available", "mainsail")
     srv80 = http.server.ThreadingHTTPServer(("127.0.0.1", NAME_PORT), Fake80)
     threading.Thread(target=srv80.serve_forever, daemon=True).start()
     try:
@@ -430,14 +440,30 @@ try:
         rc, out = run(f"{PKG}/install.sh")
         ok(rc == 0 and "serves Studio for rhinostudio.local" in out and "the bare address is unchanged" in out and os.path.lexists(NLINK),
            "next to Mainsail on port 80: the name site goes in, Studio answers its name, Mainsail still answers the bare address")
-        ok(open(ms).read().count("default_server") == 1, "...Mainsail's site is not touched")
+        ms_before = f"server {{\n    listen {NAME_PORT} default_server;\n    root /home/tester/mainsail;\n}}\n"
+        ok(open(ms).read() == ms_before.replace(f"listen {NAME_PORT} ", f"listen {MS_PORT} "),
+           "1.9.19: Mainsail's site keeps everything but its port-80 listen line, which moves to its own port")
+        dsite = open(DSITE).read() if os.path.exists(DSITE) else ""
+        ok(f"listen {NAME_PORT} default_server;" in dsite and "server_name _;" in dsite and os.path.lexists(DLINK)
+           and "rhino-studio-default-error.log" in dsite and "opens Rhino Studio" in out and f"Mainsail is a spare on port {MS_PORT}" in out,
+           "...Studio's default site answers the bare address, and the finish says where Mainsail went")
+        keep = os.path.join(HOME, backups()[-1], "_rhino_install")
+        ok(open(os.path.join(keep, "old-mainsail.nginx")).read() == ms_before and open(os.path.join(keep, "old-mainsail.path")).read().strip() == os.path.realpath(ms),
+           "...Mainsail's site as it was is in the backup, with where it lives")
+        rc, out = run(f"{PKG}/install.sh")
+        ok(rc == 0 and "already done: Studio answers the bare address" in out and open(ms).read().count(f"listen {MS_PORT}") == 1,
+           "install again: nothing moves twice")
         run(f"{PKG}/uninstall.sh")
+        ok(open(ms).read().count(f"listen {MS_PORT}") == 1 and os.path.lexists(DLINK), "undo of the second install: Mainsail stays moved (it was moved before it)")
+        run(f"{PKG}/uninstall.sh", os.path.join(HOME, backups()[-2]))
+        ok(open(ms).read() == ms_before and not os.path.lexists(DLINK) and not os.path.exists(DSITE),
+           "undo of the install that moved it: Mainsail's site exactly as it was, Studio's default site gone")
         mode["bad"] = True
         open(LOG, "w").close()
         rc, out = run(f"{PKG}/install.sh")
         ok(rc == 0 and "Install finished." in out and "bare address changed with the name site in, so it was taken out again" in out
            and not os.path.exists(NSITE) and not os.path.lexists(NLINK), "the bare address's page changes: the name site is taken out again, install finishes")
-        ok(open(LOG).read().splitlines().count("systemctl reload nginx") == 3 and not os.path.exists(NUNIT) and "http://rhinostudio.local" not in out.split("Install finished.")[1],
+        ok(open(LOG).read().splitlines().count("systemctl reload nginx") >= 3 and not os.path.exists(NUNIT) and "http://rhinostudio.local" not in out.split("Install finished.")[1],
            "...nginx reloaded without it, no name service, the finish doesn't offer the name")
         run(f"{PKG}/uninstall.sh")
         mode["bad"] = False

@@ -758,14 +758,20 @@
 {
 "src": 122,
 "section": "Settings",
-"part": "Part 5  \u00b7  Maintenance",
-"kind": "part"
+"part": "Part 4  \u00b7  Rhino Studio",
+"kind": "body"
+},
+{
+"src": null,
+"section": "Notes",
+"part": "Part 4  \u00b7  Rhino Studio",
+"kind": "notes"
 },
 {
 "src": 123,
-"section": "Maintenance tracking",
+"section": "Settings",
 "part": "Part 5  \u00b7  Maintenance",
-"kind": "body"
+"kind": "part"
 },
 {
 "src": 124,
@@ -817,7 +823,7 @@
 },
 {
 "src": 132,
-"section": "T askLibraryandT askBooks",
+"section": "Maintenance tracking",
 "part": "Part 5  \u00b7  Maintenance",
 "kind": "body"
 },
@@ -847,7 +853,7 @@
 },
 {
 "src": 137,
-"section": "Status codes",
+"section": "T askLibraryandT askBooks",
 "part": "Part 5  \u00b7  Maintenance",
 "kind": "body"
 },
@@ -859,12 +865,18 @@
 },
 {
 "src": 139,
-"section": "Maintenance procedures",
+"section": "Status codes",
 "part": "Part 5  \u00b7  Maintenance",
 "kind": "body"
 },
 {
 "src": 140,
+"section": "Maintenance procedures",
+"part": "Part 5  \u00b7  Maintenance",
+"kind": "body"
+},
+{
+"src": 141,
 "section": "Maintenance procedures",
 "part": "Part 5  \u00b7  Maintenance",
 "kind": "body"
@@ -876,16 +888,10 @@
 "kind": "notes"
 },
 {
-"src": 141,
+"src": 142,
 "section": "Maintenance procedures",
 "part": "Part 6  \u00b7  Reference",
 "kind": "part"
-},
-{
-"src": 142,
-"section": "Troubleshooting",
-"part": "Part 6  \u00b7  Reference",
-"kind": "body"
 },
 {
 "src": 143,
@@ -895,7 +901,7 @@
 },
 {
 "src": 144,
-"section": "Files, backups and tests",
+"section": "Troubleshooting",
 "part": "Part 6  \u00b7  Reference",
 "kind": "body"
 },
@@ -907,7 +913,7 @@
 },
 {
 "src": 146,
-"section": "Build reference",
+"section": "Files, backups and tests",
 "part": "Part 6  \u00b7  Reference",
 "kind": "body"
 },
@@ -925,7 +931,7 @@
 },
 {
 "src": 149,
-"section": "Stilltocheckonthemachine",
+"section": "Build reference",
 "part": "Part 6  \u00b7  Reference",
 "kind": "body"
 },
@@ -949,6 +955,12 @@
 },
 {
 "src": 153,
+"section": "Stilltocheckonthemachine",
+"part": "Part 6  \u00b7  Reference",
+"kind": "body"
+},
+{
+"src": 154,
 "section": "Stilltocheckonthemachine",
 "part": "Part 6  \u00b7  Reference",
 "kind": "body"

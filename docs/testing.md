@@ -499,3 +499,13 @@ Watch the console at each job start. BlockOne mounted and confirmed.
 - [ ] **TA5 Desktop slicer.** Start a file from your Orca/PrusaSlicer profile for a tuned material. *Pass if:* it gets
   the tuned PA. If its filament type differs from the material name (PLA+ against PLA), the console says so in red
   and uses the job's material. *Stop if:* it silently calculates for a tuned material: send the console lines.
+
+## 1.9.19: Studio on the bare address; host health
+
+Over SSH first: `ls /etc/nginx/sites-enabled/` (expect `mainsail`, `rhino-studio`, `rhino-studio-name`) and
+`grep -n listen /etc/nginx/sites-available/mainsail` (expect port 80). Keep that output.
+- [ ] **BA1 The bare address.** Install 1.9.19 from Studio. *Pass if:* the install says "opens Rhino Studio" and "Mainsail answers on port 8090"; `http://rhino.local` and `http://192.168.1.132` open Studio; `http://rhinostudio.local` and `:5001` still do. *Stop if:* the install says Mainsail's site was put back: send that part of the install log.
+- [ ] **BA2 Mainsail as the spare.** `http://rhino.local:8090` opens Mainsail and it connects to Klipper (status, console). *Stop if:* it can't connect: note the error; it's the spare, so this doesn't block Studio.
+- [ ] **BA3 Cameras unchanged.** The camera shows in Studio, and `http://rhino.local/webcam/?action=snapshot` gives a picture.
+- [ ] **BA4 Undo.** Only if BA1-BA3 fail: menu option 4, pick the backup from before 1.9.19. *Pass if:* `grep -n listen /etc/nginx/sites-available/mainsail` shows port 80 again and `http://rhino.local` opens Mainsail.
+- [ ] **HS1 Host stats.** `curl -s http://127.0.0.1:5000/api/host/stats | head -c 400` on the host. *Pass if:* JSON with `"coretemp"` sensors and the four cores. Then Studio's HH1-HH4.

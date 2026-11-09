@@ -31,7 +31,7 @@ STUDIO_SHOTS = {"st_tu_toolpanel": 2.8, "st_tu_page": 3.6, "st_tu_ec_check": 2.4
                 "st_js_start": 3.6, "st_js_tool": 3.6, "st_js_setup": 3.6, "st_js_preview": 3.6, "st_js_sent": 3.6,
                 "st_fi_list": 3.6, "st_fi_menu": 3.6, "st_fi_preview": 3.6, "st_fi_editor": 3.0, "st_fi_history": 3.0,
                 "st_as_library": 3.4, "st_as_toolpage": 3.4, "st_as_connector": 3.4, "st_as_pins": 3.4, "st_as_hwwizard": 3.6,
-                "st_ca_due": 3.6, "st_ca_library": 3.4, "st_ca_log": 3.4, "st_se_appearance": 3.4, "st_se_software": 3.4,
+                "st_ca_due": 3.6, "st_ca_library": 3.4, "st_ca_log": 3.4, "st_se_appearance": 3.4, "st_se_software": 3.4, "st_se_health": 4.0,
                 "st_se_host": 3.4}
 BLOB.update({k: k + ".png" for k in STUDIO_SHOTS})
 

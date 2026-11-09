@@ -1,5 +1,24 @@
 # What changed
 
+## 1.9.19 - Studio on the bare address; host health
+
+Rhino Studio 0.18.1. No Klipper config changes. Haven't run on a real machine yet: run BA1-BA4 and HS1 below and HH1-HH4
+in Studio's docs/testing.md.
+
+- **`http://rhino.local` opens Rhino Studio** (installer). Mainsail moves to port 8090 as a spare until it is removed
+  (Mike, Nov 9). Only the port-80 `listen` lines of Mainsail's own nginx site change; the site as it was goes into the
+  install's backup, and undo puts it back. nginx is reloaded only after `nginx -t`, and if Studio doesn't answer the
+  bare address afterwards, Mainsail's site is put back by itself. `RHINO_MAINSAIL_PORT` picks another port.
+- **Settings › Host health** (Rhino Studio, Portal `GET /api/host/stats`). Each core's load over the last ten minutes,
+  temperature and clock; the package temperature, load average and how long programs waited for a core, memory or the
+  disk; memory, swap and free space; the Rhino's own programs (Klipper, Moonraker, the Portal, cameras, nginx,
+  PrusaSlicer) and the busiest others with the core each runs on and the cores it may use; each board's load, resent
+  bytes and round trip; the services; every other temperature sensor. "What to look at" lists anything out of the
+  ordinary in plain words, and Copy report / Download put every reading in a text file for troubleshooting. Read only.
+- The install's closing steps name Studio instead of Mainsail.
+- Proposal, not applied: `docs/proposal-own-client-macros.md` (the Rhino keeps its own PAUSE, RESUME and CANCEL_PRINT,
+  so Mainsail can be removed).
+
 ## 1.9.18 - Tuning test files upload; lead screws drawn evenly
 
 Rhino Studio only; no Klipper config changes. Haven't run on a real machine yet: run TU7 in Studio's docs/testing.md.

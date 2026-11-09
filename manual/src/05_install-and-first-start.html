@@ -39,12 +39,12 @@ Perform action:</pre></li>
 <li><p>backs up the config folder to <code>~/rhino-backup-&lt;date&gt;</code>;</p></li>
 <li><p>copies the new files, never touching <code>variables.cfg</code>, <code>variables.save</code>, your positions (<code>myrhino/positions.cfg</code>) or the files the Portal writes;</p></li>
 <li><p>keeps the SAVE_CONFIG section at the bottom of <code>printer.cfg</code>, and fixes <code>/home/pi</code> paths if your login is different;</p></li>
-<li><p>starts the Portal at every boot, and serves Rhino Studio at <code>http://rhino.local:5001</code> and <code>http://rhinostudio.local</code>.</p></li>
+<li><p>starts the Portal at every boot, and serves Rhino Studio at <code>http://rhino.local</code>, <code>http://rhinostudio.local</code> and port 5001. Mainsail moves to port 8090, as a spare until it is removed.</p></li>
 </ul>
 <p>Afterwards the menu is always at <code>bash ~/rhino-manager/rhino.sh</code>.</p></li>
 </ol>
 <h3>First start</h3>
-<p>Open Rhino Studio at <code>http://rhinostudio.local</code> (or <code>http://rhino.local:5001</code>; some Android phones need the address in numbers). With the print head still mounted:</p>
+<p>Open Rhino Studio at <code>http://rhino.local</code> (or <code>http://rhinostudio.local</code>, or the address with <code>:5001</code>; some Android phones need the address in numbers). With the print head still mounted:</p>
 <ol>
 <li><p><strong>Restart Klipper</strong> from the banner, or <b>Settings › Host</b>, and wait for <em>Ready</em>. If Klipper doesn't accept the config, the message names the file and line.</p></li>
 <li><p><strong>Answer which tool is mounted.</strong> The question appears on <b>Control</b>, and the top bar shows a confirm button until it is answered (see <i>Rhino Studio at a glance</i>).</p></li>
