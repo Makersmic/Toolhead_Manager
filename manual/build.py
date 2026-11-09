@@ -29,7 +29,10 @@ STUDIO_SHOTS = {"st_tu_toolpanel": 2.8, "st_tu_page": 3.6, "st_tu_ec_check": 2.4
                 "st_ctl_status_job": 1.3, "st_ctl_flow": 1.25, "st_ctl_speed": 1.15, "st_ctl_motion_unlocked": 2.4,
                 "st_ctl_macros": 3.4, "st_ctl_console": 1.6, "st_ctl_confirm": 1.9,
                 "st_js_start": 3.6, "st_js_tool": 3.6, "st_js_setup": 3.6, "st_js_preview": 3.6, "st_js_sent": 3.6,
-                "st_fi_list": 3.6, "st_fi_menu": 3.6, "st_fi_preview": 3.6, "st_fi_editor": 3.0, "st_fi_history": 3.0}
+                "st_fi_list": 3.6, "st_fi_menu": 3.6, "st_fi_preview": 3.6, "st_fi_editor": 3.0, "st_fi_history": 3.0,
+                "st_as_library": 3.4, "st_as_toolpage": 3.4, "st_as_connector": 3.4, "st_as_pins": 3.4, "st_as_hwwizard": 3.6,
+                "st_ca_due": 3.6, "st_ca_library": 3.4, "st_ca_log": 3.4, "st_se_appearance": 3.4, "st_se_software": 3.4,
+                "st_se_host": 3.4}
 BLOB.update({k: k + ".png" for k in STUDIO_SHOTS})
 
 TOC = []          # (level, title, key)
@@ -880,14 +883,18 @@ def build():
     body.append(admin())
     body.append(xsec("10_console-commands.html"))
     body.append(xsec("11_safety-systems.html"))
-    body.append(part(4, "Rhino Studio", "The Rhino's main screen: finding your way, running the machine, preparing jobs, files, tuning and the bed.",
-                     ["Rhino Studio at a glance", "Control", "Job setup and Preview", "Files", "Tuning a print head", "Bed"]))
+    body.append(part(4, "Rhino Studio", "The Rhino's main screen: running the machine, preparing jobs, tuning, the bed, assets, care and settings.",
+                     ["Rhino Studio at a glance", "Control", "Job setup and Preview", "Files", "Tuning a print head", "Bed", "Assets", "Care",
+                      "Settings"]))
     body.append(xsec("22_rhino-studio.html"))
     body.append(xsec("23_control.html"))
     body.append(xsec("24_job-setup.html"))
     body.append(xsec("25_files.html"))
     body.append(xsec("20_tuning-a-print-head.html"))
     body.append(xsec("21_bed.html"))
+    body.append(xsec("26_assets.html"))
+    body.append(xsec("27_care.html"))
+    body.append(xsec("28_settings.html"))
     body.append(part(5, "Maintenance", "Tracking preventive maintenance in the portal, and the procedures themselves.",
                      ["Maintenance tracking", "Task Library and Task Books", "Status codes", "Maintenance procedures"]))
     body.append(maintenance())
