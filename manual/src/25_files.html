@@ -1,0 +1,18 @@
+<h2 id="files">Files</h2>
+<p><b>Files</b> holds what is stored on the Rhino, in four tabs: <b>Gcode files</b> (the jobs), <b>Config</b> (Klipper's config folder), <b>Logs</b> and <b>Job history</b>.</p>
+<h3>Gcode files: starting a job</h3>
+<p>Each job shows the toolhead it asks for, how it last ran (completed, cancelled or failed, with the date), and a ring if it has never run. A tool button is green when that tool is mounted. Press it to start the job: Studio checks the file against the mounted tool, shows any maintenance due for it, and asks first. If a different tool is mounted, the button offers the swap instead.</p>
+<p><img src="blob/st_fi_list" alt="Gcode files: each job with its toolhead, and how it last ran"></p>
+<ul><li><b>Upload</b>, or drop files on the page, to add jobs from your computer: several at once, with progress shown. Uploading never starts a job.</li><li><b>New file</b> and <b>New folder</b> make an empty G-code file or a folder. Click a folder to open it.</li><li>Click <b>Name</b>, <b>Modified</b> or <b>Size</b> to sort.</li><li>Each row's <b>⋯</b> menu has <b>Preview</b>, <b>Download</b>, <b>Rename</b>, <b>Duplicate</b>, <b>Move to folder…</b> and <b>Delete</b>. Delete asks first. A file that is printing can't be renamed, moved or deleted.</li></ul>
+<p><img src="blob/st_fi_menu" alt="A job's menu"></p>
+<div class="callout info"><p>To keep the load on the host light, the toolhead is read for the newest 40 files in each folder. Older files in a long folder show without one; tidy them into folders to keep each list short.</p></div>
+<h3>Preview from Files</h3>
+<p><b>Preview</b> opens the job on its own page, with the same controls as Job setup's Preview (see <i>Job setup and Preview</i>), plus <b>Start job</b> (or <b>Swap to …</b>) and <b>Download</b>. During a job it asks before reading a file, because a big file adds work for the host while the machine runs.</p>
+<p><img src="blob/st_fi_preview" alt="Preview of a job on the Rhino"></p>
+<h3>Config: editing Klipper's files</h3>
+<p>The <b>Config</b> tab is Klipper's config folder. Click a file to open it in the editor, change it and press <b>Save</b> (or Ctrl+S). <b>Close</b> asks before throwing away changes. Saving keeps a copy of the file as it was in <code>studio_backups</code>, and never restarts Klipper by itself: a bar then offers <b>Restart Klipper to apply</b> (or Moonraker or the cameras, for their files), which can't be pressed while a job is running.</p>
+<p><img src="blob/st_fi_editor" alt="Editing printer.cfg"></p>
+<div class="callout warn"><p>Edit only files you know. The files the Portal writes, <code>myrhino/custom_tools.cfg</code> and <code>myrhino/job_hooks.cfg</code>, are rewritten from its own records: change them through Assets instead, or your edit will be lost.</p></div>
+<h3>Logs and Job history</h3>
+<p><b>Logs</b> lists Klipper's and Moonraker's logs, read-only; open one to read it or download it to send with a problem report. <b>Job history</b> lists every job Moonraker has kept, newest first, with the total printing time, filament used and longest job at the top. <b>Reprint</b> starts a job again, after the same toolhead check as Gcode files. A file deleted or moved since is marked.</p>
+<p><img src="blob/st_fi_history" alt="Job history"></p>

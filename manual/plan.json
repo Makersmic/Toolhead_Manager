@@ -607,192 +607,252 @@
 },
 {
 "src": 98,
-"section": "Tuning a print head",
+"section": "Job setup and Preview",
 "part": "Part 4  \u00b7  Rhino Studio",
 "kind": "body"
 },
 {
 "src": 99,
-"section": "Tuning a print head",
+"section": "Job setup and Preview",
 "part": "Part 4  \u00b7  Rhino Studio",
 "kind": "body"
 },
 {
 "src": 100,
-"section": "Tuning a print head",
+"section": "Job setup and Preview",
 "part": "Part 4  \u00b7  Rhino Studio",
 "kind": "body"
 },
 {
 "src": 101,
-"section": "Tuning a print head",
+"section": "Job setup and Preview",
 "part": "Part 4  \u00b7  Rhino Studio",
 "kind": "body"
 },
 {
 "src": 102,
-"section": "Tuning a print head",
+"section": "Job setup and Preview",
 "part": "Part 4  \u00b7  Rhino Studio",
 "kind": "body"
 },
 {
 "src": 103,
-"section": "Tuning a print head",
+"section": "Files",
 "part": "Part 4  \u00b7  Rhino Studio",
 "kind": "body"
 },
 {
 "src": 104,
-"section": "Tuning a print head",
+"section": "Files",
 "part": "Part 4  \u00b7  Rhino Studio",
 "kind": "body"
 },
 {
 "src": 105,
-"section": "Tuning a print head",
+"section": "Files",
 "part": "Part 4  \u00b7  Rhino Studio",
 "kind": "body"
 },
 {
 "src": 106,
-"section": "Bed",
+"section": "Files",
 "part": "Part 4  \u00b7  Rhino Studio",
 "kind": "body"
 },
 {
 "src": 107,
-"section": "Bed",
+"section": "Files",
 "part": "Part 4  \u00b7  Rhino Studio",
 "kind": "body"
 },
 {
 "src": 108,
-"section": "Bed",
+"section": "Tuning a print head",
 "part": "Part 4  \u00b7  Rhino Studio",
 "kind": "body"
 },
 {
 "src": 109,
-"section": "Bed",
+"section": "Tuning a print head",
 "part": "Part 4  \u00b7  Rhino Studio",
 "kind": "body"
 },
 {
 "src": 110,
-"section": "Bed",
+"section": "Tuning a print head",
 "part": "Part 4  \u00b7  Rhino Studio",
 "kind": "body"
 },
 {
 "src": 111,
+"section": "Tuning a print head",
+"part": "Part 4  \u00b7  Rhino Studio",
+"kind": "body"
+},
+{
+"src": 112,
+"section": "Tuning a print head",
+"part": "Part 4  \u00b7  Rhino Studio",
+"kind": "body"
+},
+{
+"src": 113,
+"section": "Tuning a print head",
+"part": "Part 4  \u00b7  Rhino Studio",
+"kind": "body"
+},
+{
+"src": 114,
+"section": "Tuning a print head",
+"part": "Part 4  \u00b7  Rhino Studio",
+"kind": "body"
+},
+{
+"src": 115,
+"section": "Tuning a print head",
+"part": "Part 4  \u00b7  Rhino Studio",
+"kind": "body"
+},
+{
+"src": 116,
+"section": "Bed",
+"part": "Part 4  \u00b7  Rhino Studio",
+"kind": "body"
+},
+{
+"src": 117,
+"section": "Bed",
+"part": "Part 4  \u00b7  Rhino Studio",
+"kind": "body"
+},
+{
+"src": 118,
+"section": "Bed",
+"part": "Part 4  \u00b7  Rhino Studio",
+"kind": "body"
+},
+{
+"src": 119,
+"section": "Bed",
+"part": "Part 4  \u00b7  Rhino Studio",
+"kind": "body"
+},
+{
+"src": 120,
+"section": "Bed",
+"part": "Part 4  \u00b7  Rhino Studio",
+"kind": "body"
+},
+{
+"src": 121,
 "section": "Bed",
 "part": "Part 5  \u00b7  Maintenance",
 "kind": "part"
 },
 {
-"src": 112,
-"section": "Maintenance tracking",
-"part": "Part 5  \u00b7  Maintenance",
-"kind": "body"
-},
-{
-"src": 113,
-"section": "Maintenance tracking",
-"part": "Part 5  \u00b7  Maintenance",
-"kind": "body"
-},
-{
-"src": 114,
-"section": "Maintenance tracking",
-"part": "Part 5  \u00b7  Maintenance",
-"kind": "body"
-},
-{
-"src": 115,
-"section": "Maintenance tracking",
-"part": "Part 5  \u00b7  Maintenance",
-"kind": "body"
-},
-{
-"src": 116,
-"section": "Maintenance tracking",
-"part": "Part 5  \u00b7  Maintenance",
-"kind": "body"
-},
-{
-"src": 117,
-"section": "Maintenance tracking",
-"part": "Part 5  \u00b7  Maintenance",
-"kind": "body"
-},
-{
-"src": 118,
-"section": "Maintenance tracking",
-"part": "Part 5  \u00b7  Maintenance",
-"kind": "body"
-},
-{
-"src": 119,
-"section": "Maintenance tracking",
-"part": "Part 5  \u00b7  Maintenance",
-"kind": "body"
-},
-{
-"src": 120,
-"section": "Maintenance tracking",
-"part": "Part 5  \u00b7  Maintenance",
-"kind": "body"
-},
-{
-"src": 121,
-"section": "T askLibraryandT askBooks",
-"part": "Part 5  \u00b7  Maintenance",
-"kind": "body"
-},
-{
 "src": 122,
-"section": "T askLibraryandT askBooks",
+"section": "Maintenance tracking",
 "part": "Part 5  \u00b7  Maintenance",
 "kind": "body"
 },
 {
 "src": 123,
-"section": "T askLibraryandT askBooks",
+"section": "Maintenance tracking",
 "part": "Part 5  \u00b7  Maintenance",
 "kind": "body"
 },
 {
 "src": 124,
-"section": "T askLibraryandT askBooks",
+"section": "Maintenance tracking",
 "part": "Part 5  \u00b7  Maintenance",
 "kind": "body"
 },
 {
 "src": 125,
-"section": "T askLibraryandT askBooks",
+"section": "Maintenance tracking",
 "part": "Part 5  \u00b7  Maintenance",
 "kind": "body"
 },
 {
 "src": 126,
-"section": "Status codes",
+"section": "Maintenance tracking",
 "part": "Part 5  \u00b7  Maintenance",
 "kind": "body"
 },
 {
 "src": 127,
-"section": "Status codes",
+"section": "Maintenance tracking",
 "part": "Part 5  \u00b7  Maintenance",
 "kind": "body"
 },
 {
 "src": 128,
-"section": "Maintenance procedures",
+"section": "Maintenance tracking",
 "part": "Part 5  \u00b7  Maintenance",
 "kind": "body"
 },
 {
 "src": 129,
+"section": "Maintenance tracking",
+"part": "Part 5  \u00b7  Maintenance",
+"kind": "body"
+},
+{
+"src": 130,
+"section": "Maintenance tracking",
+"part": "Part 5  \u00b7  Maintenance",
+"kind": "body"
+},
+{
+"src": 131,
+"section": "T askLibraryandT askBooks",
+"part": "Part 5  \u00b7  Maintenance",
+"kind": "body"
+},
+{
+"src": 132,
+"section": "T askLibraryandT askBooks",
+"part": "Part 5  \u00b7  Maintenance",
+"kind": "body"
+},
+{
+"src": 133,
+"section": "T askLibraryandT askBooks",
+"part": "Part 5  \u00b7  Maintenance",
+"kind": "body"
+},
+{
+"src": 134,
+"section": "T askLibraryandT askBooks",
+"part": "Part 5  \u00b7  Maintenance",
+"kind": "body"
+},
+{
+"src": 135,
+"section": "T askLibraryandT askBooks",
+"part": "Part 5  \u00b7  Maintenance",
+"kind": "body"
+},
+{
+"src": 136,
+"section": "Status codes",
+"part": "Part 5  \u00b7  Maintenance",
+"kind": "body"
+},
+{
+"src": 137,
+"section": "Status codes",
+"part": "Part 5  \u00b7  Maintenance",
+"kind": "body"
+},
+{
+"src": 138,
+"section": "Maintenance procedures",
+"part": "Part 5  \u00b7  Maintenance",
+"kind": "body"
+},
+{
+"src": 139,
 "section": "Maintenance procedures",
 "part": "Part 5  \u00b7  Maintenance",
 "kind": "body"
@@ -804,73 +864,73 @@
 "kind": "notes"
 },
 {
-"src": 130,
+"src": 140,
 "section": "Maintenance procedures",
 "part": "Part 6  \u00b7  Reference",
 "kind": "part"
 },
 {
-"src": 131,
-"section": "Troubleshooting",
-"part": "Part 6  \u00b7  Reference",
-"kind": "body"
-},
-{
-"src": 132,
-"section": "Troubleshooting",
-"part": "Part 6  \u00b7  Reference",
-"kind": "body"
-},
-{
-"src": 133,
-"section": "Files, backups and tests",
-"part": "Part 6  \u00b7  Reference",
-"kind": "body"
-},
-{
-"src": 134,
-"section": "Files, backups and tests",
-"part": "Part 6  \u00b7  Reference",
-"kind": "body"
-},
-{
-"src": 135,
-"section": "Build reference",
-"part": "Part 6  \u00b7  Reference",
-"kind": "body"
-},
-{
-"src": 136,
-"section": "Build reference",
-"part": "Part 6  \u00b7  Reference",
-"kind": "body"
-},
-{
-"src": 137,
-"section": "Build reference",
-"part": "Part 6  \u00b7  Reference",
-"kind": "body"
-},
-{
-"src": 138,
-"section": "Stilltocheckonthemachine",
-"part": "Part 6  \u00b7  Reference",
-"kind": "body"
-},
-{
-"src": 139,
-"section": "Stilltocheckonthemachine",
-"part": "Part 6  \u00b7  Reference",
-"kind": "body"
-},
-{
-"src": 140,
-"section": "Stilltocheckonthemachine",
-"part": "Part 6  \u00b7  Reference",
-"kind": "body"
-},
-{
 "src": 141,
+"section": "Troubleshooting",
+"part": "Part 6  \u00b7  Reference",
+"kind": "body"
+},
+{
+"src": 142,
+"section": "Troubleshooting",
+"part": "Part 6  \u00b7  Reference",
+"kind": "body"
+},
+{
+"src": 143,
+"section": "Files, backups and tests",
+"part": "Part 6  \u00b7  Reference",
+"kind": "body"
+},
+{
+"src": 144,
+"section": "Files, backups and tests",
+"part": "Part 6  \u00b7  Reference",
+"kind": "body"
+},
+{
+"src": 145,
+"section": "Build reference",
+"part": "Part 6  \u00b7  Reference",
+"kind": "body"
+},
+{
+"src": 146,
+"section": "Build reference",
+"part": "Part 6  \u00b7  Reference",
+"kind": "body"
+},
+{
+"src": 147,
+"section": "Build reference",
+"part": "Part 6  \u00b7  Reference",
+"kind": "body"
+},
+{
+"src": 148,
+"section": "Stilltocheckonthemachine",
+"part": "Part 6  \u00b7  Reference",
+"kind": "body"
+},
+{
+"src": 149,
+"section": "Stilltocheckonthemachine",
+"part": "Part 6  \u00b7  Reference",
+"kind": "body"
+},
+{
+"src": 150,
+"section": "Stilltocheckonthemachine",
+"part": "Part 6  \u00b7  Reference",
+"kind": "body"
+},
+{
+"src": 151,
 "section": "Stilltocheckonthemachine",
 "part": "Part 6  \u00b7  Reference",
 "kind": "body"
