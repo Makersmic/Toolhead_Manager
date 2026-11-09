@@ -75,8 +75,8 @@ def page_numbers(final):
 
 
 # Thumb tabs on the outer edge: one slot per part, so a closed manual shows where each part starts.
-TABS = {1: "The Rhino", 2: "Tools", 3: "Software", 4: "Maintenance", 5: "Reference"}
-TAB_TOP, TAB_H, TAB_STEP, TAB_W = 1.25, 1.2, 1.62, 0.42   # inches
+TABS = {1: "The Rhino", 2: "Tools", 3: "Software", 4: "Studio", 5: "Maintenance", 6: "Reference"}
+TAB_TOP, TAB_H, TAB_STEP, TAB_W = 1.25, 1.1, 1.38, 0.42   # inches
 
 
 def part_no(f):

@@ -62,6 +62,8 @@ cd manual
 python3 build.py && python3 paginate.py              # first pass
 python3 build.py pages.json && python3 paginate.py   # fills in the contents page numbers
 ```
+It needs `pypdf`, `beautifulsoup4` and `playwright` (with Chromium), and the fonts Inter, Inter Display and DejaVu Sans
+Mono installed: without them Chromium falls back to a serif face and every page reflows.
 Sources are in `manual/src/` (one HTML file per chapter) and `manual/img/`; `build.py` adds the tool pages and
 generated sections.
 

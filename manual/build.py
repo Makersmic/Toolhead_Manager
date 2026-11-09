@@ -20,10 +20,18 @@ BLOB = {"c867a3d7-25e6": "welcome.jpg", "505aefe6-155b": "assembly.jpg", "5de126
         "1a244df4-8d20": "mt_done.png", "ee3836d3-7a0a": "mt_log.png", "a8f5d77f-5c98": "mt_tasks.png",
         "74e18d06-c469": "mt_meters.png", "0070c62c-e9ad": "phone_maint.png"}
 
+# Rhino Studio screenshots (dark, as the Portal pictures): src/*.html use blob/st_<name>; height cap in inches
+STUDIO_SHOTS = {"st_tu_toolpanel": 2.8, "st_tu_page": 3.6, "st_tu_ec_check": 2.4, "st_tu_ec_reading": 1.6,
+                "st_tu_ec_save": 2.4, "st_tu_fl_check": 2.2, "st_tu_fl_print": 3.4, "st_tu_pa": 3.8, "st_tu_em": 3.6,
+                "st_bed_mesh": 3.6, "st_bed_config": 3.6, "st_bed_unlock_ask": 2.5, "st_bed_moved": 3.6,
+                "st_bed_release_ask": 2.1, "st_bed_released": 3.6, "st_bed_level": 1.8}
+BLOB.update({k: k + ".png" for k in STUDIO_SHOTS})
+
 TOC = []          # (level, title, key)
 HEIGHTS = {"xcarriage.png": 2.9, "tool_seated.jpg": 2.5, "assembly.jpg": 2.7, "gantry.png": 2.0, "tensioner.png": 3.6,
            "frame.png": 4.0, "mt_due.png": 4.2, "mt_tasks.png": 4.0, "mt_log.png": 3.6, "mt_meters.png": 4.2,
            "mt_lib.png": 4.6, "mt_new.png": 4.8, "mt_done.png": 4.6, "phone_maint.png": 3.6}
+HEIGHTS.update({k + ".png": h for k, h in STUDIO_SHOTS.items()})
 CUR_PART = [""]
 
 
@@ -867,11 +875,15 @@ def build():
     body.append(admin())
     body.append(xsec("10_console-commands.html"))
     body.append(xsec("11_safety-systems.html"))
-    body.append(part(4, "Maintenance", "Tracking preventive maintenance in the portal, and the procedures themselves.",
+    body.append(part(4, "Rhino Studio", "The web interface for every process on the Rhino: tuning a print head and the bed.",
+                     ["Tuning a print head", "Bed"]))
+    body.append(xsec("20_tuning-a-print-head.html"))
+    body.append(xsec("21_bed.html"))
+    body.append(part(5, "Maintenance", "Tracking preventive maintenance in the portal, and the procedures themselves.",
                      ["Maintenance tracking", "Task Library and Task Books", "Status codes", "Maintenance procedures"]))
     body.append(maintenance())
     body.append(xsec("13_maintenance.html", title="Maintenance procedures"))
-    body.append(part(5, "Reference", "When something goes wrong, where things live, and what is left to check.",
+    body.append(part(6, "Reference", "When something goes wrong, where things live, and what is left to check.",
                      ["Troubleshooting", "Files, backups and tests", "Build reference", "Still to check on the machine"]))
     body.append(xsec("14_troubleshooting.html"))
     body.append(xsec("15_files-backups-and-tests.html"))

@@ -1,0 +1,31 @@
+<h2 id="bed">Bed</h2>
+<p><b>Bed</b> on Rhino Studio's left rail has two pages, chosen from its side menu. <b>Bed mesh</b> shows how flat the bed is and the meshes Klipper follows. <b>Configuration</b> moves single Z lead screws when the bed is too far off level for Z-tilt to fix.</p>
+
+<h3>Bed mesh</h3>
+<p>The page shows the bed from above, as you stand at the front. The top line says which mesh Klipper is using, with its bed temperature, the head that probed it and when; <b>Switch off</b> stops moves from following it. Looking at a mesh here changes nothing on the machine. Only <b>Use</b> does.</p>
+<p><img src="blob/st_bed_mesh" alt="Bed mesh: the mesh in use, seen from above"></p>
+<ul><li><b>Map</b>: <b>Shape</b> shows the heights as probed; blue is lower, amber higher, and the numbers are in millimetres. <b>Without tilt</b> takes out the slope that levelling the gantry would remove, leaving the warp of the plate itself. <b>Compare</b> shows this mesh minus another one you choose, such as the same bed probed cold and hot. Untick <b>Numbers</b> for a plain map.</li><li><b>Reading</b>: <b>Range</b>, between the highest and lowest point, and how much of a first layer that is; <b>Tilt</b>, the slope to the right and to the back; and <b>Warp</b>, what is left with the tilt taken out.</li><li><b>Meshes</b>: the meshes Klipper holds, with <b>Use</b> and <b>Remove</b>. New and removed meshes last only until Klipper restarts; <b>Save to printer.cfg</b> keeps them, and restarts Klipper.</li><li><b>Make a mesh</b>: the bed temperature, the time at temperature before probing, and whether to level the gantry first (<code>Z_TILT_ADJUST</code>).</li></ul>
+<div class="callout info"><p>While a job runs, the page only shows meshes: a print loads its own mesh at the start.</p></div>
+
+<h3>Configuration: moving one lead screw</h3>
+<p>The Rhino's bed rides on three Z lead screws, each with its own motor. <code>Z_TILT_ADJUST</code> (<b>Level the gantry</b>) probes the bed and turns each screw until the bed is level. If the bed is too far off to start with, Z-tilt stops with <i>Move out of range</i>. This page lets you bring the bed close by eye first, by moving the screws you choose. Nothing on this page is saved.</p>
+<p><img src="blob/st_bed_config" alt="Bed › Configuration: the lead screws, the controls to move them, and Home and level"></p>
+<p>The <b>Lead screws</b> panel shows the bed from above with each lead screw just off its corner or edge: front left, rear centre and front right on the Rhino. The screws are drawn by place, not to scale. The crosses are where Z-tilt probes. Each screw's card shows its name, its motor (<code>stepper_z</code>, <code>stepper_z1</code> …), how far it has moved since you unlocked, and what the last Z-tilt asked of it. Tick a screw's box to choose it.</p>
+<ol><li><p>Tick the screw or screws to move.</p></li><li><p>In <b>Move screws</b>, press the padlock. Studio asks once and shows what will run.</p></li></ol>
+<p><img src="blob/st_bed_unlock_ask" alt="Unlocking asks once, and says Z will be marked not homed"></p>
+<ol start="3"><li><p>Press <b>Unlock for 60 s</b>. The panel turns red.</p></li><li><p>Choose a step: 0.1, 0.5, 1 or 5 mm. <b>Up</b> raises the bed at the ticked screws and <b>Down</b> lowers it, one motor after another. Each card shows how far its screw has moved (+ is up).</p></li><li><p>Repeat until the bed looks level by eye. The padlock locks again 60 seconds after your last press, and when you leave the page, a job starts, or the tool is swapped or changed.</p></li></ol>
+<p><img src="blob/st_bed_moved" alt="The rear centre screw moved up 0.1 mm, with the panel unlocked"></p>
+<div class="callout warn"><p>These moves have no limits and no endstops. Watch the bed while you press, and if a screw binds or the bed racks, press <b>Stop</b>. The first move marks Z as not homed and drops the saved park height, so nothing else moves Z until you home again.</p></div>
+
+<h3>Turning a screw by hand</h3>
+<p><b>Release to turn by hand</b> switches the ticked motors off, after asking, so you can turn their lead screws by hand. The bed may settle at those screws. <b>Hold</b>, or the next move, switches them back on.</p>
+<p><img src="blob/st_bed_release_ask" alt="Releasing asks first and shows the command"></p>
+<p>A screw whose motor is off is drawn with a dashed ring, and its card says <b>motor off</b>. Klipper also switches every motor off after the machine has been idle for a while, so <b>motor off</b> on all three screws is normal after a pause.</p>
+<p><img src="blob/st_bed_released" alt="The rear centre motor switched off: a dashed ring and 'motor off'"></p>
+
+<h3>Home and level</h3>
+<p><b>Home all</b> homes every axis. <b>Level the gantry</b> runs <code>Z_TILT_ADJUST</code>. It needs a print head mounted and confirmed, because it probes with the head, and X, Y and Z homed. Both ask first.</p>
+<p>The table shows each pass of the last Z-tilt: the correction each screw got and the range left across the probe points. Z-tilt repeats until the range is within its tolerance. If it stops with an error, the panel shows the error instead. Before any Z-tilt since the Rhino restarted, the panel reads <b>NO Z_TILT PERFORMED SINCE RESTART</b>.</p>
+<p><img src="blob/st_bed_level" alt="Two passes of Z-tilt: 0.412 mm range, then 0.021 mm"></p>
+<h4>When Z-tilt stops with "Move out of range"</h4>
+<ol><li><p>On <b>Configuration</b>, look at the last Z-tilt's numbers on the cards: the screw with the largest correction is the one furthest off.</p></li><li><p>Tick that screw, unlock and move it until the bed looks level by eye, or release it and turn it by hand, then press <b>Hold</b>.</p></li><li><p>Press <b>Home all</b>, then <b>Level the gantry</b>. Repeat from step 1 if it stops again.</p></li><li><p>Once Z-tilt finishes, make a new bed mesh if the old one was taken before the bed was moved.</p></li></ol>
