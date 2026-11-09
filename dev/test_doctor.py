@@ -186,6 +186,20 @@ os.remove(os.path.join(CFG, "rhino", "__init__.py"))
 code, out = doctor()
 ok("FAIL  Tool Manager's program files aren't in the config folder" in out, "missing program files fail")
 
+# 1.9.19: printer.cfg includes the Rhino's own client_mainsail.cfg; mainsail.cfg (here a broken link) no longer matters.
+_pc = os.path.join(CFG, "printer.cfg"); _txt = open(_pc).read()
+open(_pc, "w").write(_txt.replace("[include mainsail.cfg]", "[include client_mainsail.cfg]"))
+open(os.path.join(CFG, "client_mainsail.cfg"), "w").write("# pinned\n")
+code, out = doctor()
+ok("PASS  client_mainsail.cfg is there" in out and "mainsail.cfg points at" not in out, "client_mainsail.cfg included and there passes")
+os.remove(os.path.join(CFG, "client_mainsail.cfg"))
+code, out = doctor()
+ok("FAIL  client_mainsail.cfg is missing" in out, "client_mainsail.cfg included but missing fails")
+open(_pc, "w").write("[include mainsail.cfg]\n" + _txt.replace("[include mainsail.cfg]", "[include client_mainsail.cfg]"))
+code, out = doctor()
+ok("FAIL  printer.cfg includes both" in out, "both includes fail")
+open(_pc, "w").write(_txt)
+
 # the menu runs it
 sh = open(os.path.join(REPO, "rhino.sh")).read()
 ok("7)" in sh and "rhino_doctor.py" in sh, "rhino.sh menu option 7 runs the health check")

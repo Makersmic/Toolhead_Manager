@@ -16,7 +16,7 @@ python3 dev/demo_server.py --config /tmp/rhino-year/printer_data/config
 ```
 
 The simulator (`dev/klippersim.py`) reproduces Klipper's template rules - a macro is rendered whole before any of
-its lines run - against the real Mainsail macros in `dev/fixtures/mainsail.cfg`. `Sim(root, motion=True)` also follows the machine
+its lines run - against the real Mainsail macros in `client_mainsail.cfg` (the pinned copy printer.cfg includes; `dev/fixtures/mainsail.cfg` is the same file for older configs). `Sim(root, motion=True)` also follows the machine
 position the way Klipper does (G90/G91, G92, offsets, `[safe_z_home]`, saved G-code states, pause/resume) and
 refuses moves past the limits in `printer.cfg`; every move is in `sim.moves` with the macro chain that made it.
 `sim.clone()` copies a loaded simulator, which is what makes the sweep fast. It is not Klipper: test new tools

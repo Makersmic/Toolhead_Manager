@@ -306,8 +306,20 @@ def check_rhino():
         else:
             say("FAIL", f"{rel} is {'missing' if not here else 'not included in printer.cfg'}",
                 "the job and swap macros call what it defines; restarting the Portal writes it again")
+    # Pause, resume and cancel: the Rhino's own copy of Mainsail's client macros since 1.9.19, mainsail.cfg before.
+    lines = {l.strip() for l in text.splitlines()}
+    own, old = "[include client_mainsail.cfg]" in lines, "[include mainsail.cfg]" in lines
+    pinned = os.path.join(CFG, "client_mainsail.cfg")
     mainsail = os.path.join(CFG, "mainsail.cfg")
-    if os.path.islink(mainsail) and not os.path.exists(mainsail):
+    if own and old:
+        say("FAIL", "printer.cfg includes both client_mainsail.cfg and mainsail.cfg",
+            "Klipper won't start; keep only [include client_mainsail.cfg]")
+    elif own:
+        if os.path.isfile(pinned):
+            say("PASS", "client_mainsail.cfg is there (pause, resume and cancel; Mainsail isn't needed for them)")
+        else:
+            say("FAIL", "client_mainsail.cfg is missing", "printer.cfg includes it; install the release again")
+    elif os.path.islink(mainsail) and not os.path.exists(mainsail):
         say("FAIL", "mainsail.cfg points at a file that isn't there", os.readlink(mainsail))
     elif os.path.exists(mainsail):
         say("PASS", "mainsail.cfg is there" + (" (Mainsail's link)" if os.path.islink(mainsail) else ""))

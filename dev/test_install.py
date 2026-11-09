@@ -215,6 +215,7 @@ def package(dest):
 os.makedirs(CFG)
 open(os.path.join(CFG, "printer.cfg"), "w").write("[include mainsail.cfg]\n[printer]\nkinematics: cartesian\n\n"
                                                   f"{MARK}\n#*# [probe]\n#*# z_offset = 1.234\n")
+shutil.copy(os.path.join(HERE, "fixtures", "mainsail.cfg"), os.path.join(CFG, "mainsail.cfg"))  # Mainsail's, as on the machine
 open(os.path.join(CFG, "moonraker.conf"), "w").write("[server]\nhost: 0.0.0.0\nport: 7130\n\n[authorization]\nport: 9\n")
 open(os.path.join(CFG, "variables.cfg"), "w").write("[gcode_macro VARIABLES]\nvariable_tool_swap_park_x: 100.0\nvariable_tool_swap_park_y: 100.0\ngcode:\n")
 os.makedirs(os.path.join(CFG, ".git", "refs", "heads"))
@@ -268,6 +269,9 @@ try:
     ok(len(bks) == 1 and bk == original, "backup made first, an exact copy of the old config folder")
     now = tree(CFG)
     ok(all(k in now for k in ("toolchanger.cfg", "scripts/rhino_portal.py", "rhino/portal/__init__.py")), "new files copied in")
+    ok(open(os.path.join(CFG, "printer.cfg")).readline() == "[include client_mainsail.cfg]\n", "printer.cfg now includes the Rhino's client_mainsail.cfg")
+    ok("same macros as your mainsail.cfg" in out and now["mainsail.cfg"] == original["mainsail.cfg"],
+       "the installer says the pinned copy matches mainsail.cfg, and leaves mainsail.cfg as it was")
     ok(not any(k.startswith(("dev/", "install.sh", "uninstall.sh", "rhino.sh", "VERSION")) for k in now), "dev/, the installers and VERSION are not copied")
     ok(now[".git/HEAD"] == original[".git/HEAD"] and now[".git/refs/heads/main"] == original[".git/refs/heads/main"],
        "your own .git (GitHub backup) is left alone")

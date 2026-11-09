@@ -1,9 +1,9 @@
 # What changed
 
-## 1.9.19 - Studio on the bare address; host health
+## 1.9.19 - Studio on the bare address; host health; own pause, resume and cancel
 
-Rhino Studio 0.18.1. No Klipper config changes. Haven't run on a real machine yet: run BA1-BA4 and HS1 below and HH1-HH4
-in Studio's docs/testing.md.
+Rhino Studio 0.18.1. One Klipper config change: `printer.cfg`'s first line. Haven't run on a real machine yet: run
+BA1-BA4, HS1 and MC1-MC4 in docs/testing.md and HH1-HH4 in Studio's.
 
 - **`http://rhino.local` opens Rhino Studio** (installer). Mainsail moves to port 8090 as a spare until it is removed
   (Mike, Nov 9). Only the port-80 `listen` lines of Mainsail's own nginx site change; the site as it was goes into the
@@ -16,8 +16,12 @@ in Studio's docs/testing.md.
   bytes and round trip; the services; every other temperature sensor. "What to look at" lists anything out of the
   ordinary in plain words, and Copy report / Download put every reading in a text file for troubleshooting. Read only.
 - The install's closing steps name Studio instead of Mainsail.
-- Proposal, not applied: `docs/proposal-own-client-macros.md` (the Rhino keeps its own PAUSE, RESUME and CANCEL_PRINT,
-  so Mainsail can be removed).
+- **Pause, resume and cancel no longer need Mainsail installed** (`docs/proposal-own-client-macros.md`, approved
+  Nov 9). `printer.cfg` includes `client_mainsail.cfg`, a pinned, credited copy of mainsail-config's `client.cfg`
+  (GPL-3.0, Alex Zellner), instead of `mainsail.cfg`. It is the machine's own `mainsail.cfg` byte for byte (md5
+  checked), so every macro runs exactly as before; the Rhino's hooks in `client_macros.cfg` are unchanged. The installer
+  says whether your `mainsail.cfg` matches the copy and never edits either file. The health check (menu option 7) checks
+  the include. **Once Mainsail is removed, don't undo past 1.9.19**: older `printer.cfg`s include `mainsail.cfg`.
 
 ## 1.9.18 - Tuning test files upload; lead screws drawn evenly
 

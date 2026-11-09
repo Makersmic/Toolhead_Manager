@@ -102,7 +102,7 @@ ok(s.pins["FoamWire_PWR"] == 0, "tick also cuts power during a pause even if the
 s.objects["print_stats"]["state"] = "printing"; s.fire_delayed("TOOL_POWER_WATCHDOG")
 ok(s.pins["FoamWire_PWR"] > 0, "tick restores power after resume if the hook did not fire")
 
-# Mainsail integration: the real mainsail.cfg (dev/fixtures) is loaded, our hooks go through _CLIENT_VARIABLE
+# Mainsail integration: the pinned client_mainsail.cfg is loaded, our hooks go through _CLIENT_VARIABLE
 s = cs(6)
 ok("PAUSE_BASE" in s.macros and "rename_existing" in s.macros["PAUSE"], "real Mainsail PAUSE/RESUME/CANCEL_PRINT loaded")
 cv = s.macro_vars["_CLIENT_VARIABLE"]
@@ -110,9 +110,28 @@ ok(cv["user_pause_macro"] == "_RHINO_PAUSE_HOOK" and cv["user_resume_macro"] == 
    and cv["user_cancel_macro"] == "_RHINO_CANCEL", "Rhino hooks wired into Mainsail's _CLIENT_VARIABLE")
 import glob as _g
 _dups = [f for f in _g.glob(os.path.join(FIXED, "**", "*.cfg"), recursive=True)
-         if "fixtures" not in f and any(l.strip().upper() in ("[GCODE_MACRO CANCEL_PRINT]", "[GCODE_MACRO PAUSE]", "[GCODE_MACRO RESUME]")
+         if "fixtures" not in f and os.path.basename(f) != "client_mainsail.cfg" and any(l.strip().upper() in ("[GCODE_MACRO CANCEL_PRINT]", "[GCODE_MACRO PAUSE]", "[GCODE_MACRO RESUME]")
                                         for l in open(f, encoding="utf-8"))]
 ok(not _dups, f"no config file re-defines Mainsail's PAUSE/RESUME/CANCEL_PRINT ({_dups})")
+
+# Own client macros (docs/proposal-own-client-macros.md): one include, the pinned copy unchanged, the script's guards.
+import hashlib, importlib.util as _iu
+_inc = [l.strip() for l in open(os.path.join(FIXED, "printer.cfg"), encoding="utf-8")]
+ok(_inc[0] == "[include client_mainsail.cfg]" and "[include mainsail.cfg]" not in _inc
+   and _inc.count("[include client_mainsail.cfg]") == 1, "printer.cfg includes client_mainsail.cfg once and mainsail.cfg never")
+_pin = open(os.path.join(FIXED, "client_mainsail.cfg"), "rb").read()
+_mark = b"# ---- mainsail-config client.cfg below, unchanged ----\n"
+ok(_pin.count(_mark) == 1 and hashlib.md5(_pin.split(_mark, 1)[1]).hexdigest() == "0b6bf780f4dba4d0ca7294dd0f6b5d40",
+   "client_mainsail.cfg is the machine's mainsail.cfg byte for byte below its Rhino header")
+ok(b"Alex Zellner" in _pin and b"GPL" in _pin.split(_mark, 1)[0], "client_mainsail.cfg credits mainsail-config and its licence")
+_sp = _iu.spec_from_file_location("pocm", os.path.join(os.path.dirname(os.path.abspath(__file__)), "proposal_own_client_macros.py"))
+_pm = _iu.module_from_spec(_sp); _sp.loader.exec_module(_pm)
+try:
+    _pm.plan(); _again = False
+except SystemExit as e:
+    _again = "already there" in str(e)
+ok(_again, "the --apply script refuses to run a second time")
+ok(_pm.HEADER.encode() + open(_pm.SOURCE, "rb").read() == open(_pm.PINNED, "rb").read(), "the script's output is the shipped file")
 
 def idx(sim, text, start=0):
     for i, e in enumerate(sim.log[start:], start):

@@ -47,6 +47,10 @@ def read_with_includes(path, seen=None, out=None, origin=None):
             if not targets and "mainsail" not in inc and "klipper-toolchanger" not in inc:
                 out.append(("MISSING_INCLUDE", inc, path))
             for t in targets:
+                # Mainsail's own macros (pinned upstream copy): not linted here, STUB_MACROS stands for them and
+                # the simulator runs them in test_macros / test_motion.
+                if os.path.basename(t) == "client_mainsail.cfg":
+                    continue
                 read_with_includes(t, seen, out)
             continue
         cur.append(line)

@@ -1,6 +1,8 @@
 # Proposal: the Rhino keeps its own PAUSE, RESUME and CANCEL_PRINT
 
-Nov 9 2026. **Waiting for Mike's answer. Nothing is applied.**
+Nov 9 2026. **Approved by Mike on Nov 9 and applied in 1.9.19** (`dev/proposal_own_client_macros.py --apply`).
+The machine's `mainsail.cfg` had md5 `0b6bf780f4dba4d0ca7294dd0f6b5d40`, the same bytes as `dev/fixtures/mainsail.cfg`
+that the simulator already ran, so the pinned copy is that file rather than a newer upstream one: nothing changes.
 
 ## Why
 
@@ -21,8 +23,8 @@ and so would be every section above.
 
 ## What changes
 
-1. **A pinned copy goes into the package:** `client_mainsail.cfg`. It's the current upstream `mainsail-config`
-   `client.cfg` (GPL-3.0, © Alex Zellner, credited at the top), with **the macro bodies unchanged**. Only the header
+1. **A pinned copy goes into the package:** `client_mainsail.cfg`. It's `mainsail-config`'s
+   `client.cfg`, exactly as installed on the machine, (GPL-3.0, © Alex Zellner, credited at the top), with **the macro bodies unchanged**. Only the header
    comment says where it came from and which version it is.
 2. **`printer.cfg`'s first line:** `[include mainsail.cfg]` becomes `[include client_mainsail.cfg]`. Only one of
    the two may be included: both together is a "section already defined" error.
@@ -47,8 +49,8 @@ and so would be every section above.
 
 | Risk | Guard |
 |---|---|
-| The machine runs a newer `mainsail.cfg` than the pinned copy, and behaves slightly differently afterwards | The copy is taken from upstream on the day it's applied. The installer reports any difference. **Mike: before applying, send** `md5sum ~/printer_data/config/mainsail.cfg` **(and its first 5 lines).** |
-| Both files included: Klipper won't start | The test above. The installer also refuses a `printer.cfg` that has both. |
+| The machine runs a newer `mainsail.cfg` than the pinned copy, and behaves slightly differently afterwards | Checked: the copy is the machine's file byte for byte (md5 above). The installer still reports any difference. |
+| Both files included: Klipper won't start | The test above, and the health check (menu option 7) fails it. |
 | Undo (menu option 4) to a backup from before this change, *after* Mainsail is removed: the old `printer.cfg` includes a missing file | Stop rule in the install notes: once Mainsail is removed, don't undo past this release. If it happens anyway, change the first line back by hand. |
 | Mainsail's UI (still on port 8090 for two weeks) calls the same macro names | They're the same macros, so nothing changes for it. |
 | A slicer's `SET_PRINT_STATS_INFO` stops working | It's in the copy, and the sim runs a layer-info job. |

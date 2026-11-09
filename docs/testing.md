@@ -509,3 +509,7 @@ Over SSH first: `ls /etc/nginx/sites-enabled/` (expect `mainsail`, `rhino-studio
 - [ ] **BA3 Cameras unchanged.** The camera shows in Studio, and `http://rhino.local/webcam/?action=snapshot` gives a picture.
 - [ ] **BA4 Undo.** Only if BA1-BA3 fail: menu option 4, pick the backup from before 1.9.19. *Pass if:* `grep -n listen /etc/nginx/sites-available/mainsail` shows port 80 again and `http://rhino.local` opens Mainsail.
 - [ ] **HS1 Host stats.** `curl -s http://127.0.0.1:5000/api/host/stats | head -c 400` on the host. *Pass if:* JSON with `"coretemp"` sensors and the four cores. Then Studio's HH1-HH4.
+- [ ] **MC1 Own client macros.** After installing, `head -1 ~/printer_data/config/printer.cfg` and Restart Klipper. *Pass if:* it prints `[include client_mainsail.cfg]`, Klipper is Ready, the install log said the macros match your `mainsail.cfg`, and `CHECK_TOOLHEADS` says OK. *Stop if:* Klipper won't start: undo with menu option 4 (Mainsail is still installed).
+- [ ] **MC2 Pause and resume a print** from Studio. *Pass if:* the head lifts and parks at X551 Y381, then returns and carries on. *Stop if:* it moves anywhere else: press Stop.
+- [ ] **MC3 Cancel a print.** *Pass if:* heaters off, bed down, X and Y home, the head parks and History shows it cancelled. *Stop if:* anything moves differently from before 1.9.19.
+- [ ] **MC4 Laser pause.** Pause a laser job, press Resume by mistake, then `TOOL_RESUME`. *Pass if:* Resume is refused with its message and `TOOL_RESUME` carries on. *Stop if:* the laser fires before `TOOL_RESUME`.
