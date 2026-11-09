@@ -1,5 +1,17 @@
 # What changed
 
+## 1.9.18 - Tuning test files upload; lead screws drawn evenly
+
+Rhino Studio only; no Klipper config changes. Haven't run on a real machine yet: run TU7 in Studio's docs/testing.md.
+
+- **Tuning tests upload again** (Rhino Studio). The first-layer squish, pressure advance and extrusion multiplier
+  wizards' Make the test failed with "Upload failed: HTTP 500" when `gcodes/tuning/` didn't exist yet: Moonraker only
+  makes a missing folder from the upload's folder field, not from a folder in the file name. Studio now sends the
+  folder separately, and a failed upload shows Moonraker's reason.
+- **Bed › Configuration** (Rhino Studio). The lead screws are drawn by place (front left, rear centre ...), not to
+  scale, with same-size label cards and a key. A screw whose motor is off says "motor off" (Klipper also switches
+  motors off when idle), not "released". Home and level reads "NO Z_TILT PERFORMED SINCE RESTART" before any Z-tilt.
+
 ## 1.9.17 - Tuning applied from the Rhino; Bed › Configuration
 
 Rhino Studio 0.18.0. These changes pass the automated tests (macros in the simulator, not real Klipper) but haven't run
