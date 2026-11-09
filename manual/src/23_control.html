@@ -1,0 +1,28 @@
+<h2 id="control">Control</h2>
+<p>Control runs the machine: what the tool is doing, the job, live tuning, jogging, the camera, macros and the console. The panels shown depend on the mounted tool. <b>Flow</b> and <b>Speed</b> appear only with a print head.</p>
+<h3>The status box</h3>
+<p>Across the top: the toolhead (its slot, and whether Klipper has confirmed it), then the readings for that tool, then the job.</p>
+<p><img src="blob/st_ctl_status_job" alt="The status box during a print: the head, hotend, bed, part fan and the job"></p>
+<ul><li><b>Readings.</b> A print head shows the hotend, the bed and the part fan; a laser shows its power and body temperature; a spindle shows its throttle and body temperature. With no tool mounted, only heaters that are on or still hot show. The small graph beside a temperature shows how it has gone over the last few minutes.</li><li><b>Setting a temperature.</b> Click the number, type the new target and press Enter; 0 switches the heater off, and Esc leaves it as it was. The hotend can be heated only with a confirmed print head mounted; switching off is always allowed.</li><li><b>The job.</b> How far it has got, the file and a progress bar, with <b>Cancel print</b> (asks first) and <b>Pause</b> or <b>Resume</b>. Resume asks first; Pause doesn't. When no job is running it says <i>Start a job from Files</i>.</li><li><b>Tool macros.</b> The row under the box holds the mounted tool's own macros. <b>Show … for other tools</b> lists the rest.</li></ul>
+<h3>Flow and Speed: live tuning</h3>
+<p>Both panels change the machine as it works, so they sit behind the padlock. The values last until Klipper restarts. A print's own settings from the job file, and what the Rhino applies at job start, come back with the next job.</p>
+<p><img src="blob/st_ctl_flow" alt="Flow: flow, pressure advance, and feeding filament"></p>
+<ul><li><b>Flow</b>: 50 to 150 %, in 1 % steps or with the slider.</li><li><b>Pressure advance</b>: the advance and its smooth time.</li><li><b>Feed filament</b>: pick a length (1 to 50 mm) and speed, then <b>Extrude</b> or <b>Retract</b>; the nozzle must be hot. Not while a job is running. <b>Path</b> picks T0 or T1 on SwitchFly.</li></ul>
+<p><img src="blob/st_ctl_speed" alt="Speed: speed, Z offset and the speed limits"></p>
+<ul><li><b>Speed</b>: 10 to 300 % of the job's speeds.</li><li><b>Z offset</b>: <b>Closer</b> and <b>Farther</b> move the nozzle in the chosen step, at most 0.05 mm a press, also during the first layer of a print. <b>Reset</b> takes your changes back out. To keep a first-layer height for good, use <i>First-layer squish</i> (see <i>Tuning a print head</i>).</li><li><b>Limits</b>: top velocity and acceleration, until Klipper restarts.</li></ul>
+<h3>Motion</h3>
+<p>Jogging, homing and switching the motors off. The panel is locked to start with; press the padlock to jog. It stays unlocked for 60 seconds after your last press, with the seconds shown on the padlock.</p>
+<p><img src="blob/st_ctl_motion_unlocked" alt="Motion, unlocked: one press is one step"></p>
+<ul><li>Pick an X/Y step (0.1, 1, 10 or 50 mm) and a Z step (0.05, 0.1, 1 or 10 mm). One press moves one step. Z+ opens the gap between the tool and the bed.</li><li>An axis can be jogged only once it is homed, and only with a confirmed tool. Moves stop at the machine's travel limits.</li><li><b>Home all</b>, <b>Home XY</b> and <b>Motors off</b> ask first.</li><li>Jogging locks while a job runs, and when you leave the page, the connection drops, or the tool changes.</li></ul>
+<h3>Camera</h3>
+<p>The picture from the Rhino's cameras; the arrows step through them, and the count shows which one you're looking at. Cameras are added under <b>Settings › Cameras</b>.</p>
+<h3>Macros</h3>
+<p>Each macro is a key. The mounted tool's macros come first; <b>System Macros</b> are the same whatever is mounted, grouped by area, with <b>Other macros</b> folded at the end. A key with a sliders mark takes values: pressing it asks for them, with the allowed range. Macros you make yourself (<b>Settings › Your macros</b>) have their own group.</p>
+<p><img src="blob/st_ctl_macros" alt="System Macros, grouped by area"></p>
+<h3>Hardware</h3>
+<p>When the Rhino has system hardware with live controls, such as a case light, an exhaust fan or a chamber heater, the <b>Hardware</b> panel shows each one with its reading and a control to set it, behind the padlock. Tool outputs never appear here: a tool's power is switched by its wizard or a confirmed console command.</p>
+<h3>Console</h3>
+<p>Type a G-code command or macro and press Enter or <b>Send</b>; ↑ brings back earlier commands. Klipper's replies appear underneath, newest at the top, together with lines from before you connected.</p>
+<p><img src="blob/st_ctl_console" alt="The console, newest line at the top"></p>
+<p>A command that moves the machine, switches tool power, changes the mounted tool or restarts Klipper asks first, with what it will do:</p>
+<p><img src="blob/st_ctl_confirm" alt="G28 asks first: it homes the axes"></p>

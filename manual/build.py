@@ -24,7 +24,10 @@ BLOB = {"c867a3d7-25e6": "welcome.jpg", "505aefe6-155b": "assembly.jpg", "5de126
 STUDIO_SHOTS = {"st_tu_toolpanel": 2.8, "st_tu_page": 3.6, "st_tu_ec_check": 2.4, "st_tu_ec_reading": 1.6,
                 "st_tu_ec_save": 2.4, "st_tu_fl_check": 2.2, "st_tu_fl_print": 3.4, "st_tu_pa": 3.8, "st_tu_em": 3.6,
                 "st_bed_mesh": 3.6, "st_bed_config": 3.6, "st_bed_unlock_ask": 2.5, "st_bed_moved": 3.6,
-                "st_bed_release_ask": 2.1, "st_bed_released": 3.6, "st_bed_level": 1.8}
+                "st_bed_release_ask": 2.1, "st_bed_released": 3.6, "st_bed_level": 1.8,
+                "st_ov_control_idle": 3.6, "st_ov_control_light": 3.6, "st_ov_phone": 4.4, "st_ov_dashboard_job": 3.6,
+                "st_ctl_status_job": 1.3, "st_ctl_flow": 1.25, "st_ctl_speed": 1.15, "st_ctl_motion_unlocked": 2.4,
+                "st_ctl_macros": 3.4, "st_ctl_console": 1.6, "st_ctl_confirm": 1.9}
 BLOB.update({k: k + ".png" for k in STUDIO_SHOTS})
 
 TOC = []          # (level, title, key)
@@ -206,7 +209,7 @@ def cover():
     return (f'<div class="cover">{marker("C", "cover|cover")}'
             '<div class="coverkick">Makersmic · User manual</div>'
             '<div class="covertitle">Rhino Multi-Tool<br>Motion System</div><div class="coverrule"></div>'
-            f'<div class="coversub">Release {VERSION} · Klipper, Mainsail and the Rhino Tool Manager</div>'
+            f'<div class="coversub">Release {VERSION} · Klipper, Rhino Studio and the Rhino Portal</div>'
             f'<div class="coverframe"><img class="coverimg" src="{src("welcome.jpg")}"></div>'
             f'<div class="covertools">{tools}</div>'
             '<div class="coverfoot"><p class="coverblurb">One machine, five swappable toolheads: print, laser-cut, mill and drag-cut on '
@@ -875,8 +878,10 @@ def build():
     body.append(admin())
     body.append(xsec("10_console-commands.html"))
     body.append(xsec("11_safety-systems.html"))
-    body.append(part(4, "Rhino Studio", "The web interface for every process on the Rhino: tuning a print head and the bed.",
-                     ["Tuning a print head", "Bed"]))
+    body.append(part(4, "Rhino Studio", "The Rhino's main screen: finding your way, running the machine, tuning a print head and the bed.",
+                     ["Rhino Studio at a glance", "Control", "Tuning a print head", "Bed"]))
+    body.append(xsec("22_rhino-studio.html"))
+    body.append(xsec("23_control.html"))
     body.append(xsec("20_tuning-a-print-head.html"))
     body.append(xsec("21_bed.html"))
     body.append(part(5, "Maintenance", "Tracking preventive maintenance in the portal, and the procedures themselves.",
