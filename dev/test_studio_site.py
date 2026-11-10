@@ -36,7 +36,7 @@ NGINX = shutil.which("nginx") or ("/usr/sbin/nginx" if os.path.exists("/usr/sbin
 if not NGINX:
     print("SKIP Studio site test: nginx is not installed")
     sys.exit(0)
-for p in (5000, 8080):
+for p in (5000, 8080, 1984):
     with socket.socket() as s:
         if s.connect_ex(("127.0.0.1", p)) == 0:
             print(f"SKIP Studio site test: port {p} is in use on this computer")
@@ -93,7 +93,7 @@ open(os.path.join(WWW, "kiri", "wasm", "slicer.wasm"), "wb").write(b"\0asm\1\0\0
 MOON = free_port()
 PORT = free_port()
 PORT80 = free_port()   # stands in for port 80, shared with "Mainsail"
-servers = [upstream("moonraker", MOON), upstream("portal", 5000), upstream("webcam", 8080)]
+servers = [upstream("moonraker", MOON), upstream("portal", 5000), upstream("webcam", 8080), upstream("go2rtc", 1984)]
 site = open(os.path.join(REPO, "service", "rhino-studio.nginx")).read()
 tpl = site
 site = tpl.replace("@PORT@", str(PORT)).replace("@NAME@", "_").replace("@ROOT@", WWW).replace("@MOONRAKER@", str(MOON))
@@ -199,6 +199,19 @@ try:
 
     st, h, b = req("GET", "/webcam/?action=snapshot")
     ok(st == 200 and SEEN.get("webcam", {}).get("path") == "/?action=snapshot", "/webcam/ goes to crowsnest's first camera (port 8080), prefix removed")
+
+    # 1.9.20: the camera's microphone, one fixed stream, POST only
+    st, h, b = req("POST", "/mic/webrtc?src=../api/config", body=b"v=0 offer", headers={"Content-Type": "application/sdp"})
+    s = SEEN.get("go2rtc", {})
+    ok(st == 200 and s.get("path") == "/api/webrtc?src=mic" and s.get("method") == "POST" and s.get("body") == 9,
+       f"/mic/webrtc reaches go2rtc's /api/webrtc for the mic stream only, whatever the page asks ({s.get('path')})")
+    SEEN.pop("go2rtc", None)
+    st, h, b = req("GET", "/mic/webrtc")
+    ok(st == 403 and "go2rtc" not in SEEN, f"...a GET is refused there (HTTP {st})")
+    st, h, b = req("POST", "/mic/api/streams", body=b"{}")
+    ok("go2rtc" not in SEEN, "...and nothing else of go2rtc's is reachable")
+    st, h, b = req("POST", "/mic/webrtc", body=b"x" * (200 * 1024), headers={"Content-Type": "application/sdp"})
+    ok(st == 413 and "go2rtc" not in SEEN, f"...an offer over 64 KB is refused (HTTP {st})")
 
     # 1.5.3: by name on the shared port
     def req80(path, name, method="GET", body=None, headers=None):

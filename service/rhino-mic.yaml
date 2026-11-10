@@ -1,0 +1,15 @@
+# The camera's microphone for Rhino Studio (docs/install-mic.md). Written by scripts/rhino_mic.sh; @DEVICE@ is the
+# camera's sound card by name, so it's found again if the cards swap numbers after a restart.
+# Sound only: the picture stays with crowsnest. Nothing here reaches outside the home network.
+api:
+  listen: "127.0.0.1:1984"    # this host only: nginx passes Studio's /mic/webrtc here, nothing else
+rtsp:
+  listen: "127.0.0.1:8554"    # this host only: ffmpeg hands the sound to go2rtc here
+webrtc:
+  listen: ":8555"             # the sound goes to the browser here, TCP and UDP, home network
+  ice_servers: []             # no outside STUN servers
+log:
+  level: warn
+streams:
+  # started when someone listens, stopped when the last one leaves. plughw lets ALSA convert the camera's own rate.
+  mic: exec:ffmpeg -hide_banner -loglevel error -nostdin -f alsa -i @DEVICE@ -vn -ac 1 -ar 48000 -c:a libopus -b:a 48k -application audio -rtsp_transport tcp -f rtsp {output}

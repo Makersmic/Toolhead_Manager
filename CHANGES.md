@@ -1,5 +1,22 @@
 # What changed
 
+## 1.9.20 - Job setup and camera changes; the camera's microphone
+
+Rhino Studio 0.19.0. No Klipper config changes. Haven't run on a real machine yet: JS1-JS6, PV8, CM1-CM2 and SND1 in
+Studio's docs/testing.md, and MIC1-MIC4 below.
+
+- **Job setup** (Studio): parts cards lie over the left of a full-width 3D view; where a print touches the plate
+  shows green; the support controls moved into Settings, at the top of each engine's Support section; PrusaSlicer's
+  sections fold; a Prepare button ends Settings; the job file's name can be changed before sending, and Start job sits
+  in the row with Send, Preview and Download.
+- **Preview** draws the same white plate as Job setup.
+- **Cameras** (Studio): Settings › Appearance sets each of the Dashboard's and Control's camera to fill or show the
+  whole picture, and its zoom. The camera edit preview is as tall as the form.
+- **The camera's microphone** (optional, `docs/install-mic.md`): `scripts/rhino_mic.sh install|status|remove` puts
+  in ffmpeg, go2rtc 1.9.15 (pinned, checksum checked) and a low-priority `rhino-mic` service; Studio's nginx site
+  passes `/mic/webrtc` (POST, home network, one fixed stream) to it. Studio plays it on the Dashboard with mute and
+  volume. Sound only: the cameras' pictures don't depend on it. Not installed by the menu.
+
 ## 1.9.19 - Studio on the bare address; host health; own pause, resume and cancel
 
 Rhino Studio 0.18.1. One Klipper config change: `printer.cfg`'s first line. Haven't run on a real machine yet: run

@@ -1,0 +1,25 @@
+# The camera's microphone for Rhino Studio: go2rtc, sound only (docs/install-mic.md).
+# Installed by:  bash ~/printer_data/config/scripts/rhino_mic.sh install   (fills in @USER@ and @DIR@)
+# Logs:          journalctl -u rhino-mic -f
+# It never gets in Klipper's way: low priority, capped CPU and memory. ffmpeg runs only while someone listens.
+[Unit]
+Description=Rhino microphone for Rhino Studio (go2rtc, sound only)
+After=network-online.target sound.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=@USER@
+SupplementaryGroups=audio
+WorkingDirectory=@DIR@
+ExecStart=@DIR@/go2rtc -config @DIR@/go2rtc.yaml
+Restart=on-failure
+RestartSec=10
+Nice=10
+CPUQuota=50%
+MemoryMax=256M
+NoNewPrivileges=true
+ProtectSystem=full
+
+[Install]
+WantedBy=multi-user.target

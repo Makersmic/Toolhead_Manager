@@ -513,3 +513,10 @@ Over SSH first: `ls /etc/nginx/sites-enabled/` (expect `mainsail`, `rhino-studio
 - [ ] **MC2 Pause and resume a print** from Studio. *Pass if:* the head lifts and parks at X551 Y381, then returns and carries on. *Stop if:* it moves anywhere else: press Stop.
 - [ ] **MC3 Cancel a print.** *Pass if:* heaters off, bed down, X and Y home, the head parks and History shows it cancelled. *Stop if:* anything moves differently from before 1.9.19.
 - [ ] **MC4 Laser pause.** Pause a laser job, press Resume by mistake, then `TOOL_RESUME`. *Pass if:* Resume is refused with its message and `TOOL_RESUME` carries on. *Stop if:* the laser fires before `TOOL_RESUME`.
+
+## 1.9.20: the camera's microphone (docs/install-mic.md)
+
+- [ ] **MIC1 Install.** Follow docs/install-mic.md steps 1-4. *Pass if:* the dry run changes nothing, the install ends *Microphone installed.*, and status shows five OK lines. *Stop if:* STOPPED at any step: send the output.
+- [ ] **MIC2 Sound in Studio.** Settings › Cameras › Sound ticked; on the Dashboard tap Sound. *Pass if:* you hear the machine (tap the frame near the camera) within 2 s, the slider changes the volume, and Sound off stops it. *Stop if:* no sound after 5 s: `rhino_mic.sh status` and the browser's message.
+- [ ] **MIC3 Nothing else changes.** During a print with Sound on for 5 minutes. *Pass if:* the cameras keep their picture, `systemctl status rhino-mic` shows under 10 % CPU, and klippy.log gains no `timer too close` lines. *Stop if:* any of those fail: turn Sound off and `rhino_mic.sh remove`.
+- [ ] **MIC4 Idle and undo.** Leave the Dashboard. *Pass if:* within 30 s `pgrep -a ffmpeg` shows nothing (go2rtc stops ffmpeg when nobody listens). Then `rhino_mic.sh remove`. *Pass if:* the service and ~/rhino-mic are gone, and Studio says the service isn't running.

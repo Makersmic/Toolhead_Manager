@@ -9,6 +9,7 @@
 #   /websocket, /printer/ /server/ /machine/ /access/ /api/    Moonraker (port @MOONRAKER@), as Mainsail does it
 #   /webcam/ ... /webcam4/     crowsnest's cameras (ports 8080-8083), as Mainsail does it
 #   /portal/        the Rhino Portal (port 5000)
+#   /mic/webrtc     the camera's microphone (go2rtc, port 1984 on this host only; docs/install-mic.md)
 server {
     listen @PORT@;
 
@@ -81,6 +82,26 @@ server {
         proxy_buffering off;
         proxy_ignore_headers X-Accel-Buffering;
         proxy_pass http://127.0.0.1:8083/;
+    }
+
+    # The camera's microphone (1.9.20, docs/install-mic.md): only go2rtc's WebRTC offer, only for its one stream
+    # ("mic", whatever the page asks for), only POST, only from the home network. The sound then goes straight to the
+    # browser on port 8555. Without the microphone service nginx answers 502 and Studio says it isn't installed.
+    location = /mic/webrtc {
+        allow 127.0.0.1;
+        allow ::1;
+        allow 10.0.0.0/8;
+        allow 172.16.0.0/12;
+        allow 192.168.0.0/16;
+        allow 169.254.0.0/16;
+        allow fc00::/7;
+        allow fe80::/10;
+        deny all;
+        limit_except POST { deny all; }
+        client_max_body_size 64k;
+        rewrite ^ /api/webrtc?src=mic? break;
+        proxy_pass http://127.0.0.1:1984;
+        proxy_read_timeout 20;
     }
 
     # The Portal checks that a change comes from the page's own address, so it gets the browser's Host
