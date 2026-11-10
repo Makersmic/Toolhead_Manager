@@ -60,7 +60,7 @@ jobs:
         run: |
           (cd rhino-studio && npm ci)
           sudo apt-get install -y zip >/dev/null
-          sh tm/dev/make_zip.sh "$PWD/rhino-studio"
+          RHINO_GO2RTC=1 sh tm/dev/make_zip.sh "$PWD/rhino-studio"
           ( cd "$PWD" && sha256sum "rhino-config-$VERSION.zip" > "rhino-config-$VERSION.zip.sha256" )
           cat "rhino-config-$VERSION.zip.sha256"
           echo "STUDIO=$(cat tm/studio/VERSION)" >> "$GITHUB_ENV"

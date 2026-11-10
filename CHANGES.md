@@ -1,5 +1,16 @@
 # What changed
 
+## 1.9.21 - The install sets up the camera sound
+
+Rhino Studio 0.19.1. No Klipper config changes. Haven't run on a real machine yet: MIC1-MIC4 in docs/testing.md.
+
+- **Camera sound comes with the install** (Mike, Nov 9): when a USB camera with a microphone is plugged in, the
+  install sets up ffmpeg, go2rtc and the `rhino-mic` service by itself (`docs/install-mic.md`). go2rtc 1.9.15 now
+  comes inside the release zip (fetched and checked against the pinned checksum when the release is built, MIT licence
+  beside it), so nothing is downloaded from GitHub on the Rhino; ffmpeg still comes from Debian. It never stops the
+  install: anything missing is skipped with a note and a log. It stays out of the config folder (and its backups).
+  Undo takes it away again if that install added it.
+
 ## 1.9.20 - Job setup and camera changes; the camera's microphone
 
 Rhino Studio 0.19.0. No Klipper config changes. Haven't run on a real machine yet: JS1-JS6, PV8, CM1-CM2 and SND1 in

@@ -17,7 +17,21 @@ own site (nginx, Tool Manager 1.9.20), which passes only that one request, only 
 then goes straight to the browser on **port 8555** (TCP and UDP). Anyone who can open Studio on the network can listen
 while the Dashboard's Sound is on.
 
-## Before you start
+## Since 1.9.21: the install does it
+
+Installing Tool Manager 1.9.21 or later (Studio's Update, Install from zip, or the menu) sets the sound up by itself
+when a USB camera with a microphone is plugged in, using the go2rtc that comes inside the release zip (checked against
+the pinned checksum when the release is built, and again on the Rhino). The install shows a **Camera sound** step:
+
+- *the rhino-mic service is running*: done. Turn it on in Studio: Settings › Cameras › Sound (step 5 below).
+- *sound skipped: …*: the install still finished; the reason is on that line and the whole log is named under it
+  (`~/rhino-backup-<date>/_rhino_install/mic.log`). The usual one is ffmpeg needing the internet the first time.
+- *no USB camera with a microphone found*: plug the camera in and install again.
+
+Undo (menu option 4) takes the sound service away again if that install added it. The steps below still work by hand,
+for example to check it (`status`) or remove it on its own.
+
+## By hand: before you start
 
 - Tool Manager **1.9.20 or later** installed (it brings the script, the service files and Studio's `/mic` route).
   Check in Studio: Settings › Software.
@@ -59,7 +73,8 @@ bash ~/printer_data/config/scripts/rhino_mic.sh remove
 ```
 Stops and removes the `rhino-mic` service and `~/rhino-mic`. Studio then says the service isn't running: untick
 Sound in Settings › Cameras. ffmpeg stays (it does nothing on its own); to remove it too: `sudo apt-get remove ffmpeg`.
-Undoing a Tool Manager install (menu option 4) doesn't remove the microphone; run the line above as well.
+Undoing the Tool Manager install that added it (menu option 4) removes it too; one installed by hand stays until
+you run the line above.
 
 ## Checks (Tool Manager docs/testing.md)
 

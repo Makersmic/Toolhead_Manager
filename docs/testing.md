@@ -516,7 +516,7 @@ Over SSH first: `ls /etc/nginx/sites-enabled/` (expect `mainsail`, `rhino-studio
 
 ## 1.9.20: the camera's microphone (docs/install-mic.md)
 
-- [ ] **MIC1 Install.** Follow docs/install-mic.md steps 1-4. *Pass if:* the dry run changes nothing, the install ends *Microphone installed.*, and status shows five OK lines. *Stop if:* STOPPED at any step: send the output.
+- [ ] **MIC1 Install.** Update to 1.9.21 from Studio with the C920 plugged in. *Pass if:* the install's Camera sound step says *the rhino-mic service is running*, and `bash ~/printer_data/config/scripts/rhino_mic.sh status` shows five OK lines. *Stop if:* it says *sound skipped*: send that line and the mic.log it names (the install itself still finished).
 - [ ] **MIC2 Sound in Studio.** Settings › Cameras › Sound ticked; on the Dashboard tap Sound. *Pass if:* you hear the machine (tap the frame near the camera) within 2 s, the slider changes the volume, and Sound off stops it. *Stop if:* no sound after 5 s: `rhino_mic.sh status` and the browser's message.
 - [ ] **MIC3 Nothing else changes.** During a print with Sound on for 5 minutes. *Pass if:* the cameras keep their picture, `systemctl status rhino-mic` shows under 10 % CPU, and klippy.log gains no `timer too close` lines. *Stop if:* any of those fail: turn Sound off and `rhino_mic.sh remove`.
 - [ ] **MIC4 Idle and undo.** Leave the Dashboard. *Pass if:* within 30 s `pgrep -a ffmpeg` shows nothing (go2rtc stops ffmpeg when nobody listens). Then `rhino_mic.sh remove`. *Pass if:* the service and ~/rhino-mic are gone, and Studio says the service isn't running.

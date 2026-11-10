@@ -6,6 +6,9 @@
 #   bash ~/printer_data/config/scripts/rhino_mic.sh status              is it there and running, does it see the microphone
 #   bash ~/printer_data/config/scripts/rhino_mic.sh remove              the service and go2rtc go; ffmpeg stays (see the doc)
 #
+# Since 1.9.21 install.sh runs "install" by itself when a USB camera with a microphone is plugged in, using the go2rtc
+# that comes inside the release zip (RHINO_MIC_BIN), so nothing is downloaded then.
+#
 # Nothing here touches Klipper, Moonraker, crowsnest or the config folder. It stops before changing anything if a job
 # is running, the camera's microphone isn't there, or the download isn't exactly the pinned go2rtc.
 # go2rtc: https://github.com/AlexxIT/go2rtc (MIT), run as its own program; nothing of it is copied into this repo.
@@ -16,13 +19,15 @@ SHA=20b46c6910734cb05ecefb234066f36868ff19b42ba1418a7a32e13a3e035712
 SHA="${RHINO_MIC_TEST_SHA:-$SHA}"        # dev/test_mic.py only: its fake download can't match the real file
 URL="${RHINO_MIC_URL:-https://github.com/AlexxIT/go2rtc/releases/download/v$VER/go2rtc_linux_amd64}"
 ROOT="${RHINO_MIC_ROOT:-}"               # tests: a stand-in for / (proc, etc)
+BUNDLED="${RHINO_MIC_BIN:-}"             # install.sh: the go2rtc inside the release zip
+MICUSER="${RHINO_MIC_USER:-$(id -un)}"   # install.sh --unattended runs this as root for the login
 CARD="${RHINO_MIC_CARD:-C920}"
 MOON="${RHINO_MOONRAKER:-http://127.0.0.1:7125}"
 API="http://127.0.0.1:1984"
 CFG="$(cd "$(dirname "$0")/.." && pwd)"  # the config folder: scripts/..
 DIR="$HOME/rhino-mic"
-UNIT="$ROOT/etc/systemd/system/rhino-mic.service"
-SITE="$ROOT/etc/nginx/sites-available/rhino-studio"
+UNIT="${RHINO_UNIT_DIR:-$ROOT/etc/systemd/system}/rhino-mic.service"
+SITE="${RHINO_NGINX_DIR:-$ROOT/etc/nginx}/sites-available/rhino-studio"
 DEVICE="plughw:CARD=$CARD,DEV=0"
 WAIT="${RHINO_MIC_WAIT:-20}"             # half-seconds to wait for go2rtc to answer
 
@@ -61,6 +66,10 @@ install_mic() {
 
   say "go2rtc $VER: passes the sound to the browser"
   if [ -x "$DIR/go2rtc" ] && [ "$(sha256sum "$DIR/go2rtc" | cut -d' ' -f1)" = "$SHA" ]; then ok "go2rtc $VER already in $DIR"
+  elif [ -n "$BUNDLED" ] && [ -f "$BUNDLED" ]; then
+    [ "$(sha256sum "$BUNDLED" | cut -d' ' -f1)" = "$SHA" ] || stop "The go2rtc in the release isn't the pinned $VER." "The zip may be damaged: download it again."
+    if [ $DRY = 1 ]; then note "would use the go2rtc $VER inside the release (checksum matches)"
+    else mkdir -p "$DIR" && install -m 755 "$BUNDLED" "$DIR/go2rtc" && ok "go2rtc $VER from the release, checksum matches"; fi
   elif [ $DRY = 1 ]; then printf '   would download %s\n   and keep it only if its sha256 is %s\n' "$URL" "$SHA"
   else
     tmp="$(mktemp)"
@@ -82,11 +91,12 @@ install_mic() {
   fi
 
   say "The rhino-mic service: starts at boot, low priority"
-  unit="$(sed "s#@USER@#$(id -un)#g; s#@DIR@#$DIR#g" "$CFG/service/rhino-mic.service")"
+  unit="$(sed "s#@USER@#$MICUSER#g; s#@DIR@#$DIR#g" "$CFG/service/rhino-mic.service")"
   if [ $DRY = 1 ]; then note "would write $UNIT and start rhino-mic"
   else
     tmpu="$(mktemp)"; printf '%s\n' "$unit" > "$tmpu"
     sudo install -m 644 "$tmpu" "$UNIT" && rm -f "$tmpu" || stop "Couldn't write $UNIT."
+    [ "$(id -u)" = 0 ] && [ "$MICUSER" != root ] && chown -R "$MICUSER": "$DIR"   # the login's own folder stays its own
     sudo systemctl daemon-reload && sudo systemctl enable rhino-mic >/dev/null 2>&1 && sudo systemctl restart rhino-mic || stop "rhino-mic didn't start." "journalctl -u rhino-mic -n 30"
     i=0; until api_up; do i=$((i+1)); [ $i -ge "$WAIT" ] && stop "go2rtc started but doesn't answer on this host." "journalctl -u rhino-mic -n 30; undo with: bash $0 remove"; sleep 0.5; done
     ok "running, and go2rtc lists the mic stream"

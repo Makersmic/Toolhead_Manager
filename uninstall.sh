@@ -116,5 +116,13 @@ elif [ -f "$NUNIT" ]; then
   do_ sudo rm -f "$NUNIT"
   do_ sudo systemctl daemon-reload
 fi
+# 1.9.21+: the camera's sound service, if that install added it (ffmpeg stays: it does nothing on its own)
+if [ -f "$B/_rhino_install/mic-added" ]; then
+  echo "Taking away the camera sound service"
+  do_ sudo systemctl disable --now rhino-mic
+  do_ sudo rm -f "$UNITS/rhino-mic.service"
+  do_ sudo systemctl daemon-reload
+  do_ rm -rf "$HOME/rhino-mic"
+fi
 echo
 [ $DRY = 1 ] && echo "Dry run finished - nothing was changed." || echo "Restored. In Mainsail run FIRMWARE_RESTART."

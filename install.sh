@@ -190,7 +190,7 @@ say "Copying the new files into your config folder"
 had_positions=0; [ -f "$CFG/myrhino/positions.cfg" ] && had_positions=1
 # Never copied: your saved state, git files, the test folder, zips and the installers themselves.
 EXCL=(--exclude .git/ --exclude .gitignore --exclude variables.cfg --exclude variables.save --exclude dev/ --exclude '*.zip'
-      --exclude install.sh --exclude uninstall.sh --exclude rhino.sh --exclude VERSION --exclude /studio/
+      --exclude install.sh --exclude uninstall.sh --exclude rhino.sh --exclude VERSION --exclude /studio/ --exclude /vendor/
       --exclude myrhino/custom_tools.cfg --exclude myrhino/job_hooks.cfg --exclude myrhino/maintenance_status.cfg --exclude myrhino/positions.cfg)
 do_ rsync -a "${EXCL[@]}" "$SRC/" "$CFG/" || fail "Copy failed." "Your backup is in $BACKUP."
 # Generated files and your positions: only put the starter copy in place if you do not have one yet.
@@ -609,6 +609,38 @@ done
 ip=$(hostname -I 2>/dev/null | awk '{print $1}')
 url="http://${ip:-YOUR-PI-ADDRESS}:5000"
 [ -n "$studio_url" ] && studio_url="http://${ip:-YOUR-PI-ADDRESS}:$STUDIO_PORT"
+# ------------------------------------------------------------------ camera sound (1.9.21)
+# The camera's microphone for Studio's Dashboard (Mike, Nov 9 2026; docs/install-mic.md): set up whenever a USB camera
+# with a microphone is plugged in, with the go2rtc inside this zip. It never stops the install: anything missing
+# (ffmpeg needs the internet the first time) is skipped with a note. Undo takes it away again if this install added it.
+MIC_ROOT="${RHINO_MIC_ROOT:-}"
+MIC_CARD="${RHINO_MIC_CARD:-$(sed -nE 's/^ *[0-9]+ \[([^] ]+) *\]: USB-Audio.*/\1/p' "$MIC_ROOT/proc/asound/cards" 2>/dev/null | head -1)}"
+MIC_UNIT="${RHINO_UNIT_DIR:-$MIC_ROOT/etc/systemd/system}/rhino-mic.service"
+say "Camera sound (the camera's microphone, for Studio's Dashboard)"
+if [ -z "$MIC_CARD" ]; then
+  note "no USB camera with a microphone found - skipped (plug one in and install again)"
+elif [ ! -f "$SRC/vendor/go2rtc/go2rtc_linux_amd64" ] && [ ! -f "$MIC_UNIT" ]; then
+  note "this zip has no go2rtc inside - skipped (bash $CFG/scripts/rhino_mic.sh install sets it up from the internet)"
+else
+  mic_was=0; [ -f "$MIC_UNIT" ] && mic_was=1
+  mic_log="$BACKUP/_rhino_install/mic.log"; [ $DRY = 1 ] && mic_log="$(mktemp)"
+  mic_args=(install); [ $DRY = 1 ] && mic_args+=(--dry-run)
+  [ $UNATTENDED = 1 ] && export -f sudo
+  if RHINO_MIC_CARD="$MIC_CARD" RHINO_MIC_USER="$USER" RHINO_MIC_BIN="$SRC/vendor/go2rtc/go2rtc_linux_amd64" \
+     bash "$SRC/scripts/rhino_mic.sh" "${mic_args[@]}" > "$mic_log" 2>&1; then
+    if [ $DRY = 1 ]; then note "$MIC_CARD's microphone would be set up (ffmpeg, go2rtc, the rhino-mic service)"
+    else
+      ok "$MIC_CARD's microphone: the rhino-mic service is running"
+      [ $mic_was = 0 ] && touch "$BACKUP/_rhino_install/mic-added"
+      note "turn it on in Rhino Studio: Settings > Cameras > Sound"
+    fi
+  else
+    note "sound skipped: $(grep -m1 '^STOPPED:' "$mic_log" | sed 's/^STOPPED: //')"
+    [ $DRY = 0 ] && note "the whole log: $mic_log"
+  fi
+  [ $DRY = 1 ] && rm -f "$mic_log"
+fi
+
 printf '\n\033[1m%s\033[0m\n' "$([ $DRY = 1 ] && echo 'Dry run finished - nothing was changed.' || echo 'Install finished.')"
 [ $DRY = 1 ] && { echo "Run it for real with:  bash $SRC/install.sh"; exit 0; }
 cat <<EOF

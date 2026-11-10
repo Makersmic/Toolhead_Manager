@@ -151,6 +151,20 @@ try:
     code, out = run("install", "--dry-run")
     ok("Studio's site has no /mic route yet" in out, "an older Studio site without /mic is pointed out")
 
+    # 1.9.21: the go2rtc inside the release zip (install.sh passes it), and the login when run as root
+    open(CARDS, "w").write(REAL_CARDS)
+    bundled = os.path.join(T, "zip-go2rtc"); open(bundled, "wb").write(FAKE_GO2RTC)
+    open(os.path.join(ROOT, "etc", "nginx", "sites-available", "rhino-studio"), "w").write("location = /mic/webrtc {}\n")
+    open(LOG, "w").close()
+    code, out = run("install", RHINO_MIC_BIN=bundled, RHINO_MIC_USER="pi")
+    ok(code == 0 and "go2rtc 1.9.15 from the release, checksum matches" in out and "example.invalid" not in calls(),
+       "uses the go2rtc inside the release: nothing downloaded")
+    ok("User=pi" in (open(UNIT).read() if os.path.exists(UNIT) else ""), "the service runs as the login it's given (the updater runs as root)")
+    run("remove")
+    open(bundled, "wb").write(b"damaged")
+    code, out = run("install", RHINO_MIC_BIN=bundled)
+    ok(code == 1 and "The go2rtc in the release isn't the pinned 1.9.15." in out and not os.path.exists(UNIT), "a damaged go2rtc in the zip stops it")
+
     code, out = run("nonsense")
     ok(code == 2 and "install --dry-run" in out, "an unknown action shows the usage")
 

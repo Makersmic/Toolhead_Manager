@@ -161,12 +161,16 @@ _snap = http.server.ThreadingHTTPServer(("127.0.0.1", 0), _Snap)
 threading.Thread(target=_snap.serve_forever, daemon=True).start()
 
 
+MIC0 = os.path.join(ROOT, "mic-none")      # 1.9.21: no sound cards here, so the camera sound is skipped
+os.makedirs(os.path.join(MIC0, "proc", "asound"), exist_ok=True)
+
+
 def env(**extra):
     e = {"HOME": HOME, "USER": "tester", "PATH": BIN + os.pathsep + os.environ["PATH"], "CALLS": LOG, "PIDF": PIDF, "RHINO_SKIP_NET": "1", "RHINO_SKIP_UPDATER": "1",
          "RHINO_SERVICE_FILE": SERVICE, "RHINO_MOONRAKER": f"http://127.0.0.1:{moon.server_port}",
          "PORTAL_LOG": os.path.join(ROOT, "portal.log"), "TERM": "dumb", "LANG": "C.UTF-8",
          "RHINO_NGINX_DIR": NGX, "RHINO_NGINX_BIN": os.path.join(BIN, "nginx"), "RHINO_STUDIO_DIR": STUDIO,
-         "RHINO_STUDIO_PORT": str(STUDIO_PORT), "RHINO_STUDIO_NAME_PORT": str(NAME_PORT), "RHINO_MAINSAIL_PORT": str(MS_PORT), "RHINO_UNIT_DIR": UNITS0, "RHINO_AVAHI_SOCKET": AVAHI_SOCK,
+         "RHINO_STUDIO_PORT": str(STUDIO_PORT), "RHINO_STUDIO_NAME_PORT": str(NAME_PORT), "RHINO_MAINSAIL_PORT": str(MS_PORT), "RHINO_UNIT_DIR": UNITS0, "RHINO_AVAHI_SOCKET": AVAHI_SOCK, "RHINO_MIC_ROOT": MIC0,
          "RHINO_SNAPSHOT_URL": f"http://127.0.0.1:{_snap.server_port}", "SNAP_SHA256": _hl.sha256(_SNAP_DEB).hexdigest(), "TMPDIR": ROOT}
     e.update(extra)
     return e
@@ -202,7 +206,7 @@ def backups():
 def package(dest):
     """The release zip's contents, unpacked (same exclusions as the zip)."""
     shutil.copytree(REPO, dest, ignore=shutil.ignore_patterns(".git", ".github", "__pycache__", "node_modules", "manual",
-                                                              "docs", "*.zip", "package*.json"))
+                                                              "docs", "*.zip", "package*.json", "vendor"))
     if not os.path.isfile(os.path.join(dest, "studio", "index.html")):   # a stand-in Studio build (dev/make_zip.sh adds the real one)
         os.makedirs(os.path.join(dest, "studio", "assets"), exist_ok=True)
         open(os.path.join(dest, "studio", "index.html"), "w").write("<!doctype html><title>Rhino Studio</title>")
@@ -269,6 +273,7 @@ try:
     ok(len(bks) == 1 and bk == original, "backup made first, an exact copy of the old config folder")
     now = tree(CFG)
     ok(all(k in now for k in ("toolchanger.cfg", "scripts/rhino_portal.py", "rhino/portal/__init__.py")), "new files copied in")
+    ok("no USB camera with a microphone found - skipped" in out, "no camera microphone: the sound step says so and is skipped")
     ok(open(os.path.join(CFG, "printer.cfg")).readline() == "[include client_mainsail.cfg]\n", "printer.cfg now includes the Rhino's client_mainsail.cfg")
     ok("same macros as your mainsail.cfg" in out and now["mainsail.cfg"] == original["mainsail.cfg"],
        "the installer says the pinned copy matches mainsail.cfg, and leaves mainsail.cfg as it was")
@@ -549,6 +554,40 @@ try:
         ok(f"PathExists={drop}/request.json" in upath, "path unit watches the Portal's request file")
         ok("systemctl enable --now rhino-update.path" in open(LOG).read(), "path unit enabled")
         run(f"{PKG}/uninstall.sh")
+
+    # ============================================================ camera sound (1.9.21)
+    print("== camera sound: set up when a USB camera microphone is there, never stopping the install ==")
+    MIC1 = os.path.join(ROOT, "mic-c920"); os.makedirs(os.path.join(MIC1, "proc", "asound"), exist_ok=True)
+    open(os.path.join(MIC1, "proc", "asound", "cards"), "w").write(
+        " 0 [C920           ]: USB-Audio - HD Pro Webcam C920\n                      HD Pro Webcam C920 at usb-0000:00:14.0-7, high speed\n"
+        " 1 [PCH            ]: HDA-Intel - HDA Intel PCH\n")
+    rc, out = run(f"{PKG}/install.sh", "--dry-run", RHINO_MIC_ROOT=MIC1)
+    ok(rc == 0 and "this zip has no go2rtc inside - skipped" in out, "a zip without go2rtc: the sound is skipped with how to add it")
+    VEN = os.path.join(PKG, "vendor", "go2rtc"); os.makedirs(VEN, exist_ok=True)
+    fake = b"#!/bin/sh\nexit 0\n"
+    open(os.path.join(VEN, "go2rtc_linux_amd64"), "wb").write(fake)
+    msha = _hl.sha256(fake).hexdigest()
+    rc, out = run(f"{PKG}/install.sh", "--dry-run", RHINO_MIC_ROOT=MIC1, RHINO_MIC_TEST_SHA=msha)
+    ok(rc == 0 and "C920's microphone would be set up" in out, "dry run with the C920 and go2rtc inside: says it would set the sound up")
+    # a real run here can't reach a go2rtc (nothing answers on 1984), so the sound stops part-way: the install still finishes
+    rc, out = run(f"{PKG}/install.sh", RHINO_MIC_ROOT=MIC1, RHINO_MIC_TEST_SHA=msha, RHINO_MIC_WAIT="1")
+    ok(rc == 0 and "Install finished." in out and "sound skipped:" in out and "mic.log" in out,
+       "the sound failing part-way never stops the install; it says why and where the log is" + ("" if rc == 0 else f": {out[-300:]}"))
+    ok(not os.path.exists(os.path.join(CFG, "vendor")), "go2rtc isn't copied into the config folder (kept out of config backups)")
+    shutil.rmtree(VEN, ignore_errors=True)
+    for f in (os.path.join(UNITS0, "rhino-mic.service"),):
+        if os.path.exists(f):
+            os.remove(f)
+    shutil.rmtree(os.path.join(HOME, "rhino-mic"), ignore_errors=True)
+    # undo takes the sound service away only if that install added it
+    bk = os.path.join(HOME, sorted(d for d in os.listdir(HOME) if d.startswith("rhino-backup-"))[-1])
+    open(os.path.join(bk, "_rhino_install", "mic-added"), "w").close()
+    open(os.path.join(UNITS0, "rhino-mic.service"), "w").write("[Unit]\n")
+    os.makedirs(os.path.join(HOME, "rhino-mic"), exist_ok=True)
+    open(LOG, "a").close()
+    rc, out = run(f"{PKG}/uninstall.sh", bk)
+    ok(rc == 0 and "Taking away the camera sound service" in out and not os.path.exists(os.path.join(UNITS0, "rhino-mic.service"))
+       and not os.path.isdir(os.path.join(HOME, "rhino-mic")), "undo takes away a sound service that install added")
 finally:
     if os.path.exists(PIDF):
         try:

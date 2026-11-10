@@ -10,3 +10,4 @@ dev/node_modules/
 dev/package*.json
 manual/underlay.*
 /studio/
+/vendor/
