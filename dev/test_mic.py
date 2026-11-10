@@ -52,7 +52,7 @@ def tool(name, body):
 
 tool("sudo", 'exec "$@"\n')
 tool("systemctl", 'case "$1" in is-active) [ -f "$T/up" ] && echo active || echo inactive ;; restart) touch "$T/up" ;; disable) rm -f "$T/up" ;; esac\nexit 0\n')
-tool("apt-get", f'[ -f "$T/apt_fails" ] && exit 100\nprintf \'#!/bin/sh\\necho " A..... libopus  libopus Opus"\\n\' > "{BIN}/ffmpeg"; chmod +x "{BIN}/ffmpeg"\n')
+tool("apt-get", f'[ -f "$T/apt_fails" ] && exit 100\nprintf \'#!/bin/sh\\necho " A..... libopus  libopus Opus"\\nseq 1 200000\\n\' > "{BIN}/ffmpeg"; chmod +x "{BIN}/ffmpeg"\n')
 # curl: Moonraker's print state, the download, go2rtc's stream list
 tool("curl", f'''for a in "$@"; do last="$a"; done
 case "$last" in
@@ -65,7 +65,7 @@ esac
 SYS = os.path.join(T, "sys")
 os.makedirs(SYS)
 for name in ("bash", "sh", "grep", "sed", "tr", "cut", "cat", "mkdir", "install", "rm", "cp", "mktemp", "sha256sum",
-             "uname", "id", "sleep", "dirname", "chmod", "touch", "head"):
+             "uname", "id", "sleep", "seq", "dirname", "chmod", "touch", "head"):
     real = shutil.which(name)
     if real:
         os.symlink(real, os.path.join(SYS, name))

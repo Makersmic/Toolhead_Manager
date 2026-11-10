@@ -1,5 +1,16 @@
 # What changed
 
+## 1.9.22 - Camera sound fix
+
+Rhino Studio 0.19.2. No Klipper config changes.
+
+- **Camera sound installs on Debian's ffmpeg** (1.9.21 on the 7050: "sound skipped: This ffmpeg has no Opus encoder").
+  It has one: the check stopped reading ffmpeg's long encoder list early, and the script's own error handling counted
+  that as a failure. The list is now read whole first (the same for go2rtc's answer). The test's stand-in ffmpeg now
+  prints a full-length list, and fails the old check exactly as the 7050 did.
+- **Settings › Cameras › Edit** (Studio): the preview is a 16:9 picture again, a little bigger, with the same space
+  above and below; the panel is no taller than the form.
+
 ## 1.9.21 - The install sets up the camera sound
 
 Rhino Studio 0.19.1. No Klipper config changes. Haven't run on a real machine yet: MIC1-MIC4 in docs/testing.md.

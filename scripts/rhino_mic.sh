@@ -42,7 +42,10 @@ do_()  { if [ $DRY = 1 ]; then printf '   would run: %s\n' "$*"; else "$@"; fi; 
 
 have_card() { grep -Eq "\[$CARD +\]" "$ROOT/proc/asound/cards" 2>/dev/null; }
 job_state() { curl -s --max-time 5 "$MOON/printer/objects/query?print_stats=state" 2>/dev/null | grep -Eo '"state": *"[a-z]+"' | grep -Eo '[a-z]+"$' | tr -d '"'; }
-api_up()    { curl -sf --max-time 2 "$API/api/streams" 2>/dev/null | grep -q '"mic"'; }
+# Read the whole answer first: with pipefail, grep -q stopping early can make the writer fail (SIGPIPE) and the
+# check fail with it (1.9.21 on the 7050: "no Opus encoder" from Debian's ffmpeg, which has one)
+api_up()    { local a; a="$(curl -sf --max-time 2 "$API/api/streams" 2>/dev/null)" && grep -q '"mic"' <<<"$a"; }
+has_opus()  { local e; e="$(ffmpeg -hide_banner -encoders 2>/dev/null)"; grep -q libopus <<<"$e"; }
 
 install_mic() {
   say "Checking first (nothing changes here)"
@@ -62,7 +65,7 @@ install_mic() {
   if command -v ffmpeg >/dev/null 2>&1; then ok "already installed"
   else do_ sudo apt-get install -y --no-install-recommends ffmpeg || stop "ffmpeg didn't install." "Try: sudo apt-get update, then run this again."
   fi
-  if [ $DRY = 0 ]; then ffmpeg -hide_banner -encoders 2>/dev/null | grep -q libopus || stop "This ffmpeg has no Opus encoder (libopus)." "Browsers need Opus for WebRTC sound."; ok "ffmpeg has the Opus encoder"; fi
+  if [ $DRY = 0 ]; then has_opus || stop "This ffmpeg has no Opus encoder (libopus)." "Browsers need Opus for WebRTC sound."; ok "ffmpeg has the Opus encoder"; fi
 
   say "go2rtc $VER: passes the sound to the browser"
   if [ -x "$DIR/go2rtc" ] && [ "$(sha256sum "$DIR/go2rtc" | cut -d' ' -f1)" = "$SHA" ]; then ok "go2rtc $VER already in $DIR"
