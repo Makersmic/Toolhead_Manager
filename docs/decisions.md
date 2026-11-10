@@ -91,3 +91,20 @@ Append-only. Each entry is dated and gives its reason. An entry is never edited;
   restart and the generated config stays small. The advanced step takes one typed line, which goes through the same
   check and confirm as the console. Starter routines are simple moves and heating: park, heat for the mounted
   material, cool down. *Reason:* that's what Mike types by hand most, and nothing in it can do more than the console.
+- **2026-11-09: Rhino Studio answers the bare address; Mainsail is a two-week spare, then removed** (Mike: "I do not
+  want to give myself a crutch to fall back on"). From 1.9.19 the installer gives port 80 to Studio and moves Mainsail's
+  own nginx site to port 8090 (the cameras use 8080-8083). Undo puts Mainsail back. After the on-machine checks and
+  about two weeks, Mainsail is removed one step at a time, each with its own OK. *Reason:* one front end to learn
+  and maintain; a spare that stays forever becomes the thing used when Studio is missing something.
+- **2026-11-09: Klipper doesn't need Mainsail installed** (Mike approved `docs/proposal-own-client-macros.md`).
+  `printer.cfg` includes `client_mainsail.cfg`, a pinned, credited copy of mainsail-config's `client.cfg` (GPL-3.0),
+  byte for byte the machine's `mainsail.cfg` (md5 `0b6bf780f4dba4d0ca7294dd0f6b5d40`), in place of `mainsail.cfg`.
+  The Rhino's hooks stay in `client_macros.cfg`. *Reason:* removing Mainsail could take `mainsail.cfg` with it, and
+  Klipper would refuse to start. *Accepted cost:* upstream fixes to those macros arrive only when we copy them in, and
+  once Mainsail is gone, undo can't go back past 1.9.19.
+- **2026-11-09: Studio has a read-only Host health page** (Mike: the load and temperature of the four cores, and
+  whatever else is needed to troubleshoot). The Portal reads `/proc` and `/sys` (`GET /api/host/stats`); Studio adds
+  Moonraker's per-core load and Klipper's board stats. Nothing on the page changes the machine. *Reason:* the 7050 runs
+  Klipper and slicing on the same cores, and timer errors start as host load or USB resends.
+- **2026-11-09: The name stays Rhino Studio** (Mike). It was a working title; the brand stays in one file
+  (`src/brand/brand.ts`) all the same.
