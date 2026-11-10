@@ -108,3 +108,11 @@ Append-only. Each entry is dated and gives its reason. An entry is never edited;
   Klipper and slicing on the same cores, and timer errors start as host load or USB resends.
 - **2026-11-09: The name stays Rhino Studio** (Mike). It was a working title; the brand stays in one file
   (`src/brand/brand.ts`) all the same.
+- **2026-11-09: Camera sound is set up by the install when a USB camera microphone is plugged in** (Mike: "allow that
+  audio to come through", then "Installer adds it"). Sound only, from the camera's own microphone: ffmpeg (Debian)
+  and go2rtc 1.9.15 (MIT, pinned by checksum and shipped inside the release zip) in a low-priority `rhino-mic`
+  service, reached only through Studio's `/mic/webrtc` from the home network. It never stops an install: anything
+  missing is skipped with a note and a log. Undo takes it away if that install added it. *Reason:* hearing the
+  machine (a grinding extruder, skipped steps, spindle chatter) helps when it's left running, and the pictures stay on
+  crowsnest, so the cameras never depend on it. *Accepted cost:* ffmpeg's first install needs the internet, and
+  anyone who can open Studio on the network can listen while Sound is on.
