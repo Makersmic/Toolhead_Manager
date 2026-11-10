@@ -116,3 +116,8 @@ Append-only. Each entry is dated and gives its reason. An entry is never edited;
   machine (a grinding extruder, skipped steps, spindle chatter) helps when it's left running, and the pictures stay on
   crowsnest, so the cameras never depend on it. *Accepted cost:* ffmpeg's first install needs the internet, and
   anyone who can open Studio on the network can listen while Sound is on.
+- **2026-11-10: External devices go through Tool Manager only.** ESP32, ESP8266 and similar devices (for example a
+  handheld pendant) may control the machine only through a fixed-command Tool Manager endpoint: no raw Moonraker, no
+  G-code. Nothing is scheduled; this sets the rule for when one is built. *Reason:* the command list and its safety
+  checks stay in one place that is tested, and a device that drops its link or misbehaves can only send commands that
+  were made safe to send.
