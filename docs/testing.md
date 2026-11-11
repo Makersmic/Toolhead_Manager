@@ -535,3 +535,12 @@ On scrap stock, with the laser at test power, glasses on and extraction running.
 - [ ] **CT6 Bits on the Rhino.** After adding a bit in Studio, `cat ~/printer_data/config/myrhino/lists.json`. *Pass if:* a `bits` list with its name, type, diameter, flutes, length and note; the other lists are unchanged. *Stop if:* materials or nozzles are gone.
 - [ ] **CT7 Spindle results.** After CT2-CT4, `myrhino/tuning.json`. *Pass if:* `HotJoe|bit=<bit>` holds `cnc_diameter`, and `HotJoe|<material>|bit=<bit>` holds feed, throttle, depth and plunge; nothing else changed. *Stop if:* a print head's or the laser's values changed.
 - [ ] **CT8 Run-in task.** Care › Library: the CNC spindle book has "Run the spindle in". Add it, follow the steps with the bit out. *Pass if:* the spindle runs at each step's throttle and stops at Spindle_DEACTIVATE. *Stop if:* the spindle doesn't stop, or anything gets too hot to hold.
+
+## Next release: the CNC start wizard (docs/proposal-cnc-start.md)
+
+On scrap, the bit in, glasses and hearing protection on, extraction running. Studio's own steps: Studio's `docs/testing.md` (SW6).
+
+- [ ] **CW1 FROM=STUDIO refusals.** After a restart, console: `CNC_JOB_SETUP FILE=<a CNC file> FROM=STUDIO`. *Pass if:* Studio asks first, then Klipper refuses ("set the Z zero for the HotJoe first"). Set the zero, try again with the spindle off: refused ("the spindle isn't running"). *Stop if:* the job starts, or the spindle switches on.
+- [ ] **CW2 Quiet zero and warm-up.** `_CNC_SAVE_XY QUIET=1`, then `SET_Z_ZERO`, SET, then `_CNC_WARMUP QUIET=1` with the lid open, then closed. *Pass if:* X/Y zero is saved with no Z window after it; with the lid open the warm-up refuses before the relay clicks; closed, the bit lifts 10 mm, the spindle ramps to the setup's throttle, and no Ready window opens. *Stop if:* the spindle starts with the lid open.
+- [ ] **CW3 ±5 % and stop.** `_CNC_ADJUST_SPEED DELTA=0.05 QUIET=1`, then `_CNC_ABORT`. *Pass if:* 5 % faster with no window; the abort stops the spindle and lifts 15 mm. *Stop if:* the spindle keeps running.
+- [ ] **CW4 The prompt chain is unchanged.** `CNC_JOB_SETUP FILE=<file>` without FROM. *Pass if:* the same windows: checklist, Set X/Y zero, Set Z zero, warm-up, Ready to cut with ±5 %. *Stop if:* a window is missing or the job starts without the Ready window.

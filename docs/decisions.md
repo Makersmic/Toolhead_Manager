@@ -152,3 +152,7 @@ Append-only. Each entry is dated and gives its reason. An entry is never edited;
   the job. They run in the order the user sets (up/down); Studio warns when a cut frees a part before work inside it.
   Loops not picked are cut last with the job's own settings. Kerf and outline height stay job-wide. *Reason:* one
   drawing often needs engraving, scoring and cutting, and doing it in one job keeps the parts registered.
+- **2026-11-11: CNC jobs start from Studio's wizard too** (Mike: "apply and ship 1.9.27"). `CNC_JOB_SETUP
+  FROM=STUDIO` refuses unless the HotJoe has its Z zero and the spindle is running; the quiet warm-up checks the lid
+  before the spindle starts, because Studio warms up before `CNC_JOB_SETUP` runs. *Reason:* the same steps as the
+  laser and knife, on screen, and a job can never start on a stopped bit.

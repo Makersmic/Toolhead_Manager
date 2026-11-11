@@ -1,5 +1,18 @@
 # What changed
 
+## 1.9.27 - Start CNC jobs from Studio
+
+Rhino Studio 0.24.0. Klipper macros change (below): restart Klipper after installing.
+
+- **Studio's start wizard for the HotJoe.** Start on a CNC file opens it: the setup's checklist, X/Y zero on the stock's
+  corner with the jog panel, Set Z zero (Klipper's window), the outline traced 5 mm above the stock with the spindle off
+  (offered), the warm-up at a throttle (±5 %, Stop always there), then the start. Each step asks first. Older configs
+  keep the prompt chain.
+- **Macros** (`dev/proposal_cnc_start.py`, applied): `CNC_JOB_SETUP FROM=STUDIO` runs the same checks and starts straight
+  away, refused without the HotJoe's Z zero or with the spindle stopped. `_CNC_WARMUP QUIET=1` checks the lid before
+  the spindle starts; `_CNC_SAVE_XY QUIET=1` and `_CNC_ADJUST_SPEED QUIET=1` leave out the windows. Without FROM=STUDIO
+  / QUIET=1 nothing changes.
+
 ## 1.9.26 - Spindle tuning, bits and laser operations
 
 Rhino Studio 0.23.0. No Klipper config changes.
