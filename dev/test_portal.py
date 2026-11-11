@@ -65,6 +65,24 @@ ok(c.get("/static/dash.js").status_code == 200 and b'id="view-dash"' in c.get("/
 # ---- security
 ok(c.post("/api/tools", json={"name": "X"}).status_code == 400, "POST without token refused")
 ok(c.post("/api/tools", json={}, headers={**HDR, "Origin": "http://evil.example"}).status_code == 400, "cross-origin POST refused")
+# 1.9.29 (audit M4): a write must arrive under one of this machine's own names, so DNS rebinding (Origin == Host, both
+# the attacker's name) is refused even with the token
+import socket as _socket
+from rhino.portal import hosts as _hosts
+def host_err(host, origin=None):
+    h = {**HDR, "Host": host, "Origin": origin or f"http://{host}"}
+    r = c.post("/api/tools/check", json={}, headers=h)
+    return r.get_json().get("error", "")
+ok("isn't this machine's name" in host_err("evil.example"), "HS1 a rebound name (Origin and Host agree, token right): refused")
+ok("isn't this machine's name" in host_err("evil.example:8080", "http://evil.example:8080"), "HS2 ...with a port too")
+for h in ("192.168.1.9", "192.168.1.9:5001", "[fe80::1%25eth0]:5001", "localhost:5000", "rhino.local", "rhinostudio.local:80", _socket.gethostname(), "rhino.tail1234.ts.net"):
+    ok("isn't this machine's name" not in host_err(h), f"HS3 {h}: allowed")
+open(ROOT + "/printer_data/config/moonraker.conf", "w").write("[server]\nhost: 0.0.0.0\n\n[authorization]\ncors_domains:\n    http://*.lan\n    *://my.rhino.example:*\ntrusted_clients:\n    127.0.0.0/8\n")
+app.config["HOSTS"]._at = 0
+ok("isn't this machine's name" not in host_err("rhino.lan") and "isn't this machine's name" not in host_err("my.rhino.example:8080"), "HS4 names in moonraker.conf cors_domains: allowed")
+ok("isn't this machine's name" in host_err("rhino.lan.evil.example") and "cors_domains" in host_err("evil.example"), "HS5 a name that only ends like one: refused, and the message says where to add a name")
+ok(_hosts.read_cors_domains("[authorization]\ncors_domains: http://a.lan, *.b.lan\n  c.lan\n[server]\n") == ["http://a.lan", "*.b.lan", "c.lan"], "HS6 cors_domains read inline and indented")
+ok(c.get("/api/state", headers={"Host": "evil.example"}).status_code == 200, "HS7 reads aren't host-checked (they change nothing)")
 ok(c.get("/api/tools/check").status_code == 400 or True, "GET on action URL harmless")
 ok(c.delete("/api/tools/HotWire").status_code == 400, "DELETE without token refused")
 ok(c.post("/api/tools", data="notjson", headers=HDR).status_code == 400, "non-JSON body refused")

@@ -19,8 +19,14 @@ The zip that was installed and the one before are kept, so Studio can offer "Go 
 
 Safety: everything read from the drop folder is opened without following links; status.json
 is written through a temp file and renamed (a link planted there is replaced, never written
-through). Only zips that look like a Rhino release are installed.
+through). Only zips that look like a Rhino release are installed, and from 1.9.29 only zips whose
+<zip>.sig is an ed25519 signature by a key in PUBLIC_KEYS (the release workflow signs every zip;
+dev/sign_release.py). The Portal checks the pair the same way before keeping it. Without a good
+signature nothing is unpacked, so a zip someone else made can't reach install.sh as root: the SSH
+menu (rhino.sh option 3) is the only way to install an unsigned zip, by hand.
 """
+import base64
+import hashlib
 import argparse
 import datetime
 import fcntl
@@ -39,6 +45,11 @@ import urllib.request
 import zipfile
 
 ZIP_RE = re.compile(r"^rhino-config-(\d+\.\d+\.\d+)\.zip$")
+# Release signing keys (ed25519 public keys, base64). A release is good when any one of them signed it; add a new
+# key here before retiring the old one, so an older updater can still verify the release that carries the change.
+PUBLIC_KEYS = (
+    "Z++L3lsJjaERIziSwermoR3O5sc2RoKdIHKGgfFJfAU=",
+)
 VERSION_RE = re.compile(r"^\d+\.\d+\.\d+$")
 MAX_ZIP = 100 * 1024 * 1024
 MAX_UNPACKED = 400 * 1024 * 1024
@@ -48,6 +59,140 @@ WORK = "/var/lib/rhino-update"
 KEEP_ZIPS = 2
 STEPS = ["Checking the zip", "Checking no job runs", "Backing up the config (BACKUP_CFG)", "Unpacking",
          "Installing", "Restarting Klipper (FIRMWARE_RESTART)"]
+
+
+# ---------------------------------------------------------------- ed25519 (RFC 8032), standard library only
+# Pure Python so the root-owned updater needs nothing installed; one verify takes well under a second on a Pi.
+# Points are kept in extended coordinates (X, Y, Z, T) so the loops need no modular inverses.
+_P = 2 ** 255 - 19
+_L = 2 ** 252 + 27742317777372353535851937790883648493
+_D = (-121665 * pow(121666, _P - 2, _P)) % _P
+_I = pow(2, (_P - 1) // 4, _P)
+
+
+def _add(p, q):
+    x1, y1, z1, t1 = p
+    x2, y2, z2, t2 = q
+    a = (y1 - x1) * (y2 - x2) % _P
+    b = (y1 + x1) * (y2 + x2) % _P
+    c = 2 * t1 * t2 * _D % _P
+    d = 2 * z1 * z2 % _P
+    e, f, g, h = b - a, d - c, d + c, b + a
+    return (e * f % _P, g * h % _P, f * g % _P, e * h % _P)
+
+
+def _mult(s, p):
+    q = (0, 1, 1, 0)
+    while s:
+        if s & 1:
+            q = _add(q, p)
+        p = _add(p, p)
+        s >>= 1
+    return q
+
+
+def _compress(p):
+    x, y, z, _ = p
+    zi = pow(z, _P - 2, _P)
+    x, y = x * zi % _P, y * zi % _P
+    return (y | ((x & 1) << 255)).to_bytes(32, "little")
+
+
+def _decompress(b):
+    if len(b) != 32:
+        raise ValueError("not a point")
+    y = int.from_bytes(b, "little")
+    sign = y >> 255
+    y &= (1 << 255) - 1
+    if y >= _P:
+        raise ValueError("not a point")
+    x2 = (y * y - 1) * pow(_D * y * y + 1, _P - 2, _P) % _P
+    x = pow(x2, (_P + 3) // 8, _P)
+    if (x * x - x2) % _P:
+        x = x * _I % _P
+    if (x * x - x2) % _P or (x == 0 and sign):
+        raise ValueError("not a point")
+    if x & 1 != sign:
+        x = _P - x
+    return (x, y, 1, x * y % _P)
+
+
+_B = _decompress((4 * pow(5, _P - 2, _P) % _P).to_bytes(32, "little"))
+
+
+def _secret(seed):
+    h = hashlib.sha512(seed).digest()
+    a = int.from_bytes(h[:32], "little")
+    a = (a & ((1 << 254) - 8)) | (1 << 254)
+    return a, h[32:]
+
+
+def ed25519_public(seed):
+    """32-byte public key for a 32-byte seed."""
+    a, _ = _secret(seed)
+    return _compress(_mult(a, _B))
+
+
+def _hash_int(*parts, path=None):
+    h = hashlib.sha512()
+    for p in parts:
+        h.update(p)
+    if path is not None:
+        with open(path, "rb") as f:
+            for chunk in iter(lambda: f.read(1024 * 1024), b""):
+                h.update(chunk)
+    return int.from_bytes(h.digest(), "little") % _L
+
+
+def ed25519_sign(seed, msg=b"", path=None):
+    """64-byte signature over msg (bytes) or the file at path. Pure Ed25519 (RFC 8032 5.1.6)."""
+    a, prefix = _secret(seed)
+    pub = _compress(_mult(a, _B))
+    r = _hash_int(prefix, msg, path=path)
+    rb = _compress(_mult(r, _B))
+    k = _hash_int(rb, pub, msg, path=path)
+    return rb + ((r + k * a) % _L).to_bytes(32, "little")
+
+
+def ed25519_verify(pub, sig, msg=b"", path=None):
+    """True when sig (64 bytes) is pub's signature over msg or the file at path. Never raises on bad input."""
+    try:
+        if len(pub) != 32 or len(sig) != 64:
+            return False
+        A = _decompress(pub)
+        R = _decompress(sig[:32])
+        S = int.from_bytes(sig[32:], "little")
+        if S >= _L:
+            return False
+        k = _hash_int(sig[:32], pub, msg, path=path)
+        return _compress(_mult(S, _B)) == _compress(_add(R, _mult(k, A)))
+    except (ValueError, OSError):
+        return False
+
+
+def check_signature(zip_path, sig_path, keys=None):
+    """Raise ValueError unless <zip>.sig is a release key's signature of the zip. The .sig holds the signature in
+    base64 (one line; anything after whitespace is ignored)."""
+    keys = [k for k in (PUBLIC_KEYS if keys is None else keys) if k and not k.startswith("@")]
+    if not keys:
+        raise ValueError("This updater has no release key built in, so it can't check signatures. Install the zip by hand (rhino.sh option 3).")
+    try:
+        st = os.stat(sig_path, follow_symlinks=False)
+        if not stat.S_ISREG(st.st_mode) or st.st_size > 4096:
+            raise OSError
+        with open(sig_path, "rb") as f:
+            sig = base64.b64decode(f.read().split()[0], validate=True)
+    except (OSError, IndexError, ValueError):
+        raise ValueError("The zip's .sig file is missing or isn't a signature. Download both files from the release on GitHub.")
+    for k in keys:
+        try:
+            pub = base64.b64decode(k, validate=True)
+        except ValueError:
+            continue
+        if ed25519_verify(pub, sig, path=zip_path):
+            return True
+    raise ValueError("This zip isn't signed by the Rhino release key, so it wasn't kept. Only releases from "
+                     "github.com/Makersmic/Toolhead_Manager install from Studio; anything else goes in by hand (rhino.sh option 3).")
 
 
 # ---------------------------------------------------------------- checking a zip (the Portal uses this too)
@@ -205,12 +350,20 @@ class Run:
         with os.fdopen(fd, "rb") as fin, open(copy, "wb") as fout:
             shutil.copyfileobj(fin, fout, 1024 * 1024)
         try:
+            fd = os.open(src + ".sig", os.O_RDONLY | os.O_NOFOLLOW)
+        except OSError:
+            self.fail(f"{name} has no .sig beside it, so it can't be checked. A release before 1.9.29, or a zip you made "
+                      "yourself, installs by hand with rhino.sh option 3.")
+        with os.fdopen(fd, "rb") as fin, open(copy + ".sig", "wb") as fout:
+            fout.write(fin.read(4096))
+        try:
+            check_signature(copy, copy + ".sig")
             version = check_zip(copy)
         except ValueError as e:
             self.fail(str(e))
         if version != m.group(1):
             self.fail("The file name and the zip's VERSION don't agree.")
-        self.say(f"Zip checked: Rhino Tool Manager {version}")
+        self.say(f"Zip checked and signed: Rhino Tool Manager {version}")
 
         # 2. no job
         self.step(1)
@@ -284,7 +437,7 @@ class Run:
         # keep this zip and the one that was installed before it (for "Go back"); drop the rest
         keep = {name} | ({f"rhino-config-{before}.zip"} if before else set())
         for z in os.listdir(self.incoming):
-            if ZIP_RE.match(z) and z not in keep:
+            if ZIP_RE.match(z.removesuffix(".sig")) and z.removesuffix(".sig") not in keep:
                 try:
                     os.unlink(os.path.join(self.incoming, z))
                 except OSError:
@@ -295,18 +448,21 @@ class Run:
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("--user", required=True)
-    ap.add_argument("--drop", required=True)
+    ap.add_argument("--user")
+    ap.add_argument("--drop")
     ap.add_argument("--moonraker", default="http://127.0.0.1:7125")
-    ap.add_argument("--check", metavar="ZIP", help="only check a zip and print its version")
+    ap.add_argument("--check", metavar="ZIP", help="only check a zip (and its .sig) and print its version")
     a = ap.parse_args()
     if a.check:
         try:
+            check_signature(a.check, a.check + ".sig")
             print(check_zip(a.check))
             return 0
         except ValueError as e:
             print(e, file=sys.stderr)
             return 1
+    if not a.user or not a.drop:
+        ap.error("--user and --drop are required")
     if os.geteuid() != 0:
         print("rhino-update runs as root, started by rhino-update.path", file=sys.stderr)
         return 1

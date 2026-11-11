@@ -63,6 +63,15 @@ jobs:
           RHINO_GO2RTC=1 sh tm/dev/make_zip.sh "$PWD/rhino-studio"
           ( cd "$PWD" && sha256sum "rhino-config-$VERSION.zip" > "rhino-config-$VERSION.zip.sha256" )
           cat "rhino-config-$VERSION.zip.sha256"
+      - name: Sign the zip
+        if: env.SKIP != '1'
+        env:
+          RHINO_SIGNING_KEY: ${{ secrets.RHINO_SIGNING_KEY }}
+        run: |
+          # 1.9.29: the updater installs only zips signed by a key in scripts/rhino_update_helper.py PUBLIC_KEYS.
+          # No secret, or a key the helper doesn't know: the release stops here rather than publish an uninstallable zip.
+          [ -n "$RHINO_SIGNING_KEY" ] || { echo "RHINO_SIGNING_KEY secret is not set: see dev/sign_release.py --new-key"; exit 1; }
+          python3 tm/dev/sign_release.py "rhino-config-$VERSION.zip"
           echo "STUDIO=$(cat tm/studio/VERSION)" >> "$GITHUB_ENV"
       - name: Publish the release
         if: env.SKIP != '1'
@@ -70,7 +79,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           notes=$(awk -v v="## $VERSION" 'index($0, v) == 1 {on=1; next} on && /^## / {exit} on' tm/CHANGES.md)
-          printf '%s\n\nRhino Studio %s is inside. Install: Studio > Settings > Software > Update, or drop the zip on Install from zip.\n' "$notes" "$STUDIO" > notes.md
-          gh release create "v$VERSION" "rhino-config-$VERSION.zip" "rhino-config-$VERSION.zip.sha256" \
+          printf '%s\n\nRhino Studio %s is inside. Install: Studio > Settings > Software > Update, or drop the zip and its .sig on Install from zip.\n' "$notes" "$STUDIO" > notes.md
+          gh release create "v$VERSION" "rhino-config-$VERSION.zip" "rhino-config-$VERSION.zip.sha256" "rhino-config-$VERSION.zip.sig" \
             --target "$GITHUB_SHA" --latest --repo "$GITHUB_REPOSITORY" --title "Rhino Tool Manager $VERSION (Studio $STUDIO)" --notes-file notes.md \
-            || gh release upload "v$VERSION" "rhino-config-$VERSION.zip" "rhino-config-$VERSION.zip.sha256" --repo "$GITHUB_REPOSITORY" --clobber
+            || gh release upload "v$VERSION" "rhino-config-$VERSION.zip" "rhino-config-$VERSION.zip.sha256" "rhino-config-$VERSION.zip.sig" --repo "$GITHUB_REPOSITORY" --clobber

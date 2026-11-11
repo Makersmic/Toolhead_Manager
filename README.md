@@ -126,6 +126,28 @@ Undo with menu option **4**. The full walkthrough is the *Install and first star
 
 ## Security
 
-The portal has no login: anyone who can reach port 5000 can add or remove tools (it can't run G-code or restart
-mid-print). Keep it on your own network or reach it through Tailscale or an SSH tunnel. Other websites can't drive
-it: per-start token, same-origin check and a strict Content-Security-Policy.
+**There is no login.** Moonraker's `trusted_clients` is the only gate, exactly as for Mainsail: the Portal (port 5000
+and Studio's `/portal/`) answers whoever Moonraker trusts, and refuses whoever it doesn't. Anyone it trusts can do
+everything Studio can: run G-code and jobs through Moonraker, add and remove tools and hardware, change Klipper's
+config files, restore a backup, change the host's name, address and Wi-Fi, edit `trusted_clients`, and install a
+Tool Manager release. So keep the Rhino on your own network, or reach it through Tailscale or an SSH tunnel, and
+never forward its ports to the internet.
+
+What is in place:
+
+- **Releases are signed** (1.9.29). The updater, which runs as root, installs only a zip whose `.sig` was made with
+  the Rhino release key; Studio's *Install from zip* needs both files from the GitHub release, and *Update* fetches
+  them itself. A zip anyone else made can be installed only by hand over SSH (`rhino.sh` option 3).
+- **Other websites can't drive the Portal:** every change needs a per-start token and comes from the page's own
+  address, and from 1.9.29 that address must be one of this machine's own names (its hostname, `.local` names, an IP
+  address, Tailscale's `*.ts.net`, or a name in Moonraker's `cors_domains`), which closes DNS rebinding. A strict
+  Content-Security-Policy keeps a `<` in a tool name from ever running as code.
+- **Root is narrow:** the Portal never has sudo. Two root-owned programs do the two jobs that need it, each started
+  by systemd or one sudoers line and each checking everything it is given (`scripts/rhino_update_helper.py`,
+  `scripts/rhino_net_helper.py`).
+- **Moonraker's own limits still hold** for anything sent straight to it, and the Rhino's macros check the mounted
+  tool again on the machine (heaters, homing, tool power) whatever front end asked.
+
+Known and accepted, the same as any Mainsail host: `trusted_clients` trusts by address, and Moonraker reads that
+address from `X-Real-IP` / `X-Forwarded-For` headers (its `use_xheaders` default), so port 7125 must not be reachable
+from a network you don't trust.

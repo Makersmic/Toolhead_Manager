@@ -9,10 +9,11 @@ The zip check is the updater's own (check_zip), loaded from the file next to thi
 the updater checks its own copy again before using it.
 
 GET  /api/update              what's installed, the zips kept, the last run (status.json), whether the updater is set up
-POST /api/update/upload       multipart "zip": check and keep it (nothing is installed)
+POST /api/update/upload       multipart "zip" + "sig" (the release's .sig): check the signature and the zip, keep both
+                              (nothing is installed). From 1.9.29 nothing unsigned is kept: the updater refuses it too.
 POST /api/update/install      {"zip": "rhino-config-1.5.3.zip"}: ask the updater to install it (also "Go back")
-POST /api/update/github       {"version": "1.5.8"}: download that release's zip from GitHub, check it like an upload
-                              (and against the release's .sha256), then install it as above (1.5.8)
+POST /api/update/github       {"version": "1.5.8"}: download that release's zip and .sig from GitHub, check them like an
+                              upload (and against the release's .sha256), then install it as above (1.5.8, signed 1.9.29)
 
 The newest release on GitHub (Makersmic/Toolhead_Manager, "releases/latest") is in GET /api/update as "latest",
 asked at most once an hour. Releases are built by .github/workflows/release.yml: the zip with Studio inside, and its
@@ -92,8 +93,40 @@ def _zips():
         m = ZIP_RE.match(n)
         if m:
             p = os.path.join(d, n)
-            out.append({"zip": n, "version": m.group(1), "size": os.path.getsize(p), "at": os.path.getmtime(p)})
+            out.append({"zip": n, "version": m.group(1), "size": os.path.getsize(p), "at": os.path.getmtime(p),
+                        "signed": os.path.isfile(p + ".sig")})
     return out
+
+
+def _keep(data, sig, want=None):
+    """Write the zip and its .sig into incoming/ under the release name, after the signature and zip checks.
+    -> (zip name, version). Nothing is kept if either check fails."""
+    d = _incoming()
+    fd, tmp = tempfile.mkstemp(dir=d, prefix=".upload-", suffix=".zip")
+    try:
+        with os.fdopen(fd, "wb") as out:
+            if hasattr(data, "save"):
+                data.save(out)
+            else:
+                out.write(data)
+        with open(tmp + ".sig", "wb") as out:
+            out.write(sig)
+        try:
+            h = _helper()
+            h.check_signature(tmp, tmp + ".sig")
+            version = h.check_zip(tmp)
+        except ValueError as e:
+            raise Fail(str(e))
+        if want and version != want:
+            raise Fail(f"The zip says it is {version}, not {want}.")
+        name = f"rhino-config-{version}.zip"
+        os.replace(tmp + ".sig", os.path.join(d, name + ".sig"))
+        os.replace(tmp, os.path.join(d, name))
+    finally:
+        for t in (tmp, tmp + ".sig"):
+            if os.path.exists(t):
+                os.unlink(t)
+    return name, version
 
 
 def _busy():
@@ -132,22 +165,12 @@ def upload():
     f = request.files.get("zip")
     if not f or not f.filename:
         raise Fail("Send the zip (rhino-config-<version>.zip).")
+    sig = request.files.get("sig")
+    if not sig or not sig.filename:
+        raise Fail("Send the zip's .sig file with it (next to the zip on the GitHub release). Without it nothing is kept.")
     if _busy():
         raise Fail("An install is running. Wait for it to finish.")
-    d = _incoming()
-    fd, tmp = tempfile.mkstemp(dir=d, prefix=".upload-", suffix=".zip")
-    try:
-        with os.fdopen(fd, "wb") as out:
-            f.save(out)
-        try:
-            version = _helper().check_zip(tmp)
-        except ValueError as e:
-            raise Fail(str(e))
-        name = f"rhino-config-{version}.zip"
-        os.replace(tmp, os.path.join(d, name))
-    finally:
-        if os.path.exists(tmp):
-            os.unlink(tmp)
+    name, version = _keep(f, sig.read(4096))
     return jsonify({"ok": True, "zip": name, "version": version, "installed": installed_version()})
 
 
@@ -213,7 +236,7 @@ def latest_release(force=False):
         else:
             z = zips[0]
             out = {"version": ZIP_RE.match(z).group(1), "zip": z, "url": assets[z], "sha256_url": assets.get(z + ".sha256"),
-                   "published": rel.get("published_at"), "notes_url": rel.get("html_url")}
+                   "sig_url": assets.get(z + ".sig"), "published": rel.get("published_at"), "notes_url": rel.get("html_url")}
     except Fail as e:
         out = {"error": str(e)}
     except (urllib.error.URLError, OSError, ValueError) as e:
@@ -241,30 +264,18 @@ def from_github():
         raise Fail(f"GitHub's newest release is now {rel['version']}, not {want}. Check again.")
     if not rel.get("sha256_url"):
         raise Fail(f"Release {want} has no .sha256 next to its zip, so it can't be checked. Use Install from zip instead.")
+    if not rel.get("sig_url"):
+        raise Fail(f"Release {want} has no .sig next to its zip (releases are signed from 1.9.29), so it can't be installed from here.")
     try:
         sha_line = _get(rel["sha256_url"], 4096).decode("ascii", "replace").split()
         expect = sha_line[0].lower() if sha_line else ""
         if not re.fullmatch(r"[0-9a-f]{64}", expect):
             raise Fail("The release's .sha256 file isn't a SHA256.")
+        sig = _get(rel["sig_url"], 4096)
         data = _get(rel["url"], ZIP_MAX, timeout=300)
     except (urllib.error.URLError, OSError) as e:
         raise Fail(f"Downloading {rel['zip']} from GitHub didn't work ({e.__class__.__name__}). Try again, or use Install from zip.")
     if hashlib.sha256(data).hexdigest() != expect:
         raise Fail(f"{rel['zip']} from GitHub doesn't match its .sha256, so it wasn't kept.")
-    d = _incoming()
-    fd, tmp = tempfile.mkstemp(dir=d, prefix=".github-", suffix=".zip")
-    try:
-        with os.fdopen(fd, "wb") as out:
-            out.write(data)
-        try:
-            version = _helper().check_zip(tmp)
-        except ValueError as e:
-            raise Fail(str(e))
-        if version != want:
-            raise Fail(f"The zip says it is {version}, not {want}.")
-        name = f"rhino-config-{version}.zip"
-        os.replace(tmp, os.path.join(d, name))
-    finally:
-        if os.path.exists(tmp):
-            os.unlink(tmp)
+    name, _ = _keep(data, sig, want)
     return jsonify(_request_install(name))

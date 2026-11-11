@@ -544,3 +544,30 @@ On scrap, the bit in, glasses and hearing protection on, extraction running. Stu
 - [ ] **CW2 Quiet zero and warm-up.** `_CNC_SAVE_XY QUIET=1`, then `SET_Z_ZERO`, SET, then `_CNC_WARMUP QUIET=1` with the lid open, then closed. *Pass if:* X/Y zero is saved with no Z window after it; with the lid open the warm-up refuses before the relay clicks; closed, the bit lifts 10 mm, the spindle ramps to the setup's throttle, and no Ready window opens. *Stop if:* the spindle starts with the lid open.
 - [ ] **CW3 ±5 % and stop.** `_CNC_ADJUST_SPEED DELTA=0.05 QUIET=1`, then `_CNC_ABORT`. *Pass if:* 5 % faster with no window; the abort stops the spindle and lifts 15 mm. *Stop if:* the spindle keeps running.
 - [ ] **CW4 The prompt chain is unchanged.** `CNC_JOB_SETUP FILE=<file>` without FROM. *Pass if:* the same windows: checklist, Set X/Y zero, Set Z zero, warm-up, Ready to cut with ±5 %. *Stop if:* a window is missing or the job starts without the Ready window.
+
+## 1.9.29: signed releases, the Portal's name check, and U1 from the audit
+
+- [ ] **SG-A Update from GitHub.** After 1.9.29 is installed by hand once (it carries the new updater): Studio › Settings
+  › Software › Update to the next release. *Pass if:* the install log's first step says "Zip checked and signed";
+  `ls ~/printer_data/rhino_data/update/incoming` shows the zip and its `.sig`. *Stop if:* the step says anything about
+  the signature and still goes on.
+- [ ] **SG-B An unsigned zip from Studio.** Build a zip yourself (`sh dev/make_zip.sh ../rhino-studio`) and drop it on
+  Install from zip. *Pass if:* Studio asks for the `.sig`; with a `.sig` from another release it's refused ("isn't
+  signed by the Rhino release key") and `incoming/` has nothing new. *Stop if:* it is kept or installed.
+- [ ] **SG-C By hand still works.** The same zip through `rhino.sh` option 3 installs (the menu is the unsigned path, on
+  purpose). Then Go back from Studio to the signed release.
+- [ ] **HS-A Own names.** Open Studio as `http://rhino.local`, as the IP, and (if Tailscale) as the MagicDNS name; save
+  a Care task from each. *Pass if:* all three save. *Stop if:* one is refused with "isn't this machine's name": note
+  the name and add it to `cors_domains` as the message says.
+- [ ] **HS-B A foreign name.** From a laptop on the LAN: `curl -s -X POST http://<rhino-ip>/portal/api/tools/check -H
+  'Host: evil.example' -H 'Origin: http://evil.example' -H 'X-Rhino-Token: <token from view-source of /portal/>' -H
+  'Content-Type: application/json' -d '{}'`. *Pass if:* `{"ok": false, "error": "Refused: this page was opened as
+  \"evil.example\"…"}`. *Stop if:* any other answer.
+- [ ] **SEC1 Moonraker trusts X-Real-IP (audit U1).** From a device whose address is **not** in `trusted_clients`
+  (a phone on mobile data through Tailscale won't do; use a laptop given a static address outside the trusted
+  ranges, or temporarily narrow `trusted_clients` to `127.0.0.0/8` and restart Moonraker):
+  `curl -s http://<rhino-ip>:7125/access/info` then
+  `curl -s -H 'X-Real-IP: 127.0.0.1' http://<rhino-ip>:7125/access/info`. *Result:* if the first answers 401 and the
+  second 200, Moonraker trusts the header from any client, as the audit expects: port 7125 must stay off any network
+  you don't trust (it already is behind the home router), and the README's last paragraph stands. If both answer
+  401, strike that paragraph. Put `trusted_clients` back afterwards and restart Moonraker.

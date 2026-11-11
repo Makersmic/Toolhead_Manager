@@ -1,5 +1,24 @@
 # What changed
 
+## 1.9.29 - Signed releases, the Portal checks its own name, console fixes
+
+Rhino Studio 0.25.0. No Klipper config changes. From the November 2026 audit (`docs/audit-2026-11.md`, M1-M5).
+
+- **Signed releases.** Every release zip comes with a `.sig` (ed25519, made by the release workflow with Mike's
+  key). The root-owned updater installs only a zip whose signature checks out against the key built into it; the
+  Portal keeps nothing unsigned, and *Install from zip* in Studio takes the zip and its `.sig` together or one after
+  the other. *Update* fetches both from GitHub. Releases before 1.9.29 have no `.sig`, so they install by hand
+  (`rhino.sh` option 3); *Go back* skips them. `dev/sign_release.py --new-key` makes a key; the secret is
+  `RHINO_SIGNING_KEY`.
+- **The Portal refuses a change that arrives under a name that isn't this machine's** (`rhino/portal/hosts.py`): its
+  hostname, any `.local` name, an IP address, `*.ts.net`, or a name in Moonraker's `cors_domains`. This closes DNS
+  rebinding, where a web page's own name is pointed at the Rhino so the Origin check and the token both pass. The
+  message says where to add a name of your own.
+- **Studio's console reads lines the way Klipper does:** a leading line number (`N1 G28`) no longer hides the command;
+  quoted values count (`MACRO="SWAP_TOOL"`); and `G28.1`, `M104.1`, `G1.1` (the raw commands behind the Rhino's
+  wrappers) always ask and say which check they skip.
+- **README › Security** rewritten to say what anyone Moonraker trusts can do, and what is in place.
+
 ## 1.9.28 - The start wizards in the manual and Help
 
 Rhino Studio 0.24.1. No Klipper config changes.

@@ -17,6 +17,7 @@ from ..user_macros import UserMacros
 from ..tuning import Tuning
 from . import backup_routes, host_routes, hw_routes, macro_routes, tuning_routes, maint_routes, net_routes, profile_routes, routes, security, slicer_routes, trust_routes, update_routes
 from .access import Access
+from .hosts import Hosts
 
 
 def create_app(config_dir=None, moonraker_url=None, start_monitor=False):
@@ -36,6 +37,7 @@ def create_app(config_dir=None, moonraker_url=None, start_monitor=False):
     mon.listeners.append(maint.collector(mr))
     app.config.update(PATHS=paths, SERVICE=svc, MOONRAKER=mr, MONITOR=mon, MAINT=maint, NETWORK=Network(),
                       ACCESS=Access(mr, paths.state_dir),
+                      HOSTS=Hosts(os.path.join(paths.cfg, "moonraker.conf")),      # writes only from this machine's own names (1.9.29)
                       MAX_CONTENT_LENGTH=210 * 1024 * 1024, JSON_SORT_KEYS=False)
     app.config["BACKUP"] = BackupService(paths, mr, backup_dir=os.environ.get("RHINO_BACKUP_DIR") or None)
     app.config["PROFILES"] = SliceProfiles(paths)

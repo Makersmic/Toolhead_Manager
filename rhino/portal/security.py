@@ -4,6 +4,8 @@
   <img src> on another site cannot delete a tool).
 * A per-process token must come back in the X-Rhino-Token header, and the Origin (if the browser
   sends one) must be this host. Together these stop other web pages from driving the portal.
+* The Host itself must be a name this machine is really reached by (hosts.py): under DNS rebinding a
+  page's own name points at the Rhino, so Origin and Host agree and the token is readable; this closes that (1.9.29).
 * The Content-Security-Policy forbids inline script/style and any third-party host, so a stray
   '<' in a tool name or note can never run as code (and the portal works with no internet).
 """
@@ -11,7 +13,7 @@ import hmac
 import secrets
 from urllib.parse import urlparse
 
-from flask import jsonify, request
+from flask import current_app, jsonify, request
 
 from ..errors import Fail
 
@@ -28,6 +30,9 @@ def check_write():
     origin = request.headers.get("Origin")
     if origin and urlparse(origin).netloc != request.host:
         raise Fail("Cross-site request refused.")
+    hosts = current_app.config.get("HOSTS")
+    if hosts is not None and not hosts.allowed(request.host):
+        raise Fail(hosts.refusal(request.host))
 
 
 def json_body():
