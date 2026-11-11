@@ -1,7 +1,19 @@
 # What changed
 
-## Next release (not versioned yet)
+## 1.9.25 - Start laser and knife jobs from Studio
 
+Rhino Studio 0.22.0. Klipper macros change (below): restart Klipper after installing.
+
+- **Studio's start wizard for laser and drag knife jobs.** Start on a LightSaber or DragKnife file opens it: the
+  setup prompts' checklist, Set Z zero (Klipper's own window; with a tuned focus height, the presses to reach it), the
+  outline traced 5 mm above the zero with the tool off (offered), the test fire or test cut, then the start. Each step
+  asks first. Older configs keep the prompt chain.
+- **Macros** (`dev/proposal_studio_start.py`, applied): `SET_Z_ZERO` remembers which tool its zero is for, and a tool
+  swap or restart clears it. `LASER_JOB_SETUP` / `DRAGKNIFE_JOB_SETUP FROM=STUDIO` run the same checks, then start
+  straight away, and refuse without that zero. `_LASER_TEST_FIRE QUIET=1` / `_DK_TEST_CUT QUIET=1`: the same test, no
+  prompt after it (the knife's needs its zero). `_DK_XY_ZERO`: the knife's G54 lines, shared. Without FROM=STUDIO
+  nothing changes.
+- **Studio's console** now asks before any `*_JOB_SETUP` line (a job start) and `SET_Z_ZERO` (it moves the bed).
 - **Manual: Tuning a laser or drag knife**, a new chapter after Tuning a print head (PDF and Help): the seven tests,
   how each runs, what to pick, and how Job setup starts from the results. The ? on a LightSaber or DragKnife Tune page
   opens it.

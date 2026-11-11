@@ -1,6 +1,6 @@
 # Proposal: start laser and drag knife jobs from Studio's start wizard (`FROM=STUDIO`)
 
-Nov 10 2026. **Approved. Script and simulator tests ready (Nov 11); not applied until Mike has seen the diff.** Design: `docs/phase-tool-wizards.md` (start wizards). Mike
+Nov 10 2026. **Applied Nov 11 2026 (Mike: "apply"), not released yet.** Studio's start wizard: `src/control/startWizard.ts`, `StartWizardView.vue`. On-machine checks SW1-SW5. Design: `docs/phase-tool-wizards.md` (start wizards). Mike
 (Nov 10): build the laser and knife tuning tests now, write this proposal for the start wizard. CNC follows the same
 pattern later, in its own proposal.
 

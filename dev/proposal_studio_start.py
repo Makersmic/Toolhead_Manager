@@ -2,7 +2,7 @@
 """The macro change for Studio's start wizard (docs/proposal-studio-start.md, approved by Mike Nov 10 2026).
 
     python3 dev/proposal_studio_start.py                print the unified diff (changes nothing)
-    python3 dev/proposal_studio_start.py --apply        write it into the config files (refused once applied)
+    python3 dev/proposal_studio_start.py --apply        write it into the config files (DONE Nov 11 2026; refused once applied)
     python3 dev/proposal_studio_start.py --to DIR       write the changed files into a copy of the config at DIR (tests)
 
 What it adds:
