@@ -1,7 +1,15 @@
 # What changed
 
-## Next release (not versioned yet)
+## 1.9.26 - Spindle tuning, bits and laser operations
 
+Rhino Studio 0.23.0. No Klipper config changes.
+
+- **Laser operations** (Studio, Job setup › Settings): cut, score and engrave fill, each with its own power, speed
+  and passes, for loops picked by clicking them on a drawing of the job. They run in the order you set; Studio warns
+  when a cut frees a part before work inside it. Everything not picked is cut last with the job's own settings.
+  Fills start from the tuned engrave values.
+- **Spindle throttle** now reads the same on Control, the Dashboard and the CNC setup's prompt: 0.6 is 60 %, and
+  30 % is stopped.
 - **Bits** (Studio: Assets › Parts › Bits): the spindle's bits kept on the Rhino in `myrhino/lists.json`: name, end mill
   or ball, diameter, flutes, cutting length, a note. Job setup's CNC panel picks one and fills the tool fields.
 - **Spindle tuning** (Tune HotJoe): True diameter (one slot you measure with the caliper's inside jaws: the bit's real
