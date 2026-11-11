@@ -1,5 +1,11 @@
 # What changed
 
+## Next release (not versioned yet)
+
+- **Manual: Tuning a laser or drag knife**, a new chapter after Tuning a print head (PDF and Help): the seven tests,
+  how each runs, what to pick, and how Job setup starts from the results. The ? on a LightSaber or DragKnife Tune page
+  opens it.
+
 ## 1.9.24 - Help in Rhino Studio
 
 Rhino Studio 0.21.0. No Klipper config changes.

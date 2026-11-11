@@ -1,0 +1,47 @@
+<h2 id="tuning-a-laser-or-drag-knife">Tuning a laser or drag knife</h2>
+<p>The LightSaber and the DragKnife have their own guided tests, on the same <b>Tune</b> page as a print head. Each test cuts or marks a small pattern on scrap, tells you what to look for, and keeps the result on the Rhino, where it is part of the backup. <b>Job setup</b> then starts every laser or knife job for that material from the tuned values.</p>
+<p>Open <b>Assets › Toolheads</b>, select the LightSaber or the DragKnife and press <b>Tune</b> in its <b>Tuning</b> panel. The panel shows each test with a tick, the date and the value it found: once for the tool, and in a table for each material.</p>
+<p><img src="blob/st_tu_cut_page" alt="Tune LightSaber: the material to test, and the five laser tests in order"></p>
+<p><b>Material</b> picks the material for the tests that depend on it. Add materials to a tool first with <b>Edit tool</b>. <b>Tests, in order</b> lists the tests; press <b>Start</b> beside one to run it on this page.</p>
+<table><colgroup><col style="width:24%"><col style="width:20%"><col style="width:56%"></colgroup>
+<thead><tr><th>Test</th><th>Kept</th><th>What it finds</th></tr></thead>
+<tbody>
+<tr><td>Laser: Focus height</td><td>Once per lens</td><td>How far above the material the beam is sharpest</td></tr>
+<tr><td>Laser: Cut power and speed</td><td>Per material</td><td>The power and speed that cut through cleanly with the least char</td></tr>
+<tr><td>Laser: Engrave power and speed</td><td>Per material</td><td>The power and speed for the darkness you want</td></tr>
+<tr><td>Laser: Passes</td><td>Per material</td><td>How many passes thick stock needs, at the cut settings</td></tr>
+<tr><td>Laser: Kerf</td><td>Per material</td><td>How much the beam takes away, so parts come out the right size</td></tr>
+<tr><td>Knife: Depth</td><td>Per material</td><td>The shallowest depth that cuts through, and the pressure dial setting</td></tr>
+<tr><td>Knife: Blade offset</td><td>Once per blade</td><td>How far the blade tip trails behind its axis</td></tr>
+</tbody></table>
+<div class="callout info"><p>Run the tests in the order listed: each one assumes the ones before it are right. Run Focus height again after changing the lens or the shroud, and Blade offset after changing the blade. Every test needs Klipper ready and the tool mounted and confirmed.</p></div>
+
+<h3>How every test runs</h3>
+<ol><li><p>Press <b>Start</b> beside the test. Read the checks beside the rhino: for the laser, glasses on, fume extraction running, an extinguisher nearby, and you stay for the whole test; for the knife, the material taped flat on its backing sheet or mat, with the blade extended.</p></li><li><p>Set the test's range if you want something other than the defaults, and where it goes: <b>Front-left corner X</b> and <b>Y</b> are machine positions, so put the material under them. Studio keeps the test on the bed and clear of the leadscrew, and refuses a corner that isn't.</p></li><li><p>Press <b>Make the test</b>. Studio writes a small job file, checks it like any prepared file and sends it to the Rhino. Then start it: it runs through the tool's normal setup, so you set the Z zero and answer the same questions as for any job.</p></li><li><p>When it has finished, pick the result on screen. Studio shows what was saved before (<b>Was</b>) beside what you picked (<b>Now</b>). Press <b>Save</b>.</p></li></ol>
+<p><img src="blob/st_tu_cut_grid" alt="Cut power and speed: the range of the grid, and where on the bed it goes"></p>
+
+<h3>Focus height</h3>
+<p>A line that runs away from the material, ticked every millimetre, shows where the beam is sharpest. When the setup asks you to set focus, lower the laser until its shroud just touches the material: a sheet of paper should drag under it. The ramp lifts from 1 mm above that, and before any move across the bed the bed drops to the start of the ramp. Find the thinnest, sharpest part of the line. Long ticks are every 5 mm and labelled; pick the tick under it.</p>
+<div class="callout warn"><p>The ramp only ever moves the bed away from the laser after the zero, at no more than 30 % power. If the bed moves up toward the laser, or the shroud touches the material during the test, stop the machine.</p></div>
+
+<h3>Cut power and speed</h3>
+<p>A grid of 25 squares: power rises from row to row, and speed from column to column. The labels are marked at the lowest power, not cut. Pick the square that dropped out cleanly with the least char. Both the power and the speed are saved for the material.</p>
+
+<h3>Engrave power and speed</h3>
+<p>The same grid, filled in instead of cut. Pick the square that looks best: even, the darkness you want, not burnt through. Engrave values are kept separately from the cut values. Job setup doesn't use them yet: laser jobs from Studio are cuts.</p>
+
+<h3>Passes</h3>
+<p>Only needed if no square in the cut grid dropped out. Five squares at the tuned cut settings, with 1 to 5 passes from the left. Pick the fewest that cut right through: thick stock cuts cleaner in more passes than at more power.</p>
+
+<h3>Kerf</h3>
+<p>Last, at the tuned cut settings: one square 20 mm across. Measure the part that dropped out with calipers, across the flats, and type it in. The kerf is half of what's missing: a part of 19.8 mm gives 0.1 mm. A part measured larger than 20 mm, or a kerf over 1 mm, is refused, because it means the measurement or the cut is wrong.</p>
+
+<h3>Depth (drag knife)</h3>
+<p>Six lines from the left, each deeper than the one before (0.10 to 0.35 mm by default). Note where the pressure dial is set: you can save it with the depth. Pick the shallowest line that cut through cleanly, with the backing still whole.</p>
+
+<h3>Blade offset (drag knife)</h3>
+<p>Five squares, each with more offset than the one before (0.1 to 0.5 mm by default), cut at the tuned depth. Pick the one with the sharpest, closed corners. The knife lifts 2 mm between squares, so it never drags across the work.</p>
+
+<h3>Job setup starts from the tuned values</h3>
+<p>A laser job in <b>Job setup</b> starts from the tuned cut power, speed, passes and kerf for its tool and material; a knife job from the tuned depth and blade offset. They're applied after the material's own settings and before anything you change. A job saved for the same file keeps its own values.</p>
+<p>A line under the settings says what applies, for example <i>Tuned for PLYWOOD on Nov 10, 2026: power 85 %, speed 600 mm/min. In use.</i> After you change one of them, <b>Use tuned values</b> puts them back. A material with nothing tuned says so, with a link to <b>Tune</b>.</p>

@@ -667,19 +667,19 @@
 },
 {
 "src": 107,
-"section": "Bed",
+"section": "Tuning a laser or drag knife",
 "part": "Part 4  \u00b7  Rhino Studio",
 "kind": "body"
 },
 {
 "src": 108,
-"section": "Bed",
+"section": "Tuning a laser or drag knife",
 "part": "Part 4  \u00b7  Rhino Studio",
 "kind": "body"
 },
 {
 "src": 109,
-"section": "Bed",
+"section": "Tuning a laser or drag knife",
 "part": "Part 4  \u00b7  Rhino Studio",
 "kind": "body"
 },
@@ -697,19 +697,19 @@
 },
 {
 "src": 112,
-"section": "Assets",
+"section": "Bed",
 "part": "Part 4  \u00b7  Rhino Studio",
 "kind": "body"
 },
 {
 "src": 113,
-"section": "Assets",
+"section": "Bed",
 "part": "Part 4  \u00b7  Rhino Studio",
 "kind": "body"
 },
 {
 "src": 114,
-"section": "Assets",
+"section": "Bed",
 "part": "Part 4  \u00b7  Rhino Studio",
 "kind": "body"
 },
@@ -721,37 +721,37 @@
 },
 {
 "src": 116,
-"section": "Care",
+"section": "Assets",
 "part": "Part 4  \u00b7  Rhino Studio",
 "kind": "body"
 },
 {
 "src": 117,
-"section": "Care",
+"section": "Assets",
 "part": "Part 4  \u00b7  Rhino Studio",
 "kind": "body"
 },
 {
 "src": 118,
-"section": "Care",
+"section": "Assets",
 "part": "Part 4  \u00b7  Rhino Studio",
 "kind": "body"
 },
 {
 "src": 119,
-"section": "Settings",
+"section": "Care",
 "part": "Part 4  \u00b7  Rhino Studio",
 "kind": "body"
 },
 {
 "src": 120,
-"section": "Settings",
+"section": "Care",
 "part": "Part 4  \u00b7  Rhino Studio",
 "kind": "body"
 },
 {
 "src": 121,
-"section": "Settings",
+"section": "Care",
 "part": "Part 4  \u00b7  Rhino Studio",
 "kind": "body"
 },
@@ -762,34 +762,28 @@
 "kind": "body"
 },
 {
-"src": null,
-"section": "Notes",
-"part": "Part 4  \u00b7  Rhino Studio",
-"kind": "notes"
-},
-{
 "src": 123,
 "section": "Settings",
-"part": "Part 5  \u00b7  Maintenance",
-"kind": "part"
+"part": "Part 4  \u00b7  Rhino Studio",
+"kind": "body"
 },
 {
 "src": 124,
-"section": "Maintenance tracking",
-"part": "Part 5  \u00b7  Maintenance",
+"section": "Settings",
+"part": "Part 4  \u00b7  Rhino Studio",
 "kind": "body"
 },
 {
 "src": 125,
-"section": "Maintenance tracking",
-"part": "Part 5  \u00b7  Maintenance",
+"section": "Settings",
+"part": "Part 4  \u00b7  Rhino Studio",
 "kind": "body"
 },
 {
 "src": 126,
-"section": "Maintenance tracking",
+"section": "Settings",
 "part": "Part 5  \u00b7  Maintenance",
-"kind": "body"
+"kind": "part"
 },
 {
 "src": 127,
@@ -829,19 +823,19 @@
 },
 {
 "src": 133,
-"section": "T askLibraryandT askBooks",
+"section": "Maintenance tracking",
 "part": "Part 5  \u00b7  Maintenance",
 "kind": "body"
 },
 {
 "src": 134,
-"section": "T askLibraryandT askBooks",
+"section": "Maintenance tracking",
 "part": "Part 5  \u00b7  Maintenance",
 "kind": "body"
 },
 {
 "src": 135,
-"section": "T askLibraryandT askBooks",
+"section": "Maintenance tracking",
 "part": "Part 5  \u00b7  Maintenance",
 "kind": "body"
 },
@@ -859,24 +853,42 @@
 },
 {
 "src": 138,
-"section": "Status codes",
+"section": "T askLibraryandT askBooks",
 "part": "Part 5  \u00b7  Maintenance",
 "kind": "body"
 },
 {
 "src": 139,
-"section": "Status codes",
+"section": "T askLibraryandT askBooks",
 "part": "Part 5  \u00b7  Maintenance",
 "kind": "body"
 },
 {
 "src": 140,
-"section": "Maintenance procedures",
+"section": "T askLibraryandT askBooks",
 "part": "Part 5  \u00b7  Maintenance",
 "kind": "body"
 },
 {
 "src": 141,
+"section": "Status codes",
+"part": "Part 5  \u00b7  Maintenance",
+"kind": "body"
+},
+{
+"src": 142,
+"section": "Status codes",
+"part": "Part 5  \u00b7  Maintenance",
+"kind": "body"
+},
+{
+"src": 143,
+"section": "Maintenance procedures",
+"part": "Part 5  \u00b7  Maintenance",
+"kind": "body"
+},
+{
+"src": 144,
 "section": "Maintenance procedures",
 "part": "Part 5  \u00b7  Maintenance",
 "kind": "body"
@@ -888,68 +900,50 @@
 "kind": "notes"
 },
 {
-"src": 142,
+"src": 145,
 "section": "Maintenance procedures",
 "part": "Part 6  \u00b7  Reference",
 "kind": "part"
 },
 {
-"src": 143,
-"section": "Troubleshooting",
-"part": "Part 6  \u00b7  Reference",
-"kind": "body"
-},
-{
-"src": 144,
-"section": "Troubleshooting",
-"part": "Part 6  \u00b7  Reference",
-"kind": "body"
-},
-{
-"src": 145,
-"section": "Files, backups and tests",
-"part": "Part 6  \u00b7  Reference",
-"kind": "body"
-},
-{
 "src": 146,
-"section": "Files, backups and tests",
+"section": "Troubleshooting",
 "part": "Part 6  \u00b7  Reference",
 "kind": "body"
 },
 {
 "src": 147,
-"section": "Build reference",
+"section": "Troubleshooting",
 "part": "Part 6  \u00b7  Reference",
 "kind": "body"
 },
 {
 "src": 148,
-"section": "Build reference",
+"section": "Files, backups and tests",
 "part": "Part 6  \u00b7  Reference",
 "kind": "body"
 },
 {
 "src": 149,
-"section": "Build reference",
+"section": "Files, backups and tests",
 "part": "Part 6  \u00b7  Reference",
 "kind": "body"
 },
 {
 "src": 150,
-"section": "Stilltocheckonthemachine",
+"section": "Build reference",
 "part": "Part 6  \u00b7  Reference",
 "kind": "body"
 },
 {
 "src": 151,
-"section": "Stilltocheckonthemachine",
+"section": "Build reference",
 "part": "Part 6  \u00b7  Reference",
 "kind": "body"
 },
 {
 "src": 152,
-"section": "Stilltocheckonthemachine",
+"section": "Build reference",
 "part": "Part 6  \u00b7  Reference",
 "kind": "body"
 },
@@ -961,6 +955,24 @@
 },
 {
 "src": 154,
+"section": "Stilltocheckonthemachine",
+"part": "Part 6  \u00b7  Reference",
+"kind": "body"
+},
+{
+"src": 155,
+"section": "Stilltocheckonthemachine",
+"part": "Part 6  \u00b7  Reference",
+"kind": "body"
+},
+{
+"src": 156,
+"section": "Stilltocheckonthemachine",
+"part": "Part 6  \u00b7  Reference",
+"kind": "body"
+},
+{
+"src": 157,
 "section": "Stilltocheckonthemachine",
 "part": "Part 6  \u00b7  Reference",
 "kind": "body"

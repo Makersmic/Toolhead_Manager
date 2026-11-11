@@ -44,7 +44,7 @@ ok(not {"contents", "toolslog"} & set(keys) and not any(k.startswith("the-tools-
    "print-only pages (contents, blank forms) are left out")
 
 # Studio's "?" links (src/help/help.ts HELP_FOR) land on these
-for need in ["rhino-studio-at-a-glance", "job-setup-and-preview", "control", "bed", "files", "assets", "care", "settings", "tuning-a-print-head"]:
+for need in ["rhino-studio-at-a-glance", "job-setup-and-preview", "control", "bed", "files", "assets", "care", "settings", "tuning-a-print-head", "tuning-a-laser-or-drag-knife"]:
     ok(need in ix["chapters"], f"the chapter Studio's ? opens is there: {need}")
 ok(any(s["id"] == "bed-mesh" for s in ix["chapters"]["bed"]["sections"])
    and any(s["id"] == "configuration-moving-one-lead-screw" for s in ix["chapters"]["bed"]["sections"]), "and the Bed sections it opens")
