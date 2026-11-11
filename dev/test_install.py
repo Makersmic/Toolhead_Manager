@@ -165,6 +165,25 @@ MIC0 = os.path.join(ROOT, "mic-none")      # 1.9.21: no sound cards here, so the
 os.makedirs(os.path.join(MIC0, "proc", "asound"), exist_ok=True)
 
 
+def path_without(*names):
+    """BIN plus the system PATH with these commands left out, for cases that need a tool missing. Hiding only the
+    stand-in isn't enough on a PC that has the real one (avahi on Arch desktops). Only a folder that holds one of them
+    is swapped for a copy made of links; the rest stay as they are, so a virtualenv's python3 still finds its packages."""
+    out = [BIN]
+    for i, src in enumerate(os.environ["PATH"].split(os.pathsep)):
+        if not any(os.path.exists(os.path.join(src, n)) for n in names):
+            out.append(src)
+            continue
+        d = os.path.join(ROOT, f"path-without-{i}")
+        if not os.path.isdir(d):
+            os.makedirs(d)
+            for n in os.listdir(src):
+                if n not in names:
+                    os.symlink(os.path.join(src, n), os.path.join(d, n))
+        out.append(d)
+    return os.pathsep.join(out)
+
+
 def env(**extra):
     e = {"HOME": HOME, "USER": "tester", "PATH": BIN + os.pathsep + os.environ["PATH"], "CALLS": LOG, "PIDF": PIDF, "RHINO_SKIP_NET": "1", "RHINO_SKIP_UPDATER": "1",
          "RHINO_SERVICE_FILE": SERVICE, "RHINO_MOONRAKER": f"http://127.0.0.1:{moon.server_port}",
@@ -503,22 +522,23 @@ try:
         os.remove(fw_unit)
         # 1.5.4: avahi-utils 404 on a Pi with stale lists (and an apt-get update that complains about a retired source)
         pub = os.path.join(BIN, "avahi-publish"); os.rename(pub, pub + ".off")
+        NO_AVAHI = path_without("avahi-publish")
         if os.path.exists(LOG + ".updated"): os.remove(LOG + ".updated")
-        rc, out = run(f"{PKG}/install.sh", APT_404="1", APT_UPDATE_ERR="1")
+        rc, out = run(f"{PKG}/install.sh", APT_404="1", APT_UPDATE_ERR="1", PATH=NO_AVAHI)
         calls = open(LOG).read()
         ok(rc == 0 and "refreshing the package lists" in out and "reported a problem" in out and calls.count("apt-get install -y avahi-utils") >= 2
            and "avahi-utils installed" in out, "stale lists + apt-get update error: refreshes, tries again anyway, avahi-utils goes in")
         run(f"{PKG}/uninstall.sh")
-        rc, out = run(f"{PKG}/install.sh", APT_404="vanished")
+        rc, out = run(f"{PKG}/install.sh", APT_404="vanished", PATH=NO_AVAHI)
         calls = open(LOG).read()
         ok(rc == 0 and "using Debian's snapshot archive" in out and "rhino-debs/avahi-utils_0.8-5+deb11u3_arm64.deb" in calls
            and "avahi-utils installed" in out, "avahi-utils gone from Debian's servers (bullseye EOL): fetched from the snapshot archive, checked, installed")
         run(f"{PKG}/uninstall.sh")
-        rc, out = run(f"{PKG}/install.sh", APT_404="vanished", SNAP_SHA256="0" * 64)
+        rc, out = run(f"{PKG}/install.sh", APT_404="vanished", SNAP_SHA256="0" * 64, PATH=NO_AVAHI)
         ok(rc == 0 and "isn't on Debian's servers or its snapshot archive" in out and ".deb" not in open(LOG).read().split("apt-get update")[-1].replace("rhino-debs", "")
            and "name is skipped" in out, "snapshot file doesn't match the Pi's package lists: not installed, the name is skipped")
         run(f"{PKG}/uninstall.sh")
-        rc, out = run(f"{PKG}/install.sh", APT_404="always", SNAP_SHA256="")
+        rc, out = run(f"{PKG}/install.sh", APT_404="always", SNAP_SHA256="", PATH=NO_AVAHI)
         ok(rc == 0 and "Install finished." in out and "could not be installed, so the rhinostudio.local name is skipped" in out
            and "STOPPED" not in out, "avahi-utils can't be fetched at all: the install still finishes, only the name is skipped")
         run(f"{PKG}/uninstall.sh")

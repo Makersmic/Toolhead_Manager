@@ -121,3 +121,16 @@ Append-only. Each entry is dated and gives its reason. An entry is never edited;
   G-code. Nothing is scheduled; this sets the rule for when one is built. *Reason:* the command list and its safety
   checks stay in one place that is tested, and a device that drops its link or misbehaves can only send commands that
   were made safe to send.
+- **2026-11-10: The wizard mascot is Mike's rhino crew, in every wizard** (Mike: "replace all of the existing rhino
+  images", "change the hearts to something appropriate"). Sixteen poses cut from his two sheets by Studio's
+  `scripts/wizard_art.py`, drawn in the theme's ink colour, one beside every step of Add hardware, Add a toolhead and
+  every tuning test. The sheets' hearts are replaced with hex nuts. The shocked rhinos only mean trouble. *Reason:* one
+  recognisable character across the wizards, from Mike's own art, replaces the earlier made-up one.
+- **2026-11-10: Laser and drag knife tuning** (Mike). The focus test zeroes with the shroud touching the stock, then
+  ramps upward from 1 mm. The knife runs depth before blade offset. Focus height and blade offset are kept per tool;
+  the rest per tool and material. Job setup starts a laser or knife job from the tuned values; a job saved for the same
+  file keeps its own.
+- **2026-11-10: Answers for the Studio start wizard** (`docs/proposal-studio-start.md`, not applied yet). The `zeroed`
+  flag on `SET_Z_ZERO`, cleared by `SWAP_TOOL`, is approved. The frame check is offered, not required. The wizard's
+  checklist uses the Mainsail prompts' lines word for word. *Reason:* both ways of starting a job say the same thing,
+  and a frame check that can be skipped doesn't get in the way of a job that's already been framed.

@@ -1,6 +1,6 @@
 # Proposal: start laser and drag knife jobs from Studio's start wizard (`FROM=STUDIO`)
 
-Nov 10 2026. **Proposal only: nothing here is applied.** Design: `docs/phase-tool-wizards.md` (start wizards). Mike
+Nov 10 2026. **Approved, not applied yet.** Design: `docs/phase-tool-wizards.md` (start wizards). Mike
 (Nov 10): build the laser and knife tuning tests now, write this proposal for the start wizard. CNC follows the same
 pattern later, in its own proposal.
 
@@ -77,8 +77,11 @@ Studio's test cut step runs `_DK_TEST_CUT QUIET=1`: the same 10 mm line at the s
 - On the machine (`docs/testing.md`, new SW1-SW4): each with a pass condition and a *Stop if*, on scrap stock, with
   the laser at test power.
 
-## Questions for Mike
+## Mike's answers (Nov 10 2026)
 
-1. OK to add the `zeroed` flag to `SET_Z_ZERO` and the one clearing line to `SWAP_TOOL`?
-2. Should the frame check be required before Start (Studio refuses to start until the frame ran), or offered?
-3. The start wizard's checklist: the same lines as the prompts, or would you change any?
+1. The `zeroed` flag on `SET_Z_ZERO` and the clearing line in `SWAP_TOOL`: yes.
+2. The frame check: offered, not required.
+3. The start wizard's checklist: the same lines as the prompts, word for word.
+
+Next: `dev/proposal_studio_start.py --apply` with its anchor test, the simulator tests, SW1-SW4, then Studio's start
+wizard.

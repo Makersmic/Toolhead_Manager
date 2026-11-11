@@ -329,7 +329,6 @@ ok(out.returncode == 0 and "when it's finished" in out.stdout, "BACKUP_CFG durin
 # ...and the push: it held Klipper's G-code queue, which stopped the head on the part (Nov 3 2026)
 import fcntl
 M["print_state"] = "standby"
-time.sleep(2)                           # lets the waiter from the call above finish
 RUNS = os.path.join(ROOT, "push-runs.log")
 open(kb + "/script.sh", "w").write(f'#!/bin/bash\necho run >> "{RUNS}"\necho quiet\n')
 def backup_cfg(e=env):
@@ -343,6 +342,17 @@ def wait_for(cond, secs=15):
     while time.monotonic() < end and not cond():
         time.sleep(0.1)
     return cond()
+def settled(secs=30):
+    """True once no background waiter holds the after-job claim. A fixed sleep wasn't enough: on a slower PC the
+    waiter was still making its archive when the next case began, and pushed with that case's script."""
+    def free():
+        c = SVC.claim_after_job()
+        if c is None:
+            return False
+        c.close()
+        return True
+    return wait_for(free, secs)
+ok(settled(), "the waiter from the call above finishes")
 zips = lambda: {f for f in os.listdir(SVC.dir) if f.endswith(".zip")}   # names: only the last 10 are kept, so a count can't rise
 for state in ("printing", "paused", "unknown"):
     M["print_state"] = state
@@ -354,7 +364,7 @@ for state in ("printing", "paused", "unknown"):
        f"{state}: BACKUP_CFG returns without pushing or archiving ({secs:.1f} s)")
     M["print_state"] = "standby"
     ok(wait_for(lambda: runs() == 1), f"{state}: the push runs once the job is over")
-    time.sleep(1)
+    ok(settled(), f"{state}: and its waiter finishes")
     ok(runs() == 1 and len(zips() - before) == 1, f"{state}: two requests make one backup and one push (runs {runs()}, new archives {len(zips() - before)})")
     os.remove(RUNS)
 
