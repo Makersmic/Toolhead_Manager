@@ -1,0 +1,46 @@
+<section class="sec" id="install-and-first-start"><p>The Rhino's software comes as one release zip, <code>rhino-config-&lt;version&gt;.zip</code>, which holds the Tool Manager, the Portal and Rhino Studio. The first install goes in once by hand, from a menu on the host. After that, every update goes in from Rhino Studio, with no terminal and no Mainsail.</p><div class="keep hk"><h3 id="the-host">The host</h3><p>The host is a Dell OptiPlex 7050 Micro running Debian 12, with Klipper, Moonraker and Mainsail installed through KIAUH. Its name on the network is <code>rhino</code>. The Raspberry Pi 3B it replaced keeps its SD card as a spare. Setting up a new host, from the BIOS to the first print, is written out step by step in <code>docs/migrate-7050.md</code>; read its section <i>The move, Nov 3</i> before you start.</p></div><div class="callout info"><p>Only one host may talk to the controller board. To go back to the spare, shut the 7050 down, move the USB cables to the Pi and start it. Its SD card is unchanged.</p></div><div class="keep hk"><h3 id="the-first-install-from-the-menu">The first install, from the menu</h3><p><strong>Before you start:</strong> nothing printing, and a <strong>print head (BlockOne or SwitchFly) mounted</strong>. The Z check after the first start homes Z, and only a print head can do that. You need the host's address and its login (<code>pi</code>).</p></div><ol>
+<li><p><strong>Copy the zip to the host.</strong> In Mainsail open <strong>Machine</strong> and press <strong>Upload</strong>, or copy it with <code>scp</code>. Check that the name is exactly <code>rhino-config-&lt;version&gt;.zip</code>; a browser sometimes adds <code>(1)</code>.</p></li>
+<li><p><strong>Log in to the host</strong> from PowerShell, Terminal or PuTTY:</p>
+<pre class="code">ssh pi@rhino.local</pre></li>
+<li><p><strong>Open the Rhino menu.</strong> Paste one line at a time, with your version in place of 1.9.18:</p>
+<pre class="code">cd ~/printer_data/config</pre>
+<pre class="code">unzip -o rhino-config-1.9.18.zip -d ~/rhino-1.9.18</pre>
+<pre class="code">bash ~/rhino-1.9.18/rhino.sh</pre>
+<pre class="code">/==========================================================\
+|             ~~~~ [ Rhino Tool Manager ] ~~~~             |
+|----------------------------------------------------------|
+| Installed version : 1.9.17                               |
+| This folder has   : 1.9.18   (/home/pi/rhino-1.9.18)     |
+| Portal            : running                              |
+| Rhino Studio      : http://rhino.local:5001              |
+|                    by name  http://rhinostudio.local     |
+|----------------------------------------------------------|
+| 1) Preview the install       (changes nothing)           |
+| 2) Install / update from this folder                     |
+| 3) Install a new zip  (unpack, preview, install)         |
+| 4) Undo an install            (pick a backup)            |
+| 5) Portal status and recent log                          |
+| 6) Restart the portal                                    |
+| 7) Health check  (before and after a move)               |
+|                                                          |
+| Q) Quit                                                  |
+\==========================================================/
+Perform action:</pre></li>
+<li><p><strong>Preview: option 1.</strong> It checks your login, the config folder, whether a job is running and whether port 5000 is free, then lists every step without changing anything. It ends with <em>Dry run finished</em>, or with <strong>STOPPED:</strong> and what to do.</p></li>
+<li><p><strong>Install: option 2</strong>, then <code>y</code>. It asks for the password once and works through its stages, each ending in <strong>OK</strong>:</p>
+<ul>
+<li><p>backs up the config folder to <code>~/rhino-backup-&lt;date&gt;</code>;</p></li>
+<li><p>copies the new files, never touching <code>variables.cfg</code>, <code>variables.save</code>, your positions (<code>myrhino/positions.cfg</code>) or the files the Portal writes;</p></li>
+<li><p>keeps the SAVE_CONFIG section at the bottom of <code>printer.cfg</code>, and fixes <code>/home/pi</code> paths if your login is different;</p></li>
+<li><p>starts the Portal at every boot, and serves Rhino Studio at <code>http://rhino.local</code>, <code>http://rhinostudio.local</code> and port 5001. Mainsail moves to port 8090, as a spare until it is removed.</p></li>
+</ul>
+<p>Afterwards the menu is always at <code>bash ~/rhino-manager/rhino.sh</code>.</p></li>
+</ol><div class="keep hk"><h3 id="first-start">First start</h3><p>Open Rhino Studio at <code>http://rhino.local</code> (or <code>http://rhinostudio.local</code>, or the address with <code>:5001</code>; some Android phones need the address in numbers). With the print head still mounted:</p></div><ol>
+<li><p><strong>Restart Klipper</strong> from the banner, or <b>Settings › Host</b>, and wait for <em>Ready</em>. If Klipper doesn't accept the config, the message names the file and line.</p></li>
+<li><p><strong>Answer which tool is mounted.</strong> The question appears on <b>Control</b>, and the top bar shows a confirm button until it is answered (see <i>Rhino Studio at a glance</i>).</p></li>
+<li><p><strong>Run <code>CHECK_TOOLHEADS</code></strong> in the console on <b>Control</b>. When the line starting <code>rhino:</code> says OK, the tools are loaded.</p></li>
+<li><p><strong>Check Z before the first job.</strong> All three Z steppers use <code>gear_ratio: 2:1</code>. Home with the print head, move Z 10 mm and measure it, then <b>Level the gantry</b> (Bed › Configuration) and check your Z offset.</p></li>
+</ol><div class="callout tip"><p><strong>A good place to stop</strong> is after the preview (nothing has changed yet) or after the first start. Avoid stopping between the install and the first start.</p></div><div class="keep hk"><h3 id="updating-from-rhino-studio">Updating from Rhino Studio</h3><p>Every later release goes in from <b>Settings › Software</b> (see <i>Settings</i>):</p></div><ul>
+<li><p><b>Update</b> on the Rhino Tool Manager row downloads the newest release from GitHub onto the Rhino and installs it. <b>Check now</b> looks again.</p></li>
+<li><p><b>Install from zip</b> takes a zip you downloaded, for a Rhino without internet. Drop it on the panel: it is checked before anything happens, and nothing installs until you press <b>Install</b>.</p></li>
+</ul><div class="keep"><p>Both are refused while a job runs. The install shows each step with a tick; the Portal restarts part-way, which is expected, and Studio reloads itself on the new version when it's done. Rhino Studio is in the same zip, so it updates with the Tool Manager. Your tools, photos, tuning, maintenance history and settings are kept. Restart Klipper afterwards if the banner asks.</p><figure class=""><img alt="Settings › Software: Update, or Install from zip" loading="lazy" src="img/st_se_software.webp"/><figcaption>Settings › Software: Update, or Install from zip</figcaption></figure></div><p><strong>Going back:</strong> <b>Go back to …</b> under the drop area installs the zip kept from the version before. If Studio itself won't open, the menu's option <strong>4</strong> lists the backups, previews the restore and asks first; anything added since is moved aside to <code>~/rhino-undone-&lt;date&gt;</code>, not deleted. Option <strong>7</strong> is a health check that changes nothing, for before and after a move.</p><div class="callout warn"><p><strong>Never home Z with the laser, spindle or drag knife mounted.</strong> Homing Z brings the bed up to the tool. Their macros refuse to, and jobs end with the bed lowered to the safe park height, so X and Y can be homed after a restart without the tool touching anything.</p></div><div class="callout info"><p>Moonraker and the Portal let in only the addresses on the trusted list (<b>Settings › Trusted addresses</b>). Keep the Rhino on your home network: the Portal has no login of its own, and anyone on that list can add or remove tools. It can't run G-code, and it refuses to restart Klipper during a job.</p></div></section>

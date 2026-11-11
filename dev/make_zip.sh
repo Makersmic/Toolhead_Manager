@@ -15,6 +15,8 @@ if [ -n "${1:-}" ]; then
   cp -a "$1/dist" studio
   node -p "require('$(cd "$1" && pwd)/package.json').version" > studio/VERSION
   echo "Studio $(cat studio/VERSION) built into studio/"
+  # Help (docs/phase-help.md): the manual's web pages, served with Studio so they work with no internet
+  cp -a manual/web studio/help
 fi
 # The camera sound's go2rtc (1.9.21, docs/install-mic.md): RHINO_GO2RTC=1 (the release) puts the pinned build inside,
 # checked against the checksum in scripts/rhino_mic.sh, with its MIT licence. Never committed (.gitignore).

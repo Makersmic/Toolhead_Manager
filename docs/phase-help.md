@@ -1,6 +1,6 @@
 # Phase: Help in Rhino Studio (the manual as web pages)
 
-Nov 11 2026. **Plan only: nothing here is built.** Mike (Nov 11): add Help to Settings and turn the user guide's pages
+Nov 11 2026. **Built Nov 11 (first batch, steps 1-4), not released yet.** Mike (Nov 11): add Help to Settings and turn the user guide's pages
 into web pages, interactive where that applies. "Nothing sucks more than a lost user guide."
 
 ## Why
@@ -28,8 +28,9 @@ chapter is edited once and both change.
 - The pictures are 39 MB for print. Web copies: WebP, at most 1000 px wide, about 3-5 MB in all. The build fails if
   Help passes 6 MB, so the zip and the Pi's SD card don't grow quietly.
 - Print-only parts (cover, page numbers, the contents page, blank-page fillers) are left out of the web output.
-- `manual/web/` is committed, like the PDF, so a release doesn't need the manual's build tools in CI. A test fails if
-  `manual/web/` is older than `manual/src/` (the same rule as the PDF).
+- `manual/web/` is committed, like the PDF, so a release doesn't need the manual's build tools in CI. `index.json`
+  holds a fingerprint of the sources (chapters, build scripts, pictures); `dev/test_help.py` fails when they change
+  without rebuilding Help.
 - The release copies `manual/web/` into Studio's site as `help/`. Studio reads `./help/index.json` at runtime, so
   Help comes from the zip on the machine, never from the internet.
 
@@ -69,9 +70,17 @@ Not planned: animations, videos inside the zip (size), or anything that moves th
 4. Release wiring: copy `manual/web/` into Studio's site; check it on the machine (`docs/testing.md`).
 5. Second batch: tick-off lists, your machine beside the text.
 
-## Questions for Mike
+## Mike's answers (Nov 11 2026)
 
-1. Download PDF: link to the PDF on the GitHub release (zip stays small), or carry the 29 MB PDF in the zip too
-   (works offline, but every update gets bigger)? Suggested: the link, and shrinking the PDF stays on the roadmap.
-2. Where Help sits: Settings › Help as you said, or also a "?" in the top bar that opens the current screen's chapter?
-   Suggested: both, the top-bar "?" taking the place of separate links on every screen.
+1. Download PDF: a link to the PDF on GitHub (the zip stays small). Help itself works offline.
+2. One **?** in the top bar, opening the current screen's chapter; Settings › Help for the contents.
+
+## Built (first batch)
+
+- Tool Manager: `manual/web.py`, `manual/web/`, `dev/test_help.py`, `dev/make_zip.sh` copies Help into Studio,
+  `service/rhino-studio.nginx` answers a missing Help page with 404 (checked in `dev/test_studio_site.py`).
+- Studio: `src/help/help.ts` (+ tests, one against the real manual when the repos sit side by side), `HelpView.vue`,
+  the top bar's **?**, the dev server serving `/help` from `../Toolhead_Manager/manual/web` (or `HELP_DIR`).
+- On-machine checks: Studio `docs/testing.md` HP1-HP3.
+- Not yet: the laser and knife tuning chapter (the manual itself doesn't have it yet: `notes/manual-notes.md`), tick-off
+  lists and your machine beside the text (second batch).

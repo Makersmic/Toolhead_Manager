@@ -1,5 +1,18 @@
 # What changed
 
+## 1.9.24 - Help in Rhino Studio
+
+Rhino Studio 0.21.0. No Klipper config changes.
+
+- **Help in Rhino Studio** (Settings › Help, and a **?** in the top bar that opens the chapter for the screen you're on):
+  the user manual as web pages, served by the Rhino itself, so it works with no internet and always matches the
+  installed version. Contents, search across every section, Previous and Next, and a link to the printable PDF.
+  Made from the same chapters as the PDF by `manual/web.py` (36 chapters, 3.1 MB with web copies of the pictures);
+  the release copies them into Studio as `help/`. nginx answers a missing Help page with a 404.
+- **Studio's Built with** names Claude (Opus 5.5), who wrote code, tests and docs alongside Mike.
+- Tests: `dev/test_help.py` (Help matches the manual's sources, nothing in it can run, under 6 MB); backup and install
+  tests pass on a desktop PC (Arch) as well as GitHub's runner.
+
 ## 1.9.23 - Laser and knife tuning
 
 Rhino Studio 0.20.0: laser and drag knife tuning, Job setup from tuned values, and the wizard rhino. No Klipper config changes.
