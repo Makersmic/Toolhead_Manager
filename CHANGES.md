@@ -1,5 +1,15 @@
 # What changed
 
+## 1.9.28 - The start wizards in the manual and Help
+
+Rhino Studio 0.24.1. No Klipper config changes.
+
+- **Manual and Help:** *Running a job* starts with Studio's start wizard for the laser, drag knife and CNC, step by
+  step, with what the Rhino refuses and why. *Tuning a laser or drag knife* explains setting the laser's Z zero from
+  the tuned focus height and the knife's test cut. Job setup's note points to the wizard, and engrave values now say
+  they feed the Engrave fill operation.
+- **Help in Studio:** the **?** on the start wizard opens its section of *Running a job*.
+
 ## 1.9.27 - Start CNC jobs from Studio
 
 Rhino Studio 0.24.0. Klipper macros change (below): restart Klipper after installing.
