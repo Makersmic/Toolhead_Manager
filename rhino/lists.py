@@ -67,10 +67,15 @@ def _builtin_presets(k):
     return k
 
 
+BIT_TYPES = ("endmill", "ballmill")
+BIT_LIMITS = {"diameter": (0.1, 25.0), "flutes": (1, 8), "length": (0.5, 100.0)}
+_BIT = re.compile(r"^[A-Za-z0-9_.-]{1,40}$")      # matches rhino/tuning.py's names: the bit is part of a tuning key
+
+
 def defaults():
     return {"version": 1, "kinds": [_builtin_presets(k) for k in DEFAULT_KINDS],
             "materials": copy.deepcopy(DEFAULT_MATERIALS), "nozzles": list(DEFAULT_NOZZLES),
-            "hw_categories": copy.deepcopy(DEFAULT_HW_CATEGORIES)}
+            "hw_categories": copy.deepcopy(DEFAULT_HW_CATEGORIES), "bits": []}
 
 
 def load(paths):
@@ -85,7 +90,7 @@ def load(paths):
             raise ValueError("not an object")
     except (OSError, ValueError) as e:
         raise Fail(f"{p} is unreadable: {e}")
-    for key in ("kinds", "materials", "nozzles", "hw_categories"):
+    for key in ("kinds", "materials", "nozzles", "hw_categories", "bits"):
         if key in saved:
             d[key] = saved[key]
     have = {k["id"] for k in d["kinds"]}               # a built-in kind can never go missing
@@ -215,6 +220,27 @@ def save(paths, body, in_use):
         if not sizes:
             raise Fail("Keep at least one nozzle size")
         out["nozzles"] = sizes
+    if "bits" in body:
+        # The spindle's bits (1.9.26): Job setup's Tool, Diameter and Cutting length, and what spindle tuning is kept per
+        bits, seen = [], set()
+        for raw in body["bits"] or []:
+            if not isinstance(raw, dict):
+                raise Fail("Expected a bit")
+            name = str(raw.get("name") or "").strip()
+            if not _BIT.match(name):
+                raise Fail(f"Bit name {name!r}: 1 to 40 letters, digits, dots, dashes or underscores, no spaces")
+            if name in seen:
+                raise Fail(f"Two bits are called {name}")
+            seen.add(name)
+            kind = raw.get("type")
+            if kind not in BIT_TYPES:
+                raise Fail(f"{name}: an end mill or a ball mill?")
+            bits.append({"name": name, "type": kind,
+                         "diameter": round(_num(raw.get("diameter"), f"{name} diameter", *BIT_LIMITS["diameter"]), 3),
+                         "flutes": int(_num(raw.get("flutes", 2), f"{name} flutes", *BIT_LIMITS["flutes"], integer=True)),
+                         "length": round(_num(raw.get("length"), f"{name} cutting length", *BIT_LIMITS["length"]), 2),
+                         "note": _text(raw.get("note", ""), f"{name} note", 80)})
+        out["bits"] = bits
     if "hw_categories" in body:
         cats, seen = [], set()
         for raw in body["hw_categories"] or []:
@@ -235,6 +261,6 @@ def save(paths, body, in_use):
     os.makedirs(os.path.dirname(paths.lists_json), exist_ok=True)
     tmp = paths.lists_json + ".tmp"
     with open(tmp, "w", encoding="utf-8") as f:
-        json.dump({k: out[k] for k in ("version", "kinds", "materials", "nozzles", "hw_categories")}, f, indent=1)
+        json.dump({k: out[k] for k in ("version", "kinds", "materials", "nozzles", "hw_categories", "bits")}, f, indent=1)
     os.replace(tmp, paths.lists_json)
     return out

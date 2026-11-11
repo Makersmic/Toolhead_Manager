@@ -9,6 +9,8 @@ docs/phase-tuning-wizards.md (after Ellis' Print Tuning Guide).
 - materials["tool|material"]: laser and drag knife values per tool and material (no nozzle): cut and engrave power
   and speed, passes, kerf, knife depth and pressure dial (1.9.23).
 - heads[tool] also keeps the laser's focus height and the knife's blade offset (1.9.23).
+- materials["tool|bit=<bit>"]: the spindle bit's measured cutting diameter; materials["tool|material|bit=<bit>"]: feed,
+  throttle, depth per pass and plunge per bit and material (1.9.26). Bits are the Portal's list (Assets › Parts › Bits).
 - runs: every test run, newest first (what the tool page shows as done): tool, nozzle, material, test, value, time.
 
 Every value is {"value", "time", "old"}: what it was before, so the page can show old and new. The file is in the
@@ -46,6 +48,12 @@ TESTS = {
     "knife_depth": ("stock", "knife_depth", 0.01, 3.0),
     "knife_pressure": ("stock", "knife_pressure", 0.0, 1000.0),
     "knife_blade_offset": ("head", "knife_blade_offset", 0.0, 2.0),
+    # spindle (1.9.26): "bit" = per tool and bit, "cut" = per tool, material and bit. Studio: cutTests.ts CUT_LIMITS
+    "cnc_diameter": ("bit", "cnc_diameter", 0.1, 25.0),
+    "cnc_feed": ("cut", "cnc_feed", 10.0, 6000.0),
+    "cnc_throttle": ("cut", "cnc_throttle", 0.3, 1.0),
+    "cnc_depth": ("cut", "cnc_depth", 0.05, 10.0),
+    "cnc_plunge": ("cut", "cnc_plunge", 10.0, 3000.0),
 }
 EMPTY = {"schema": SCHEMA, "rev": 0, "updated": 0, "heads": {}, "materials": {}, "runs": []}
 
@@ -56,6 +64,11 @@ def material_key(tool, nozzle, material):
 
 def stock_key(tool, material):
     return f"{tool}|{material}"
+
+
+def bit_key(tool, bit, material=None):
+    """The spindle's keys: "tool|bit=<bit>", or "tool|<material>|bit=<bit>" (never mistaken for a nozzle key)."""
+    return f"{tool}|bit={bit}" if material is None else f"{tool}|{material}|bit={bit}"
 
 
 class Tuning:
@@ -80,7 +93,7 @@ class Tuning:
 
     @_locked
     def save_result(self, raw):
-        """{"rev", "tool", "nozzle", "material", "test", "value"}: keep a test's result. A stale rev is refused."""
+        """{"rev", "tool", "nozzle", "material", "bit", "test", "value"}: keep a test's result. A stale rev is refused."""
         if not isinstance(raw, dict):
             raise Fail("Expected a tuning result")
         d = self._load()
@@ -107,12 +120,23 @@ class Tuning:
             material = raw.get("material")
             if not isinstance(material, str) or not _MATERIAL.match(material):
                 raise Fail("Which material?")
+        bit = None
+        if where in ("bit", "cut"):
+            bit = raw.get("bit")
+            if not isinstance(bit, str) or not _MATERIAL.match(bit):
+                raise Fail("Which bit?")
+        if where == "cut":
+            material = raw.get("material")
+            if not isinstance(material, str) or not _MATERIAL.match(material):
+                raise Fail("Which material?")
         t = int(self.now())
         new = copy.deepcopy(d)
         if where == "head":
             slot = new["heads"].setdefault(tool, {})
         elif where == "stock":
             slot = new["materials"].setdefault(stock_key(tool, material), {})
+        elif where in ("bit", "cut"):
+            slot = new["materials"].setdefault(bit_key(tool, bit, material), {})
         else:
             slot = new["materials"].setdefault(material_key(tool, float(nozzle), material), {})
         old = slot.get(key, {}).get("value")
@@ -122,6 +146,10 @@ class Tuning:
             run.update(nozzle=float(nozzle), material=material)
         elif where == "stock":
             run.update(material=material)
+        elif where == "bit":
+            run.update(bit=bit)
+        elif where == "cut":
+            run.update(bit=bit, material=material)
         new["runs"] = ([run] + new["runs"])[:MAX_RUNS]
         new.update(rev=d["rev"] + 1, updated=t)
         self._keep_history(d)
@@ -144,6 +172,8 @@ class Tuning:
             slot = new["heads"].get(tool)
         elif where == "stock":
             slot = new["materials"].get(stock_key(tool, str(raw.get("material", ""))))
+        elif where in ("bit", "cut"):
+            slot = new["materials"].get(bit_key(tool, str(raw.get("bit", "")), str(raw.get("material", "")) if where == "cut" else None))
         else:
             slot = new["materials"].get(material_key(tool, float(raw.get("nozzle") or 0), str(raw.get("material", ""))))
         if not slot or key not in slot:

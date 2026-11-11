@@ -1,5 +1,15 @@
 # What changed
 
+## Next release (not versioned yet)
+
+- **Bits** (Studio: Assets › Parts › Bits): the spindle's bits kept on the Rhino in `myrhino/lists.json`: name, end mill
+  or ball, diameter, flutes, cutting length, a note. Job setup's CNC panel picks one and fills the tool fields.
+- **Spindle tuning** (Tune HotJoe): True diameter (one slot you measure with the caliper's inside jaws: the bit's real
+  cutting width, runout included), Feed (five slots, feed stepped, with the throttle the setup ran at) and Depth per
+  pass (five slots, deeper each time). Each runs through CNC_JOB_SETUP like any CNC job. Kept in `tuning.json` per bit
+  (diameter) and per bit and material (the rest); Job setup starts a CNC job from them when you pick the bit.
+- **Care: "Run the spindle in"** for a new spindle or after a long idle, in the CNC spindle book.
+
 ## 1.9.25 - Start laser and knife jobs from Studio
 
 Rhino Studio 0.22.0. Klipper macros change (below): restart Klipper after installing.

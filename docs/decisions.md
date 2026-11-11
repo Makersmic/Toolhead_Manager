@@ -134,3 +134,21 @@ Append-only. Each entry is dated and gives its reason. An entry is never edited;
   flag on `SET_Z_ZERO`, cleared by `SWAP_TOOL`, is approved. The frame check is offered, not required. The wizard's
   checklist uses the Mainsail prompts' lines word for word. *Reason:* both ways of starting a job say the same thing,
   and a frame check that can be skipped doesn't get in the way of a job that's already been framed.
+- **2026-11-11: The spindle's bits are a library on the Rhino** (Mike). Assets › Parts › Bits (`myrhino/lists.json`
+  "bits": name, end mill or ball, diameter, flutes, cutting length, note). Spindle tuning is kept per bit (its measured
+  diameter) and per bit and material (feed, throttle, depth per pass, plunge); Job setup fills a CNC job from the bit
+  picked. Feeds are found by test only: the HotJoe's no-load RPM isn't known. *Reason:* a result that can't say which
+  bit it was for can't be trusted months later.
+- **2026-11-11: The spindle size check measures a slot, not a square outline.** One slot's width, read with the
+  caliper's inside jaws, is the bit's true cutting diameter, runout included. *Reason:* a square outline only measures
+  cleanly when it's cut through, which risks the spoilboard.
+- **2026-11-11: The spindle run-in is a Care task** ("Run the spindle in", CNC spindle book, every 6 months), done
+  with the console's spindle commands, not a tuning test. *Reason:* it's maintenance with no value to keep, and a
+  tuning button that spins the spindle would need a new no-confirm path.
+- **2026-11-11: Spindle throttle shows as the ESC pin's value everywhere** (Mike): 0.6 reads 60 % on Control, the
+  Dashboard, tuning and the CNC setup's prompt; at 30 % the spindle is stopped, and Control says so.
+- **2026-11-11: Laser operations, after LaserWeb** (Mike). In Job setup a laser job can have operations, each a cut,
+  a score or an engrave fill with its own power, speed and passes, for loops picked by clicking them on a drawing of
+  the job. They run in the order the user sets (up/down); Studio warns when a cut frees a part before work inside it.
+  Loops not picked are cut last with the job's own settings. Kerf and outline height stay job-wide. *Reason:* one
+  drawing often needs engraving, scoring and cutting, and doing it in one job keeps the parts registered.

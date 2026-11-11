@@ -42,6 +42,17 @@ ok(post("/api/lists", {"kinds": [k for k in lst["kinds"] if k["id"] != "NEEDLE"]
 ok(post("/api/lists", {"materials": {"additive": "PLA, petg, Wood fill", "subtractive": [], "passive": []}}).status_code == 200 and
    J(c.get("/api/lists"))["materials"]["additive"] == ["PLA", "PETG", "WOOD_FILL"], "material names are cleaned (upper case, _)")
 ok(post("/api/lists", {"nozzles": "0.4, 0.6, 9"}).status_code == 400, "nozzle sizes are range-checked")
+# 1.9.26: the spindle's bits
+ok(J(c.get("/api/lists"))["bits"] == [], "no bits until you add yours")
+bit = {"name": "flat3", "type": "endmill", "diameter": 3.175, "flutes": 2, "length": 12, "note": "1/8 in up-cut"}
+r = post("/api/lists", {"bits": [bit, {**bit, "name": "ball6", "type": "ballmill", "diameter": 6, "flutes": "3"}]})
+ok(r.status_code == 200 and [b["name"] for b in J(c.get("/api/lists"))["bits"]] == ["flat3", "ball6"]
+   and J(c.get("/api/lists"))["bits"][1]["flutes"] == 3, "bits are kept with type, diameter, flutes, length and a note")
+ok(post("/api/lists", {"bits": [bit, bit]}).status_code == 400, "two bits can't share a name")
+ok(post("/api/lists", {"bits": [{**bit, "name": "flat 3"}]}).status_code == 400, "a bit name has no spaces (it's part of a tuning key)")
+ok(post("/api/lists", {"bits": [{**bit, "type": "drill"}]}).status_code == 400, "only end mills and ball mills")
+ok(post("/api/lists", {"bits": [{**bit, "diameter": 40}]}).status_code == 400, "the diameter is range-checked")
+ok(post("/api/lists", {"nozzles": "0.4"}).status_code == 200 and len(J(c.get("/api/lists"))["bits"]) == 2, "saving another list keeps the bits")
 
 # ---------------------------------------------------------------- the 21 contacts + shared outputs
 cts = {x["contact"]: x for x in o["contacts"]}
