@@ -1,8 +1,8 @@
 # What changed
 
-## Next release (1.9.23, not versioned yet)
+## 1.9.23 - Laser and knife tuning
 
-Rhino Studio: laser and drag knife tuning, and the wizard rhino. No Klipper config changes.
+Rhino Studio 0.20.0: laser and drag knife tuning, Job setup from tuned values, and the wizard rhino. No Klipper config changes.
 
 - **Laser tuning** (Assets › Toolheads › LightSaber › Tune): focus height (a ramp that lifts from 1 mm above the
   touched surface, ticks every millimetre), cut and engrave grids of power and speed, passes, and kerf from a measured
@@ -10,6 +10,9 @@ Rhino Studio: laser and drag knife tuning, and the wizard rhino. No Klipper conf
 - **Drag knife tuning**: depth (six lines, with the pressure dial noted) and blade offset (five squares).
 - **The Portal keeps them** in myrhino/tuning.json: focus height and blade offset once per tool, the rest per tool and
   material (no nozzle). Same revisions, history and backup as the print head results.
+- **Job setup starts from tuned values**: a laser job takes the tuned cut power, speed, passes and kerf for its tool and
+  material; a knife job takes the tuned depth and blade offset. A job saved for the same file keeps its own values. A
+  note under the settings says what's tuned and offers Use tuned values after an edit. Engrave values aren't used yet.
 - **The wizard rhino** (Studio): Mike's rhino crew beside every wizard step: Add hardware, Add a toolhead and every
   tuning test.
 - Proposal, not applied: `docs/proposal-studio-start.md` (start laser and knife jobs from Studio's start wizard).
