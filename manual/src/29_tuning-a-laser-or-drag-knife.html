@@ -28,7 +28,7 @@
 <p>A grid of 25 squares: power rises from row to row, and speed from column to column. The labels are marked at the lowest power, not cut. Pick the square that dropped out cleanly with the least char. Both the power and the speed are saved for the material.</p>
 
 <h3>Engrave power and speed</h3>
-<p>The same grid, filled in instead of cut. Pick the square that looks best: even, the darkness you want, not burnt through. Engrave values are kept separately from the cut values. Job setup doesn't use them yet: laser jobs from Studio are cuts.</p>
+<p>The same grid, filled in instead of cut. Pick the square that looks best: even, the darkness you want, not burnt through. Engrave values are kept separately from the cut values. In <b>Job setup</b>, a new <b>Engrave fill</b> operation starts from them.</p>
 
 <h3>Passes</h3>
 <p>Only needed if no square in the cut grid dropped out. Five squares at the tuned cut settings, with 1 to 5 passes from the left. Pick the fewest that cut right through: thick stock cuts cleaner in more passes than at more power.</p>
@@ -45,3 +45,7 @@
 <h3>Job setup starts from the tuned values</h3>
 <p>A laser job in <b>Job setup</b> starts from the tuned cut power, speed, passes and kerf for its tool and material; a knife job from the tuned depth and blade offset. They're applied after the material's own settings and before anything you change. A job saved for the same file keeps its own values.</p>
 <p>A line under the settings says what applies, for example <i>Tuned for PLYWOOD on Nov 10, 2026: power 85 %, speed 600 mm/min. In use.</i> After you change one of them, <b>Use tuned values</b> puts them back. A material with nothing tuned says so, with a link to <b>Tune</b>.</p>
+
+<h3>Starting a job: the start wizard</h3>
+<p>A laser or knife job started from Studio opens the start wizard (see <i>Running a job</i>). Two of its steps use what you tuned:</p>
+<ul><li><p><b>Laser Z zero by measurement.</b> With the focus height tuned, the Z zero step says how to set it without the focus dot: bring the bed up until the shroud just touches the material (a sheet of paper should drag), then press <b>Bed down 1 mm</b> and <b>Bed down 0.1 mm</b> the number of times shown, for example <i>Your tuned focus height is 6.3 mm: press Bed down 1 mm 6 times, then Bed down 0.1 mm 3 times</i>, then <b>SET</b>. Without a tuned height you set focus by eye on the smallest, sharpest dot, with glasses on.</p></li><li><p><b>Knife test cut.</b> <b>Cut a test line</b> cuts 10 mm at the work zero. If the cut is wrong, <b>Cut is wrong - help me adjust</b> says which way to turn the pressure dial or move the zero, then goes back to set the Z zero and cut again. The tuned dial setting appears in the checklist: <i>Blade is extended and the pressure dial is set to 200 g</i>.</p></li></ul>
