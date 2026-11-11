@@ -156,3 +156,9 @@ Append-only. Each entry is dated and gives its reason. An entry is never edited;
   FROM=STUDIO` refuses unless the HotJoe has its Z zero and the spindle is running; the quiet warm-up checks the lid
   before the spindle starts, because Studio warms up before `CNC_JOB_SETUP` runs. *Reason:* the same steps as the
   laser and knife, on screen, and a job can never start on a stopped bit.
+- **2026-11-11: Lead screws are driven from the screen** (Mike: "drive one motor from the screen"). Bed ›
+  Configuration moves each Z motor on its own through `FORCE_MOVE`, behind the padlock, with release to turn by hand
+  and Home and level. Chosen over guiding a turn by hand only. *Reason:* it's what recovers a Z-tilt fault, and it
+  was already built (Nov 8); the padlock, steps and relocks are its safety design (BC1-BC6 on the machine).
+- **2026-11-11: No event GIF animations in the theme** (Mike). Custom images in panels stay on the roadmap.
+  *Reason:* dropped by choice; it also kept animation away from alerts and red panels.
