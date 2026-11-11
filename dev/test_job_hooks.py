@@ -112,7 +112,7 @@ calls = re.findall(r"^\s*(_RHINO_HOOKS SLOT=\w+|_RHINO_INTERLOCKS|_RHINO_FILAMEN
 count = {k: calls.count(k) for k in set(calls)}
 want = {"_RHINO_HOOKS SLOT=before_start": 5, "_RHINO_HOOKS SLOT=after_start": 2, "_RHINO_HOOKS SLOT=before_end": 1,
         "_RHINO_HOOKS SLOT=after_end": 1, "_RHINO_HOOKS SLOT=on_cancel": 1, "_RHINO_HOOKS SLOT=on_pause": 1,
-        "_RHINO_HOOKS SLOT=on_resume": 2, "_RHINO_INTERLOCKS": 10, "_RHINO_FILAMENT_SENSORS": 2}
+        "_RHINO_HOOKS SLOT=on_resume": 2, "_RHINO_INTERLOCKS": 11, "_RHINO_FILAMENT_SENSORS": 2}  # 11: _CNC_WARMUP QUIET=1 (1.9.27)
 ok(count == want, f"every call site is in place exactly once ({count})")
 for macro in ("_RHINO_HOOKS", "_RHINO_INTERLOCKS", "_RHINO_FILAMENT_SENSORS"):
     ok(f"[gcode_macro {macro}]" in open(HCFG).read(), f"{macro} is defined")
