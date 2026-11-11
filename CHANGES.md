@@ -1,5 +1,19 @@
 # What changed
 
+## Next release (1.9.23, not versioned yet)
+
+Rhino Studio: laser and drag knife tuning, and the wizard rhino. No Klipper config changes.
+
+- **Laser tuning** (Assets › Toolheads › LightSaber › Tune): focus height (a ramp that lifts from 1 mm above the
+  touched surface, ticks every millimetre), cut and engrave grids of power and speed, passes, and kerf from a measured
+  20 mm part. Each test is a normal job through LASER_JOB_SETUP, checked like any prepared file before it's sent.
+- **Drag knife tuning**: depth (six lines, with the pressure dial noted) and blade offset (five squares).
+- **The Portal keeps them** in myrhino/tuning.json: focus height and blade offset once per tool, the rest per tool and
+  material (no nozzle). Same revisions, history and backup as the print head results.
+- **The wizard rhino** (Studio): Mike's rhino crew beside every wizard step: Add hardware, Add a toolhead and every
+  tuning test.
+- Proposal, not applied: `docs/proposal-studio-start.md` (start laser and knife jobs from Studio's start wizard).
+
 ## 1.9.22 - Camera sound fix
 
 Rhino Studio 0.19.2. No Klipper config changes.

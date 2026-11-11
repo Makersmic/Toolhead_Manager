@@ -1,6 +1,9 @@
 # Tuning and start wizards for the laser, spindle and drag knife (design draft)
 
-Nov 10 2026. **Waiting for Mike's answers (end of this page). Nothing is built.** Mike: "tune the laser, spindle, and
+Nov 10 2026. **Mike (Nov 10): laser and drag knife first; L2 tests cut and engrave, cut first. Built (Studio, Portal
+1.9.23): the tuning tests L1-L4, K1-K2, with the knife's depth before its blade offset (an offset test reads nothing
+until the blade cuts through). The start wizard is written up as `docs/proposal-studio-start.md`, waiting for his OK.
+Spindle (C1-C5), questions 4-6 still open.** Original draft: Mike: "tune the laser, spindle, and
 drag knife much like I did for BlockOne", and "start wizards for those … a guided workflow for setting up the stock on
 the build plate", with a vacuum pump for the vacuum table coming back soon (added with Studio's Add hardware wizard).
 

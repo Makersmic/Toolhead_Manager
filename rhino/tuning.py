@@ -1,4 +1,4 @@
-"""Tuning results for print heads (1.9.16): what the tuning wizards in Rhino Studio found. Design:
+"""Tuning results for print heads (1.9.16), the laser and the drag knife (1.9.23): what the tuning wizards in Rhino Studio found. Design:
 docs/phase-tuning-wizards.md (after Ellis' Print Tuning Guide).
 
     myrhino/tuning.json           {"schema": 1, "rev": n, "updated": t, "heads": {...}, "materials": {...}, "runs": [...]}
@@ -6,6 +6,9 @@ docs/phase-tuning-wizards.md (after Ellis' Print Tuning Guide).
 
 - heads[tool]: values that belong to the print head itself: rotation_distance (extruder calibration).
 - materials["tool|nozzle|material"]: values per head, nozzle and material: pressure_advance, extrusion_multiplier.
+- materials["tool|material"]: laser and drag knife values per tool and material (no nozzle): cut and engrave power
+  and speed, passes, kerf, knife depth and pressure dial (1.9.23).
+- heads[tool] also keeps the laser's focus height and the knife's blade offset (1.9.23).
 - runs: every test run, newest first (what the tool page shows as done): tool, nozzle, material, test, value, time.
 
 Every value is {"value", "time", "old"}: what it was before, so the page can show old and new. The file is in the
@@ -26,18 +29,33 @@ KEEP_REVISIONS = 10
 MAX_RUNS = 300
 _TOOL = re.compile(r"^[A-Za-z0-9_.-]{1,40}$")
 _MATERIAL = re.compile(r"^[A-Za-z0-9_.-]{1,40}$")
-# test -> (where it's kept: "head" or "material", the value it sets, lowest, highest)
+# test -> (where it's kept: "head", "material" (+ nozzle) or "stock" (material, no nozzle), the value it sets, lowest,
+# highest). The laser and knife limits match Studio's src/tuning/cutTests.ts CUT_LIMITS.
 TESTS = {
     "extruder_calibration": ("head", "rotation_distance", 0.5, 100.0),
     "first_layer": ("material", "first_layer_fine", -1.0, 1.0),
     "pressure_advance": ("material", "pressure_advance", 0.0, 2.0),
     "extrusion_multiplier": ("material", "extrusion_multiplier", 0.5, 1.5),
+    "laser_focus_height": ("head", "laser_focus_height", 1.0, 30.0),
+    "laser_cut_power": ("stock", "laser_cut_power", 0.01, 1.0),
+    "laser_cut_speed": ("stock", "laser_cut_speed", 30.0, 6000.0),
+    "laser_engrave_power": ("stock", "laser_engrave_power", 0.01, 1.0),
+    "laser_engrave_speed": ("stock", "laser_engrave_speed", 30.0, 12000.0),
+    "laser_passes": ("stock", "laser_passes", 1, 10),
+    "laser_kerf": ("stock", "laser_kerf", 0.0, 1.0),
+    "knife_depth": ("stock", "knife_depth", 0.01, 3.0),
+    "knife_pressure": ("stock", "knife_pressure", 0.0, 1000.0),
+    "knife_blade_offset": ("head", "knife_blade_offset", 0.0, 2.0),
 }
 EMPTY = {"schema": SCHEMA, "rev": 0, "updated": 0, "heads": {}, "materials": {}, "runs": []}
 
 
 def material_key(tool, nozzle, material):
     return f"{tool}|{nozzle:g}|{material}"
+
+
+def stock_key(tool, material):
+    return f"{tool}|{material}"
 
 
 class Tuning:
@@ -75,22 +93,26 @@ class Tuning:
         where, key, lo, hi = TESTS[test]
         tool = raw.get("tool")
         if not isinstance(tool, str) or not _TOOL.match(tool):
-            raise Fail("Which print head?")
+            raise Fail("Which tool?")
         v = raw.get("value")
         if isinstance(v, bool) or not isinstance(v, (int, float)) or v != v or not lo <= v <= hi:
             raise Fail(f"{key.replace('_', ' ')} must be from {lo:g} to {hi:g}")
         v = round(float(v), 6)
         nozzle = material = None
         if where == "material":
-            nozzle, material = raw.get("nozzle"), raw.get("material")
+            nozzle = raw.get("nozzle")
             if isinstance(nozzle, bool) or not isinstance(nozzle, (int, float)) or not 0.1 <= nozzle <= 2.0:
                 raise Fail("Which nozzle size (0.1 to 2 mm)?")
+        if where in ("material", "stock"):
+            material = raw.get("material")
             if not isinstance(material, str) or not _MATERIAL.match(material):
                 raise Fail("Which material?")
         t = int(self.now())
         new = copy.deepcopy(d)
         if where == "head":
             slot = new["heads"].setdefault(tool, {})
+        elif where == "stock":
+            slot = new["materials"].setdefault(stock_key(tool, material), {})
         else:
             slot = new["materials"].setdefault(material_key(tool, float(nozzle), material), {})
         old = slot.get(key, {}).get("value")
@@ -98,6 +120,8 @@ class Tuning:
         run = {"tool": tool, "test": test, "value": v, "time": t}
         if where == "material":
             run.update(nozzle=float(nozzle), material=material)
+        elif where == "stock":
+            run.update(material=material)
         new["runs"] = ([run] + new["runs"])[:MAX_RUNS]
         new.update(rev=d["rev"] + 1, updated=t)
         self._keep_history(d)
@@ -116,8 +140,12 @@ class Tuning:
         where, key, _, _ = TESTS[test]
         new = copy.deepcopy(d)
         tool = str(raw.get("tool", ""))
-        slot = new["heads"].get(tool) if where == "head" else new["materials"].get(
-            material_key(tool, float(raw.get("nozzle") or 0), str(raw.get("material", ""))))
+        if where == "head":
+            slot = new["heads"].get(tool)
+        elif where == "stock":
+            slot = new["materials"].get(stock_key(tool, str(raw.get("material", ""))))
+        else:
+            slot = new["materials"].get(material_key(tool, float(raw.get("nozzle") or 0), str(raw.get("material", ""))))
         if not slot or key not in slot:
             raise Fail("Nothing tuned there to forget")
         del slot[key]
