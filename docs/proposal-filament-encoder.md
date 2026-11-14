@@ -109,11 +109,22 @@ comparison is on commanded travel growing, which retract-then-unretract nets to 
 - Rollback: remove the symlink and the config section, `FIRMWARE_RESTART`. The readout block can go back in.
 - Documented in `AGENTS.md` (new area: Klipper extras) and `docs/developer.md`.
 
-## Studio
+## Studio (Mike, Nov 14: "add the Studio sections to the proposal")
 
-Print head panel: a small "Filament" row with measured and commanded travel for the current job and slip in percent,
-red only when the sensor has paused the job (red stays reserved). A Calibrate button on the extruder tuning wizard
-runs `FILAMENT_ENCODER_CALIBRATE` through the usual confirm; it needs a print head mounted and the hotend hot.
+Each item lands in a screen that exists. Order is the build order; items 1-2 ship with the module, the rest follow
+with their own small review. No new no-confirm path: every control goes through the existing `check` / `approve` gate.
+
+| # | Where | What | Readout or control |
+|---|---|---|---|
+| 1 | Control › Hardware panel (`src/control/HardwarePanel.vue`, which already lists filament sensors) | "Filament" row: measured and commanded travel for the current job, slip %, the sensor's enabled/paused state | readout |
+| 2 | Dashboard status strip | one slip figure while printing; red only when the sensor has paused the job (red stays reserved) | readout |
+| 3 | Tuning › Extruder calibration (`src/tuning/ExtruderCalWizard.vue`) | the wizard reads the real distance from the encoder beside the hand measurement and proposes the rotation distance; **Calibrate encoder** button runs `FILAMENT_ENCODER_CALIBRATE` through the usual confirm (print head mounted, hotend hot) | control |
+| 4 | Print head tuning page | slip % at which a job pauses, stored with tuning; sensor on/off per print head through the existing `SET_FILAMENT_SENSOR` path, state shown | control |
+| 5 | Care (`src/maintenance/`, meters) | "filament fed" meter per print head in metres, so nozzle and gear tasks can be scheduled on throughput, not hours | readout |
+| 6 | Settings › Hardware | the encoder as a Portal catalog type (`encoder`), with a "turn the wheel, see the angle" check callable from Studio | both |
+
+Not planned: a live slip graph during printing. It fails the durability test on its own; it rides along only if the
+row in item 1 makes it nearly free.
 
 ## Tests
 
@@ -204,6 +215,21 @@ timers of its own, nothing it can do to the spindle.
    measurement; the Portal's bits page shows RPM where it shows throttle.
 3. Stall rule: during a CNC job, RPM under half the warm-up value for one second → pause and raise through the
    existing hooks. Only while the relay is on and the throttle is above idle; 0 RPM with the rail off is normal.
+
+## Studio (Mike, Nov 14)
+
+| # | Where | What | Readout or control |
+|---|---|---|---|
+| 1 | Control › spindle output cell and status strip (`src/control/OutputCell.vue`, `StatusStrip.vue`, which show throttle) | RPM beside throttle, live. The first thing to ship: throttle alone has been a guess | readout |
+| 2 | Start wizard › warm-up (`src/views/StartWizardView.vue`) | RPM while it spins up; the ±5 % buttons show their effect in RPM | readout |
+| 3 | Tuning › cut tests (`src/tuning/CutTuning.vue`, `CutTestWizard.vue`) | RPM recorded with each test and stored in `tuning.json` beside throttle | readout |
+| 4 | Toolheads › Bits (`src/views/toolheads/BitsView.vue`) | feed per tooth and chip load from measured RPM; a bit's page shows "tuned at N RPM" | readout |
+| 5 | Tuning | the stall rule's RPM floor and time-to-pause, per bit or material, shown and editable | control |
+| 6 | Care | spindle run-hours meter driven by RPM > 0, for bearing and collet tasks; a one-line health note when RPM at a known throttle drifts down over weeks | readout |
+| 7 | Settings › Hardware | the tachometer as a Portal catalog type (`tachometer`), with a "spin the bell by hand, see the RPM" check | both |
+| 8 | Warm-up and job setup, later | **Target RPM instead of throttle**: enter 18,000, Studio finds the throttle from the table built during warm-up and holds it. Needs its own design note first: closed-loop control of a cutting tool, so a slow correction with limits, never a fast loop, off by default | control |
+
+Shared with stage 1: Help pages made from the two build sheets, so the wiring isn't only in a PDF.
 
 ## What can go wrong
 
