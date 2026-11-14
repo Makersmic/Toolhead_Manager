@@ -547,7 +547,7 @@ On scrap, the bit in, glasses and hearing protection on, extraction running. Stu
 
 ## 1.9.29: signed releases, the Portal's name check, and U1 from the audit
 
-- [ ] **SG-A Update from GitHub.** After 1.9.29 is installed by hand once (it carries the new updater): Studio › Settings
+- [ ] **SG-A Update from GitHub.** After 1.9.29 is installed (from Studio Update or by hand; either way it carries the new updater): Studio › Settings
   › Software › Update to the next release. *Pass if:* the install log's first step says "Zip checked and signed";
   `ls ~/printer_data/rhino_data/update/incoming` shows the zip and its `.sig`. *Stop if:* the step says anything about
   the signature and still goes on.
@@ -571,3 +571,101 @@ On scrap, the bit in, glasses and hearing protection on, extraction running. Stu
   second 200, Moonraker trusts the header from any client, as the audit expects: port 7125 must stay off any network
   you don't trust (it already is behind the home router), and the README's last paragraph stands. If both answer
   401, strike that paragraph. Put `trusted_clients` back afterwards and restart Moonraker.
+
+## Readout: the AS5600 filament encoder (docs/proposal-filament-encoder.md, stage 0)
+
+Mike, Nov 14: "do the readout first then write the proposal". The full procedure with diagrams, parts and the results
+sheet is `docs/filament-encoder-wiring.pdf` (steps 1-20; the FE numbers below are its steps 2 and 16-20). These prove
+the wiring and the signal with stock Klipper only (`[adc_temperature]` + `[temperature_sensor]`), before any custom
+module. Contact 17 → **EXP2 pin 3 (`PB1`)**: an analog-capable input with no pull-up. Not a thermistor header: its
+4.7 kΩ pull-up is below the AS5600 output's 100 kΩ minimum load. Power: 14 (+12 V) and 13 (12 V GND) → a 3.3 V linear
+regulator on the toolhead → AS5600 VCC/GND. Run them in order; each later check assumes the earlier ones passed.
+
+Temporary block for `myrhino/mysystem.cfg` (your own file; the module replaces it later):
+
+```
+# Temporary: AS5600 filament encoder readout (FE checks). 0-3.3 V reads as 0-360.
+[adc_temperature as5600_angle]
+temperature1: 0
+voltage1: 0.0
+temperature2: 360
+voltage2: 3.3
+
+[temperature_sensor filament_angle]
+sensor_type: as5600_angle
+sensor_pin: PB1
+adc_voltage: 3.3
+min_temp: -50
+max_temp: 500
+```
+
+- [ ] **FE1 Regulator alone.** Regulator fed 12 V, AS5600 not connected. Meter on the output. *Pass if:* 3.2-3.4 V
+  (or 4.9-5.1 V for a board with its own 3.3 V regulator, sheet step 1 case c). *Stop if:* a "3.3 V" part reads above
+  3.6 V. Then the bench check of OUT (sheet step 4): *Stop if* OUT reaches 5 V, the chip is in 5 V mode.
+- [ ] **FE2 Grounds.** Machine on, meter in continuity or ohms between the 12 V supply's negative and EXP2 pin 9 (board
+  GND). *Pass if:* under 1 Ω. Record it in the proposal. *Stop if:* open: the analog signal has no reference and the
+  proposal changes to an isolated design before anything else is wired.
+- [ ] **FE3 Config loads.** Add the block, `RESTART`. *Pass if:* Klipper comes up and Studio's temperatures list
+  `filament_angle` (the value means nothing until the wheel moves). *Stop if:* Klipper reports an error for the
+  section or "ADC out of range" (the limits above should make that impossible; if it happens, remove the block and tell
+  me the exact message).
+- [ ] **FE4 Live angle.** Turn the wheel by hand, slowly, more than one turn. *Pass if:* the value sweeps smoothly
+  through 0-360 and wraps. *Stop if:* it sits near 0 or 360 (no magnet detected, wrong power, or OUT on the wrong pin),
+  or jumps in steps of tens of degrees (magnet off-centre or too far: 0.5-3 mm gap, centred on the chip).
+- [ ] **FE5 Noise.** Filament loaded and still. Hotend at print temperature, hotend fan on, part fan 100 %, extruder
+  stepper enabled (`SET_STEPPER_ENABLE STEPPER=extruder ENABLE=1`). Watch for one minute. *Pass if:* the value stays
+  within ±3 of where it started. Record the spread. *Stop if:* it swings more than ±10 with the heater cycling: fit the
+  optional filter at EXP2 (1 kΩ in series, 10 nF pin 3 to pin 9) and repeat once; if it still fails, tell me.
+- [ ] **FE6 Circumference.** Nozzle hot, filament loaded. Note the angle, `G1 E10 F300`, note it again. Three times.
+  Wheel circumference in mm = 10 × 360 ÷ (angle change), using the three results. If the change is over 180 the
+  wheel is small enough to wrap inside 10 mm: use `G1 E5 F300` instead. *Pass if:* the three results agree within
+  5 %. Send me the number and the retract speed you use most. *Stop if:* the angle doesn't change (wheel slipping on
+  the filament: more idler spring before anything else).
+
+Leave the block in place after FE6 so the angle stays visible until the module replaces it.
+
+## Readout: the spindle tachometer (docs/proposal-filament-encoder.md, stage 2)
+
+Mike, Nov 14: hall at the bell rim, the 30-line extra. Build sheet with diagrams and the results sheet:
+`docs/spindle-tachometer-wiring.pdf` (its steps 1-16; SP1-SP7 are its checks). Stock Klipper only: a `fan_generic`
+on a bare, unused GPIO (`PE8`, EXP1 pin 1, nothing attached) carries the tachometer so the counter and the poll rate are
+proven before the module exists. Hall: A3144 class on the ESC's BEC 5 V, open-collector OUT → contact 19 → EXP2 pin 10
+(`^PC5`).
+
+Temporary block for `myrhino/mysystem.cfg`. The macro is one `RESPOND`; it moves nothing.
+
+```
+# Temporary: spindle tachometer readout (SP checks). PE8 is a bare, unused GPIO; nothing is driven.
+[fan_generic spindle_tach_test]
+pin: PE8
+tachometer_pin: ^PC5
+tachometer_ppr: 7
+tachometer_poll_interval: 0.0001
+
+[gcode_macro SPINDLE_RPM]
+description: Temporary: show the spindle tachometer reading (SP checks)
+gcode:
+  RESPOND MSG="Spindle: {printer['fan_generic spindle_tach_test'].rpm|round(0)} RPM"
+```
+
+- [ ] **SP1 Seven per turn, at the bench.** Hall on 5 V (an Arduino's 5 V pin will do), LED + 330 Ω from 5 V to the hall's
+  OUT. Hold the hall at the bell rim as on the sheet and turn the bell slowly by hand through one full turn. *Pass if:*
+  the LED flashes 7 times per turn, evenly. *Stop if:* it never lights (turn the hall over: the sensing face is one side;
+  then reduce the gap) or flashes unevenly (not at the magnet ring's radius).
+- [ ] **SP2 Nothing but logic on 19.** HotJoe mounted, machine on, spindle rail on (`SPINDLE_INITIALIZE` or the Studio
+  warm-up at idle), the blue wire from contact 19 loose at the board. Meter from it to EXP2 pin 9. *Pass if:* under 1 V,
+  steady or floating. *Stop if:* 5 V or 24 V: the hall's pull-up or the BEC is on the signal wire.
+- [ ] **SP3 Config loads.** Block added, `RESTART`. *Pass if:* Klipper comes up and `SPINDLE_RPM` answers "Spindle: 0 RPM"
+  with the spindle off. *Stop if:* any error names the section or `PE8`/`PC5` as already in use.
+- [ ] **SP4 By hand.** Rail on, ESC at idle (0.3), turn the bell by hand at about two turns a second for five seconds, then
+  `SPINDLE_RPM` while still turning. *Pass if:* it shows roughly 100-150 RPM and 0 once you stop. *Stop if:* 0 while
+  turning (wiring or pull-up) or a wild number (poll too slow is impossible at this speed: look for a loose contact).
+- [ ] **SP5 Under power.** Through Studio's spindle warm-up (CT checks), no bit fitted, lid closed: throttle 0.4, 0.6, 0.8,
+  1.0, thirty seconds each, `SPINDLE_RPM` three times at each. Record all twelve. *Pass if:* RPM rises with every step
+  and the 1.0 reading is at or under 24,000. *Stop if:* a higher throttle reads lower than the one before it: the poll
+  is too slow for the pulse rate, and the proposal gets a divide-by-7 stage instead of a faster poll.
+- [ ] **SP6 MCU load.** After SP5, search `klippy.log` for `Timer too close`, `Rescheduled timer` and `Transition to
+  shutdown`. *Pass if:* none during SP5. *Stop if:* any: tell me which, and set `tachometer_poll_interval: 0.00015` only
+  if I say so.
+- [ ] **SP7 Quiet when off.** Rail off: `SPINDLE_RPM` five times over a minute. *Pass if:* 0 every time. *Stop if:* any
+  non-zero: the pin is picking up noise from the phase leads and the hall wire needs rerouting away from them.
