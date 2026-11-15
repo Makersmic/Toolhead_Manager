@@ -203,3 +203,10 @@ Append-only. Each entry is dated and gives its reason. An entry is never edited;
   while the machine sits idle is a real cause of a bad first print; a phone app would do it, but Mike wants it built in,
   so it is built in small steps with a typed-Hz fallback. Not decided yet: how the driver fans are switched off, and the
   host-side second source (needs its own proposal and install document).
+- **2026-11-15: Care tasks get one guide shell, with gates in Studio, not a wizard each** (Mike: "Go ahead with the suggested build
+  order"). 29 starter tasks were sorted into 10 wizards, 17 guided checklists and 2 links. The shell has six kinds of step (gate, do,
+  wait, measure, tick, log). Gates and waits live in Studio and read Klipper; task text from the library is never run as a command, and
+  a Do step will use the existing check and confirm, with no new no-confirm path. Order: shell and checklists (built), belts, emergency
+  stop, level, Z drive, nozzle, spindle, umbilical. Also: a read-only "What's happening" strip on the tuning pages (Mike: it would
+  help to be informed while a test heats and runs). *Reason:* one component to build and test instead of ten, and a precondition such
+  as "spindle relay off" is only a safety gate if Studio reads it from Klipper.

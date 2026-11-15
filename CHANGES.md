@@ -1,5 +1,19 @@
 # What changed
 
+## 1.9.32 - Care guides and the "What's happening" strip (Studio 0.28.0)
+
+No Klipper macro or config changes, and the guides send nothing to the machine. Checks CG1-CG4 are in Studio's `docs/testing.md`.
+
+- **Guide me** on every Care task (the task list and the overview cards). A "Before you start" page shows the safety note, parts and
+  tools, and what the machine must say first: no job running, the hotend cold, the spindle relay off, the laser rail off, the tool's
+  power off, a print head mounted. Start stays off until they are met, and they keep being checked: a step shows "Holding" if one stops
+  being true. Then each step is ticked in order, with a two-minute discharge countdown on the electronics-bay task, and **Log the work**
+  writes the Work log entry and moves the due date. The 17 checklist tasks in the library have gates; other tasks get the plain
+  walk-through.
+- **What's happening** strip at the top of the tuning pages and of every guide: one plain line while the machine heats or runs a test
+  job ("Heating the hotend: 143° of 210°", "Running squish-BlockOne-PLA_0_4.gcode · 35 %"), the last few console lines, and a note that
+  leaving the page is safe because the job runs on the machine. Read only, with no input box; hidden when the machine is idle and cold.
+
 ## 1.9.31 - Belt guide, batch A: Care › Microphone test (Studio 0.27.0)
 
 No Klipper macro or config changes, and nothing new is sent to the machine. This is the first step of a guided
