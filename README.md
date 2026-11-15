@@ -80,29 +80,35 @@ A dashboard on port 5000 that follows Mainsail's light or dark theme and colour.
 
 ## Quick start
 
-You need a Klipper/Mainsail Pi with the Rhino config, and a print head (BlockOne or SwitchFly) mounted.
+The host is a PC or Pi running Klipper, Moonraker and Mainsail (the Rhino's is a Dell OptiPlex 7050 on Debian 12,
+installed with KIAUH; `docs/migrate-7050.md` sets one up from the BIOS). The first install goes in once from a menu
+on the host; every later release goes in from Rhino Studio. Have a print head (BlockOne or SwitchFly) mounted and
+nothing printing.
 
-1. Upload `rhino-config-<version>.zip` in Mainsail (**Machine** > **Upload**).
-2. On the Pi, open the menu:
+1. Copy `rhino-config-<version>.zip` to the host's config folder (Mainsail **Machine › Upload**, or `scp`).
+2. Log in (`ssh pi@rhino.local`) and open the menu, with your version in place of 1.9.29:
    ```
    cd ~/printer_data/config
-   unzip -o rhino-config-<version>.zip -d ~/rhino-<version>
-   bash ~/rhino-<version>/rhino.sh
+   unzip -o rhino-config-1.9.29.zip -d ~/rhino-1.9.29
+   bash ~/rhino-1.9.29/rhino.sh
    ```
-   (After the first install the menu is always at `bash ~/rhino-manager/rhino.sh`.)
-3. Choose **3) Install a new zip**, read the preview, confirm. It backs up your config folder first and keeps your
-   saved settings, then starts the portal on port 5000.
-4. In Mainsail: `FIRMWARE_RESTART`, answer "which toolhead is mounted?", then `CHECK_TOOLHEADS`.
+3. **1) Preview** checks the login, the folder and the job state and lists every step without changing anything.
+   **2) Install** backs up the config folder to `~/rhino-backup-<date>`, copies the files (never your saved state,
+   positions or the files the Portal writes), keeps the `SAVE_CONFIG` block, starts the Portal at every boot and
+   serves Rhino Studio at `http://rhino.local` (Mainsail moves to port 8090 as a spare). Afterwards the menu is at
+   `bash ~/rhino-manager/rhino.sh`.
+4. Open Rhino Studio, restart Klipper from the banner, answer *which tool is mounted*, and run `CHECK_TOOLHEADS` in
+   the console. Check Z before the first job (the manual's *First start*).
 
-Once installed, later releases can also be installed from Rhino Studio (**Settings** > **Software** > **Check now**).
-Undo with menu option **4**. The full walkthrough is the *Install and first start* chapter of the manual.
+Later releases: Studio › **Settings › Software › Check now**, which fetches the zip and its signature and installs
+them. Undo an install with menu option **4**. The full walkthrough is the manual's *Install and first start* chapter.
 
 ## Using it
 
 | To... | Do this | Manual chapter |
 |---|---|---|
-| Change tools | `SWAP_TOOL` (Mainsail button) | Swapping tools |
-| Print | Slice with the Orca profiles in `slicer/orca/`, print from Mainsail | Running a job |
+| Change tools | Studio's top-bar tool menu, or `SWAP_TOOL` | Swapping tools |
+| Print | Slice in Studio › Prepare (or with the Orca profiles in `slicer/orca/`), start from Studio | Running a job |
 | Laser, CNC or drag knife | `LASER_JOB_SETUP` / `CNC_JOB_SETUP` / `DRAGKNIFE_JOB_SETUP FILE=<name>.gcode` | Running a job |
 | Set Z zero for a non-print tool | `SET_Z_ZERO` - move the bed, then SET | Running a job |
 | Set nozzle height | `NOZZLE_HEIGHT_CALIBRATE` (paper test) | Running a job |
@@ -151,3 +157,9 @@ What is in place:
 Known and accepted, the same as any Mainsail host: `trusted_clients` trusts by address, and Moonraker reads that
 address from `X-Real-IP` / `X-Forwarded-For` headers (its `use_xheaders` default), so port 7125 must not be reachable
 from a network you don't trust.
+
+## Licence
+
+GPL-3.0-or-later, the same as Rhino Studio: see [LICENSE](LICENSE). `client_mainsail.cfg` is a copy of
+mainsail-config's `client.cfg` (GPL-3.0) with the Rhino's additions marked; the Klipper extras in `klipper_extras/`
+are GPL-3.0 like Klipper.

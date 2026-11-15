@@ -48,25 +48,25 @@ cors_domains:
 """
 NARROW = """[authorization]
 force_logins: False
-trusted_clients: 192.168.86.0/24   # the house
+trusted_clients: 192.0.2.0/24   # the house
     127.0.0.1
 cors_domains:
   *.local
 """
 
 # ---- normalize / covers
-ok(trust.normalize("192.168.86.31/24") == "192.168.86.0/24" and trust.normalize(" 192.168.86.31 ") == "192.168.86.31", "N1 ranges lose host bits; addresses stay")
+ok(trust.normalize("192.0.2.31/24") == "192.0.2.0/24" and trust.normalize(" 192.0.2.31 ") == "192.0.2.31", "N1 ranges lose host bits; addresses stay")
 ok(trust.normalize("100.64.0.0/10") == "100.64.0.0/10", "N2 the Tailscale range is allowed")
 ok(raises(lambda: trust.normalize("0.0.0.0/0"), "too wide") and raises(lambda: trust.normalize("10.0.0.0/7"), "too wide"), "N3 wider than /8 refused (no trust-everyone)")
 ok(raises(lambda: trust.normalize("printer.local"), "isn't an address") and raises(lambda: trust.normalize(""), "Type"), "N4 names and blanks refused")
-ok(trust.covers(["192.168.0.0/16"], "192.168.86.31") and not trust.covers(["10.0.0.0/8"], "192.168.86.31"), "N5 covers")
+ok(trust.covers(["192.0.2.0/24"], "192.0.2.31") and not trust.covers(["10.0.0.0/8"], "192.0.2.31"), "N5 covers")
 ok(trust.covers(["127.0.0.1"], "::ffff:127.0.0.1") and not trust.covers(["printer.local"], "1.2.3.4"), "N6 IPv4-mapped counts; names never cover")
 
 # ---- read
 r = trust.read(KIAUH)
 ok(r["configured"] and r["entries"][:2] == ["10.0.0.0/8", "127.0.0.0/8"] and len(r["entries"]) == 7 and not r["force_logins"], "R1 KIAUH's default list read")
 r = trust.read(NARROW)
-ok(r["entries"] == ["192.168.86.0/24", "127.0.0.1"], "R2 first value on the key line, inline comment, two-space continuation")
+ok(r["entries"] == ["192.0.2.0/24", "127.0.0.1"], "R2 first value on the key line, inline comment, two-space continuation")
 ok(not trust.read("[server]\nport: 7125\n")["configured"], "R3 no [authorization]: not configured")
 ok(trust.read("[authorization]\nforce_logins: True\n")["force_logins"], "R4 force_logins noticed")
 
@@ -76,7 +76,7 @@ ok(trust.read(out)["entries"][-1] == "100.64.0.0/10" and "    ::1/128\n    100.6
 ok(out.replace("    100.64.0.0/10\n", "", 1) == KIAUH, "A2 every other byte unchanged")
 ok(trust.add(out, ["100.64.0.0/10"]) == out, "A3 adding again changes nothing")
 out = trust.add(NARROW, ["10.1.0.0/16"])
-ok(trust.read(out)["entries"] == ["192.168.86.0/24", "127.0.0.1", "10.1.0.0/16"] and "\n    10.1.0.0/16\n" in out, "A4 two-space file keeps its own indent")
+ok(trust.read(out)["entries"] == ["192.0.2.0/24", "127.0.0.1", "10.1.0.0/16"] and "\n    10.1.0.0/16\n" in out, "A4 two-space file keeps its own indent")
 out = trust.add("[authorization]\ncors_domains:\n    *.local\n\n[history]\n", ["192.168.1.0/24"])
 ok(trust.read(out)["entries"] == ["192.168.1.0/24"] and out.index("trusted_clients") < out.index("[history]"), "A5 no trusted_clients key yet: added inside the section")
 ok(raises(lambda: trust.add("[server]\n", ["1.2.3.0/24"]), "already trusts every address"), "A6 no [authorization]: refused, never added")
@@ -84,7 +84,7 @@ ok(raises(lambda: trust.add("[server]\n", ["1.2.3.0/24"]), "already trusts every
 # ---- remove
 out = trust.remove(trust.add(KIAUH, ["100.64.0.0/10"]), "100.64.0.0/10")
 ok(out == KIAUH, "D1 remove gives the original back")
-out = trust.remove(NARROW, "192.168.86.0/24")
+out = trust.remove(NARROW, "192.0.2.0/24")
 ok(trust.read(out)["entries"] == ["127.0.0.1"], "D2 remove an entry on the key line")
 ok(raises(lambda: trust.remove(KIAUH, "1.2.3.4"), "isn't in"), "D3 removing what isn't there says so")
 

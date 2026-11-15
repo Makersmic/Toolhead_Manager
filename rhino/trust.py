@@ -35,7 +35,7 @@ def _strip(line):
 
 
 def normalize(entry):
-    """'192.168.86.31/24' -> '192.168.86.0/24'; a bare address stays an address. Raises Fail."""
+    """'192.0.2.31/24' -> '192.0.2.0/24'; a bare address stays an address. Raises Fail."""
     s = str(entry or "").strip()
     if not s:
         raise Fail("Type an address or a range, for example 192.168.1.0/24.")
