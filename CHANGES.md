@@ -1,5 +1,37 @@
 # What changed
 
+## 1.9.30 - The Rhino's first Klipper extras; the audit's should-fixes
+
+No Klipper macro changes. The extras do nothing until a section of theirs is in the config; the readouts in
+`docs/testing.md` (FE1-FE6, SP1-SP7) come first, then FE7-FE13 and SP8-SP10 prove the modules on the machine.
+
+- **Klipper extras** (`klipper_extras/`, linked into `~/klipper/klippy/extras` by the installer; Settings › Host shows
+  the links and can mend them; `uninstall.sh` removes them): `filament_angle_sensor` reads an AS5600 angle board on a
+  filament wheel as millimetres of travel, pauses a print when the filament stops while the extruder turns (Klipper's
+  own runout helper, so `SET_FILAMENT_SENSOR` and the print-head-only rule apply), reports measured, commanded and slip,
+  and `FILAMENT_ENCODER_CALIBRATE` finds the wheel circumference (`SAVE=1` keeps it in `variables.cfg`);
+  `spindle_tachometer` turns a pulse input into RPM on Klipper's pulse counter. Design: `docs/proposal-filament-encoder.md`;
+  build sheets `docs/filament-encoder-wiring.pdf`, `docs/spindle-tachometer-wiring.pdf`.
+- **Add hardware** knows both: *Filament encoder* (ADC pin, circumference, detection length) and *Spindle tachometer*
+  (logic pin, pulses per turn). The encoder joins the runout and jam sensors in `_RHINO_FILAMENT_SENSORS`.
+- **Umbilical:** contact 17 is the filament encoder (`PB1`, EXP2 pin 3) and 19 the spindle tachometer (`PC5`, EXP2
+  pin 10); the BlockOne and HotJoe pages show them. Override in `myrhino/umbilical.json` as before.
+- **Rhino Studio 0.26.0**: spindle RPM beside the throttle in the status strip and on
+  the Dashboard's rail when a tachometer is in the config; the encoder's chip on Control › Hardware shows the wheel's
+  angle, and measured / commanded travel with slip during a print; Settings › Host › *Klipper extras* shows each
+  module's link and can remake them. From the audit: **S1** a macro of your own asks before it runs when its gcode
+  moves, powers, restarts or starts a job ("its gcode runs G28: homes the machine"); **S2** a G-code file may not write
+  a prompt button, a prompt button may never run the never-list (M112, restarts, FORCE_MOVE, SAVE_CONFIG,
+  SET_KINEMATIC_POSITION, SET_STEPPER_ENABLE), and every button shows its command; **S4** the heater fields and the
+  file checks use Klipper's own `max_temp` (290 on the Rhino), under Studio's 300 / 130 ceiling; **S5** the Hardware
+  and tuning padlocks relock after 60 s and when the page is hidden, like motion and the lead screws, from one shared
+  padlock; **S9** tests for the padlocks, the control store's gates, the macro classification and that only
+  `commands.ts` makes a `CheckedScript`; **S7** the README's install section matches 1.9.19+.
+- From the audit (`docs/audit-2026-11.md`): **S3** Studio's nginx site refuses framing (`X-Frame-Options: DENY`,
+  `frame-ancestors 'none'`); **S6** a `LICENSE` (GPL-3.0-or-later, like Studio) and a Licence section in the README;
+  **S7** the README's quick start describes the 7050, the menu and updates from Studio; **S8** the stale `Prompt.md`
+  is gone; **S10** example addresses use the documentation range (192.0.2.0/24).
+
 ## 1.9.29 - Signed releases, the Portal checks its own name, console fixes
 
 Rhino Studio 0.25.0. No Klipper config changes. From the November 2026 audit (`docs/audit-2026-11.md`, M1-M5).

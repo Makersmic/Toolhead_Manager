@@ -162,3 +162,34 @@ Append-only. Each entry is dated and gives its reason. An entry is never edited;
   was already built (Nov 8); the padlock, steps and relocks are its safety design (BC1-BC6 on the machine).
 - **2026-11-11: No event GIF animations in the theme** (Mike). Custom images in panels stay on the roadmap.
   *Reason:* dropped by choice; it also kept animation away from alerts and red panels.
+- **2026-11-12: Releases are signed, and the key is Mike's** (Mike: "I want U1 settled", audit M5). Every release zip
+  carries an ed25519 `.sig` made by the release workflow from the `RHINO_SIGNING_KEY` secret; the public half is in
+  `scripts/rhino_update_helper.py`, and the root-owned updater, the Portal's upload and GitHub paths and Studio's
+  *Install from zip* refuse anything that doesn't verify. `rhino.sh` option 3 stays the unsigned, by-hand path.
+  *Reason:* a zip swapped on GitHub, on the way down or in the drop folder can't reach the machine, and the seed never
+  leaves Mike (a copy off this PC is his to keep).
+- **2026-11-12: The Portal accepts a change only under the machine's own names** (audit M4): its hostname, any
+  `.local` name, an IP, `*.ts.net`, or a name in Moonraker's `cors_domains`. Reads aren't checked. *Reason:* DNS
+  rebinding points a web page's own name at the Rhino so the Origin check and the token both pass; the Host header
+  is the one thing that page can't choose.
+- **2026-11-12: The raw commands behind the Rhino's wrappers always ask** (audit M3): `G28.1`, `M104.1`, `G1.1` and
+  the other `rename_existing` targets are at least `internal` in Studio's console, with the reason shown. *Reason:*
+  they skip the wrapper's own checks (mounted tool, heater rules), which is the whole point of the wrappers.
+- **2026-11-14: A filament encoder on the BlockOne, read as travel, not as a switch** (Mike: "I want to use the
+  sensor in the picture", "B, the toolhead"). The AS5600 angle board stays: at 3.3 V from a linear regulator on the
+  probe's 12 V rail (contacts 14/13), analog OUT on contact 17 → `PB1` (EXP2 pin 3; not a thermistor header, whose
+  4.7 kΩ pull-up is under the chip's 100 kΩ minimum load). Stock Klipper can't consume an angle, so Tool Manager
+  ships its first Klipper extra, `filament_angle_sensor`, as a symlink into `klippy/extras` with a Host health line
+  and a relink. Readout first with stock Klipper (`docs/testing.md` FE1-FE6), then the module. *Reason:* the angle is
+  a measurement (slip, travel, a self-measuring extruder calibration), which is what Mike asked for; a pulse sensor
+  would only have given pause-on-jam. I2C over the umbilical was rejected: four wires against two spares, and an I2C
+  fault shuts Klipper down mid-print.
+- **2026-11-14: Spindle RPM from a hall switch at the bell rim, through a 30-line extra** (Mike: "go with the 30 line
+  extra", "Hall at the bell rim is ok"). The D2814's 14 rotor magnets pass one hall switch fixed to the mount: 7
+  pulses per turn, nothing on the rotating side; 5 V from the ESC's BEC; open-collector output on contact 19 → `PC5`
+  (EXP2 pin 10) with the MCU's pull-up. `spindle_tachometer` reads it on Klipper's pulse counter and only reports.
+  `SPINDLE_SPEED` stays an `output_pin` (a `fan_generic` conversion would have changed the ESC macros and Studio's
+  throttle readout). Both spare umbilical contacts are now assigned. *Reason:* the throttle has been a guess and the
+  bits' feeds assume an RPM nobody measured; a magnet on the shaft would unbalance a 30,000 RPM spindle and can let go;
+  the ESC (Skywalker 80A) has no RPM output. What consumes the RPM (tuning, Bits, a stall rule, target-RPM mode) each
+  gets its own review; target RPM needs a design note first.

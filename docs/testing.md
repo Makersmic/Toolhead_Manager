@@ -669,3 +669,43 @@ gcode:
   if I say so.
 - [ ] **SP7 Quiet when off.** Rail off: `SPINDLE_RPM` five times over a minute. *Pass if:* 0 every time. *Stop if:* any
   non-zero: the pin is picking up noise from the phase leads and the hall wire needs rerouting away from them.
+
+## 1.9.30: the Klipper extras, and the audit's should-fixes
+
+Built Nov 14 against the simulated Klipper (`dev/test_klipper_extras.py`) and the fake Pi (`dev/test_install.py`).
+Not proven on hardware: the modules load in real Klipper only in `dev/test_real_klipper.py` when a checkout is
+available, and the readouts FE1-FE6 / SP1-SP7 come first.
+
+- [ ] **FE7 Modules linked.** After the 1.9.30 install, Studio › Settings › Host shows *Klipper extras: linked* for
+  `filament_angle_sensor` and `spindle_tachometer`; `ls -l ~/klipper/klippy/extras/ | grep rhino` shows two links into
+  `printer_data/config/klipper_extras/`. *Pass if:* both linked. *Stop if:* "Klipper isn't at ~/klipper": tell me
+  where Klipper is before pressing Relink.
+- [ ] **FE8 Section replaces the readout.** Remove the FE readout block from `mysystem.cfg`, add the encoder from
+  Studio › Settings › Hardware (Filament encoder, pin `PB1`, the FE6 circumference), `FIRMWARE_RESTART`. *Pass if:*
+  Klipper is Ready and `QUERY_FILAMENT_SENSOR SENSOR=<name>` answers. *Stop if:* "Unknown config object
+  'filament_angle_sensor'": the link isn't there (FE7); remove the section and tell me.
+- [ ] **FE9 Live values.** Control › Hardware shows the Filament row; turn the wheel by hand. *Pass if:* angle and
+  measured travel move with it, commanded stays 0, slip is blank or 0 outside a job.
+- [ ] **FE10 Calibrate.** Hotend hot, `FILAMENT_ENCODER_CALIBRATE SENSOR=<name> LENGTH=100` (or the Studio button).
+  *Pass if:* the circumference it reports is within 5 % of FE6. Repeat with `SAVE=1`; after `FIRMWARE_RESTART` the
+  status shows the saved value. *Stop if:* it says the wheel didn't turn: idler spring first.
+- [ ] **FE11 Jam pauses a print.** A 20-minute test print. Three minutes in, lift the idler so the wheel stops while
+  the extruder keeps going. *Pass if:* the print pauses within 10 mm of commanded extrusion (the console names the
+  sensor), the head parks as for any pause, and Resume continues after the idler is back. *Stop if:* no pause after
+  30 mm: `QUERY_FILAMENT_SENSOR` and the Hardware row, and tell me what each shows.
+- [ ] **FE12 Never on a laser job.** LightSaber mounted: `QUERY_FILAMENT_SENSOR SENSOR=<name>` says disabled, and a
+  short laser job runs to the end. Swap back to the BlockOne: it says enabled again. *Stop if:* enabled with the
+  laser mounted (`_RHINO_FILAMENT_SENSORS` didn't list it).
+- [ ] **FE13 A lost link is found and mended.** `rm ~/klipper/klippy/extras/spindle_tachometer.py`, open Settings ›
+  Host. *Pass if:* it says *not linked* for that one, Relink restores it, and `FIRMWARE_RESTART` is clean. *Stop if:*
+  Relink reports a real file in the way: don't delete anything, tell me.
+- [ ] **SP8 Section replaces the readout.** Remove the SP block from `mysystem.cfg`, add the tachometer from Studio ›
+  Settings › Hardware (Spindle tachometer, pin `PC5`, NPN, 7 pulses), `FIRMWARE_RESTART`. *Pass if:* Ready and the
+  spindle cell shows "0 RPM" with the rail off.
+- [ ] **SP9 Same numbers as the readout.** Warm-up at 0.4, 0.6, 0.8, 1.0 as in SP5. *Pass if:* Studio's RPM is within
+  5 % of the SP5 figures at each step.
+- [ ] **SP10 Ten minutes at speed.** Throttle 0.8 for ten minutes, no bit, lid closed. *Pass if:* `klippy.log` has no
+  "Timer too close" or "Rescheduled timer" in that window and the RPM reading never drops to 0. *Stop if:* either.
+- [ ] **S3 Frame headers.** `curl -sI http://rhino.local/ | grep -i -E "x-frame|content-security"`, then the same
+  for `/index.html` and `/help/index.html`. *Pass if:* each shows `X-Frame-Options: DENY` and
+  `Content-Security-Policy: frame-ancestors 'none'`. *Stop if:* a path is missing them: send the path.
