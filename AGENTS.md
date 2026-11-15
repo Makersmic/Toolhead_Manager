@@ -54,6 +54,7 @@ clever default.
 | Job hooks, interlocks, filament sensors | `rhino/job_hooks.py`, `rhino/hw_devices.py` (`interlock_macro`, `filament_macro`) |
 | Portal HTTP | `rhino/portal/*_routes.py`; every write needs the per-process token (`X-Rhino-Token`) |
 | Backups, updater | `rhino/backup.py`, `rhino/portal/update_routes.py`, `service/` |
+| Klipper extras of the Rhino's own | `klipper_extras/*.py` (GPLv3, linked into `klippy/extras` by `install.sh`, never copied), `rhino/klipper_extras.py` (link status, relink). A new one needs a test in `dev/test_klipper_extras.py`, a catalog row, and a run in `dev/test_real_klipper.py` |
 | Design and decisions | `docs/hardware-coverage.md`, `docs/decisions.md`, `docs/testing.md` (on-machine checks) |
 
 Data that must survive is versioned JSON in `config/myrhino/` (rev + history, refused when stale or unreadable);

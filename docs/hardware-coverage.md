@@ -36,9 +36,9 @@ is data in one table rather than code.
 | **Fans** | Fan by speed → `fan_generic`; Hotend fan → `heater_fan`; Electronics / driver fan → `controller_fan`; Hold a temperature → `temperature_fan` |
 | **Heat and temperature** | Chamber / enclosure / generic heater → `heater_generic`; Temperature readout → `temperature_sensor`; Custom thermistor → `thermistor` / `adc_temperature` |
 | **Lights** | Plain LED (1–4 channels) → `led`; Addressable → `neopixel` / `dotstar`; I2C LED chips → `pca9533` / `pca9632` |
-| **Switches and sensors** | Button / pedal → `gcode_button`; Door or lid interlock; Flame sensor; Pressure or flow switch; Filament runout → `filament_switch_sensor`; Filament jam → `filament_motion_sensor`; Filament width → hall / tsl1401cl |
+| **Switches and sensors** | Button / pedal → `gcode_button`; Door or lid interlock; Flame sensor; Pressure or flow switch; Filament runout → `filament_switch_sensor`; Filament jam → `filament_motion_sensor`; Filament encoder (AS5600, travel and slip) → `filament_angle_sensor` (the Rhino's own extra); Filament width → hall / tsl1401cl |
 | **Movement** | Servo → `servo`; Extra motor (gate, feeder, rotary) → `manual_stepper` |
-| **Measuring** | Accelerometer → `adxl345` / `lis2dw` / `lis3dh` / `mpu9250` / `icm20948` / `bmi160` + `resonance_tester`; Angle sensor → `angle`; Load cell → `load_cell`; Analog input → `adc_scaled` / `ads1x1x` |
+| **Measuring** | Accelerometer → `adxl345` / `lis2dw` / `lis3dh` / `mpu9250` / `icm20948` / `bmi160` + `resonance_tester`; Angle sensor → `angle`; Spindle tachometer → `spindle_tachometer` (the Rhino's own extra); Load cell → `load_cell`; Analog input → `adc_scaled` / `ads1x1x` |
 | **Advanced** | `multi_pin`, `duplicate_pin_override`, `sx1509`, digipots (`ad5206`, `mcp4451`, `mcp4728`, `mcp4018`), `samd_sercom`, a second board `[mcu name]` |
 
 "Interlock", "flame sensor" and "flow switch" are all `gcode_button` under the hood. The wizard labels them by

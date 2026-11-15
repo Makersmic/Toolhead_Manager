@@ -55,7 +55,7 @@ SCHEMA_VERSION = 1
 
 # Pins that physically reach the tool umbilical connector (override in myrhino/umbilical.json).
 # A pin only offered to new tools if it is ALSO not claimed anywhere in the Klipper config.
-DEFAULT_UMBILICAL = ["PE0", "PE1", "PE2", "PE3", "PF4", "PB0", "PB1", "PC0", "PC1"]
+DEFAULT_UMBILICAL = ["PE0", "PE1", "PE2", "PE3", "PF4", "PB0", "PB1", "PC0", "PC1", "PC5"]   # PB1: contact 17, PC5: contact 19 (Nov 2026)
 
 # Output channels the built-in tools already use. Shown in the pin picker so sharing is a
 # conscious choice (e.g. SERVO_LASER is both the laser intensity and the SwitchFly path servo).
@@ -161,8 +161,8 @@ DEFAULT_CONTACTS = [
     (9, "", "Stepper B1", "stepper"), (10, "", "Stepper B2", "stepper"),
     (11, "PA1", "24 V power activate +", "switched"), (12, "", "24 V power activate -", "return"),
     (13, "", "Probe -", "return"), (14, "", "Probe +", "supply"), (15, "PG10", "Probe signal", "signal"),
-    (16, "PB0", "Laser PWM (5 V)", "signal"), (17, "", "Spare", "spare"),
-    (18, "PB11", "PWM signal 24 V - (ESC signal to GND)", "signal"), (19, "", "Spare", "spare"),
+    (16, "PB0", "Laser PWM (5 V)", "signal"), (17, "PB1", "Filament encoder (analog, EXP2 pin 3)", "signal"),
+    (18, "PB11", "PWM signal 24 V - (ESC signal to GND)", "signal"), (19, "PC5", "Spindle tachometer (EXP2 pin 10)", "signal"),
     (20, "PD12", "12 V power activate +", "switched"), (21, "", "12 V power activate -", "return"),
 ]
 # How a tool uses an output it drives
@@ -182,8 +182,9 @@ BOARD_HEADERS = {
 HW_NAME_RE = re.compile(r"^[a-z][a-z0-9_]{1,31}$")
 MAX_HARDWARE = 40
 # Contacts the built-in tools use (Rhino literature tool pages; PWM signal on 18 as in the pin map and printer.cfg)
-BUILTIN_CONTACTS = {"BlockOne": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 13, 14, 15],
+# 17 and 19 (Nov 2026): the BlockOne's filament encoder and the HotJoe's tachometer (docs/proposal-filament-encoder.md)
+BUILTIN_CONTACTS = {"BlockOne": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 13, 14, 15, 17],
                     "SwitchFly": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 18],
                     "LightSaber": [3, 4, 13, 14, 15, 16, 20, 21],
-                    "HotJoe": [3, 4, 11, 12, 13, 14, 15, 18],
+                    "HotJoe": [3, 4, 11, 12, 13, 14, 15, 18, 19],
                     "DragKnife": [3, 4, 13, 14, 15]}

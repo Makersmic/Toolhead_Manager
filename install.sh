@@ -232,6 +232,25 @@ for k, v in pos.items():
 PYEOF
 fi
 
+# ------------------------------------------------------------------ Klipper extras (1.9.30)
+# klipper_extras/*.py are small Klipper modules of the Rhino's own (filament encoder, spindle tachometer). They are
+# linked, not copied, into Klipper's extras folder: a Klipper update neither removes them nor sees changed files, and
+# the link follows every later update of the config folder. They do nothing until a section of theirs is in the config.
+KLIPPY_EXTRAS="${KLIPPER_DIR:-$HOME/klipper}/klippy/extras"
+if ls "$SRC"/klipper_extras/*.py >/dev/null 2>&1; then
+  say "Klipper extras (the Rhino's own Klipper modules)"
+  if [ -d "$KLIPPY_EXTRAS" ]; then
+    for f in "$SRC"/klipper_extras/*.py; do
+      b=$(basename "$f")
+      do_ ln -sfn "$CFG/klipper_extras/$b" "$KLIPPY_EXTRAS/$b" && ok "$b linked into $KLIPPY_EXTRAS"
+    done
+    note "Klipper loads them at its next restart; nothing changes until a section of theirs is in your config"
+  else
+    note "Klipper's extras folder isn't at $KLIPPY_EXTRAS, so the modules were copied but not linked."
+    note "Settings > Host in Rhino Studio can link them later (or set KLIPPER_DIR and run the install again)."
+  fi
+fi
+
 # ------------------------------------------------------------------ SAVE_CONFIG block
 say "Keeping the settings Klipper saved at the bottom of printer.cfg (SAVE_CONFIG)"
 if [ $DRY = 1 ]; then

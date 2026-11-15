@@ -66,7 +66,7 @@ ok(r.status_code == 200, f"tool with a PWM signal and two switch outputs (shared
 t = J(c.get("/api/tools/Router"))["tool"]
 ok(t["power_pin"] == "SPINDLE_SPEED" and t["enable_pin"] == "Spindle_power" and t["also_on"] == ["Router_EN2"] and t["category"] == "subtractive",
    "outputs become power_pin / enable_pin / also_on")
-ok(t["contacts"] == [11, 12, 13, 18], f"contacts the tool uses: outputs + ticked ones ({t['contacts']})")
+ok(t["contacts"] == [11, 12, 13, 17, 18], f"contacts the tool uses: outputs + ticked ones (PB1 is contact 17 since Nov 2026) ({t['contacts']})")
 ok(t["power_cap"] == 0.6 and t["max_on_s"] == 120 and "FOAM" in t["materials"], "the new sub-type's starting values are used")
 cfg = open(os.path.join(CFG, "myrhino", "custom_tools.cfg")).read()
 ok("[output_pin Router_EN2]" in cfg and "pin: PB1" in cfg, "a new switch output is created")
@@ -81,7 +81,7 @@ s.run_script("M5"); ok(s.pins["Spindle_power"] == 0 and s.pins["Router_EN2"] == 
 s.run_script("SET_TOOL_POWER POWER=0.5"); s.run_script("_TOOL_SAFE_OFF")
 ok(s.pins["Router_EN2"] == 0, "_TOOL_SAFE_OFF switches them off")
 r = post("/api/tools/Router/edit", {"contacts": [12, 13, 21]})
-ok(r.status_code == 200 and not J(r)["restart_needed"] and J(c.get("/api/tools/Router"))["tool"]["contacts"] == [11, 12, 13, 18, 21],
+ok(r.status_code == 200 and not J(r)["restart_needed"] and J(c.get("/api/tools/Router"))["tool"]["contacts"] == [11, 12, 13, 17, 18, 21],
    "editing the ticked contacts is portal-only (no restart)")
 
 # ---------------------------------------------------------------- system hardware

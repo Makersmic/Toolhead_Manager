@@ -236,6 +236,8 @@ def package(dest):
 
 # ---------------------------------------------------------------- a Pi with a Klipper config of its own
 os.makedirs(CFG)
+KLIPPY_EXTRAS = os.path.join(HOME, "klipper", "klippy", "extras")
+os.makedirs(KLIPPY_EXTRAS)   # a Klipper checkout where KIAUH puts it
 open(os.path.join(CFG, "printer.cfg"), "w").write("[include mainsail.cfg]\n[printer]\nkinematics: cartesian\n\n"
                                                   f"{MARK}\n#*# [probe]\n#*# z_offset = 1.234\n")
 shutil.copy(os.path.join(HERE, "fixtures", "mainsail.cfg"), os.path.join(CFG, "mainsail.cfg"))  # Mainsail's, as on the machine
@@ -292,6 +294,10 @@ try:
     ok(len(bks) == 1 and bk == original, "backup made first, an exact copy of the old config folder")
     now = tree(CFG)
     ok(all(k in now for k in ("toolchanger.cfg", "scripts/rhino_portal.py", "rhino/portal/__init__.py")), "new files copied in")
+    links = {f: os.path.join(KLIPPY_EXTRAS, f) for f in os.listdir(os.path.join(PKG, "klipper_extras")) if f.endswith(".py")}
+    ok(links and all(os.path.islink(l) and os.readlink(l) == os.path.join(CFG, "klipper_extras", f) and os.path.isfile(l) for f, l in links.items()),
+       f"the Klipper extras are linked into ~/klipper/klippy/extras ({sorted(links)})")
+    ok(f"{sorted(links)[0]} linked into" in out, "...and the install says so")
     ok("no USB camera with a microphone found - skipped" in out, "no camera microphone: the sound step says so and is skipped")
     ok(open(os.path.join(CFG, "printer.cfg")).readline() == "[include client_mainsail.cfg]\n", "printer.cfg now includes the Rhino's client_mainsail.cfg")
     ok("same macros as your mainsail.cfg" in out and now["mainsail.cfg"] == original["mainsail.cfg"],
@@ -377,6 +383,7 @@ try:
     restored = tree(CFG)
     ok(rc == 0 and restored == original, "undo to the first backup: the config folder is exactly as before the first install")
     ok(not os.path.exists(SERVICE) and not portal_up(), "...the service is removed and the portal stopped")
+    ok(not any(os.path.islink(os.path.join(KLIPPY_EXTRAS, f)) for f in os.listdir(KLIPPY_EXTRAS)), "...and the Klipper extras' links are removed")
     ok(any(x.startswith("rhino-undone-") for x in os.listdir(HOME)), "...and what was there is kept aside in ~/rhino-undone-<time>")
     ok(not os.path.exists(SITE) and not os.path.lexists(LINK) and not os.path.exists(STUDIO),
        "...Studio's nginx site and folder are gone again (there was none before)")

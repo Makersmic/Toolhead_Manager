@@ -43,6 +43,7 @@ itself.
 | maintenance schedules, meters, starter tasks | `rhino/maint/schedule.py`, `meters.py`, `library.py`, `service.py` |
 | maintenance screens | `rhino/portal/static/maint.js`, `rhino/portal/maint_routes.py` |
 | Admin screens (drop-down lists, status codes) | `rhino/portal/static/admin.js`, `rhino/lists.py` |
+| the Rhino's own Klipper modules (filament encoder, spindle tachometer) | `klipper_extras/` (linked into `~/klipper/klippy/extras` by `install.sh`; link status and relink in `rhino/klipper_extras.py`, Settings › Host) |
 | the 21 umbilical contacts, board-header labels | `rhino/presets.py` (`DEFAULT_CONTACTS`, `BOARD_HEADERS`) or `myrhino/umbilical.json` |
 | what each board pin can do, second-board presets | `rhino/hw_boards.py`; pin uses are generated into `rhino/hw_boards_data.py` by `scripts/board_pins_from_klipper.py` |
 | the start-up maintenance prompt, `PM_STATUS` | `guided/maintenance.cfg` |

@@ -91,6 +91,32 @@ j = r.get_json() or {}
 ok(r.status_code == 200 and j.get("ok") and isinstance(j.get("sensors"), list) and "processes" in j, "H15 GET /api/host/stats answers during a job (read only)")
 ok([d["label"] for d in j.get("disks", [])][:1] == ["System disk"], "H16 the system disk is reported")
 
+# ---- the Klipper extras' links (rhino/klipper_extras.py)
+from rhino.portal import security
+KL = tempfile.mkdtemp(prefix="rhino-klipper-")
+os.environ["KLIPPER_DIR"] = KL
+c = app.test_client()
+HW = {security.HEADER: security.TOKEN}
+j = c.get("/api/host/extras", environ_base={"REMOTE_ADDR": "127.0.0.1"}).get_json()
+names = sorted(e["name"] for e in j["extras"])
+ok(names == ["filament_angle_sensor", "spindle_tachometer"] and not j["found"] and not j["all_linked"] and j["ok"] and not any(e["linked"] for e in j["extras"]),
+   f"H17 GET /api/host/extras lists the shipped modules and says Klipper isn't there ({names})")
+r = c.post("/api/host/extras/relink", headers=HW, environ_base={"REMOTE_ADDR": "127.0.0.1"})
+ok(r.status_code == 400 and "isn't at" in (r.get_json() or {}).get("error", ""), "H18 relink without Klipper: refused, says where it looked")
+os.makedirs(os.path.join(KL, "klippy", "extras"))
+r = c.post("/api/host/extras/relink", environ_base={"REMOTE_ADDR": "127.0.0.1"})
+ok(r.status_code == 400 and not os.path.lexists(link if "link" in dir() else os.path.join(KL, "klippy", "extras", "spindle_tachometer.py")), "H19 relink needs the token")
+j = c.post("/api/host/extras/relink", headers=HW, environ_base={"REMOTE_ADDR": "127.0.0.1"}).get_json()
+link = os.path.join(KL, "klippy", "extras", "spindle_tachometer.py")
+ok(j["all_linked"] and all(e["linked"] for e in j["extras"]) and os.path.islink(link) and os.path.isfile(link), "H20 relink makes the links; status says ok")
+os.remove(link); open(link, "w").write("# someone else's\n")
+j = c.get("/api/host/extras", environ_base={"REMOTE_ADDR": "127.0.0.1"}).get_json()
+tachs = [e for e in j["extras"] if e["name"] == "spindle_tachometer"]
+ok(not j["all_linked"] and tachs and tachs[0]["in_the_way"], "H21 a real file where the link should be is reported, not overwritten")
+r = c.post("/api/host/extras/relink", headers=HW, environ_base={"REMOTE_ADDR": "127.0.0.1"})
+ok(r.status_code == 400 and "real file" in (r.get_json() or {}).get("error", "") and open(link).read().startswith("# someone"), "H22 ...and relink refuses to replace it")
+shutil.rmtree(KL, ignore_errors=True); del os.environ["KLIPPER_DIR"]
+
 shutil.rmtree(R, ignore_errors=True)
 print(f"\n{'ALL PASS' if not fails else str(len(fails)) + ' FAILED'}")
 sys.exit(1 if fails else 0)

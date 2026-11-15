@@ -68,6 +68,9 @@ SETTINGS = {
     "dotstar": {"chain_count": _n(1, 1, 1024)},
     "runout": {"event_delay": _n(3.0, 0.5, 60.0)},
     "jam": {"detection_length": _n(7.0, 1.0, 100.0), "extruder": ("choice", "extruder", ["extruder"])},
+    "encoder": {"wheel_circumference": _n(30.0, 1.0, 300.0), "detection_length": _n(7.0, 1.0, 100.0),
+                "extruder": ("choice", "extruder", ["extruder"]), "invert": ("bool", False)},
+    "tachometer": {"pulses_per_rev": _n(7, 1, 64), "poll_interval": _n(0.0001, 0.00005, 0.01)},
     "manual_stepper": {"microsteps": ("choice", "16", ["1", "2", "4", "8", "16", "32", "64", "128", "256"]),
                        "rotation_distance": _n(40.0, 0.01, 1000.0), "velocity": _n(5.0, 0.1, 500.0),
                        "accel": _n(0.0, 0.0, 10000.0), "enable_active_low": ("bool", True)},
@@ -77,15 +80,15 @@ WRITERS = set(SETTINGS)          # the devices this module can write (the catalo
 # devices that can have generated ON / OFF (or SET) macros; the catalog's expose list is only the default
 MACRO_DEVICES = {"spindle_relay", "coolant", "air_assist", "dust", "vacuum_table", "spindle_pwm", "pwm_tool", "exhaust", "fan",
                  "heater", "led", "neopixel", "dotstar"}
-_SENSOR_INPUT_DEVICES = {"interlock", "flame", "pressure", "vfd_fault", "runout", "jam"}
-_KLIPPER_RUNS_IT = {"controller_fan", "temperature_fan", "hotend_fan", "fixed_output", "runout", "jam"}   # nothing to switch off
+_SENSOR_INPUT_DEVICES = {"interlock", "flame", "pressure", "vfd_fault", "runout", "jam", "encoder"}
+_KLIPPER_RUNS_IT = {"controller_fan", "temperature_fan", "hotend_fan", "fixed_output", "runout", "jam", "encoder", "tachometer"}   # nothing to switch off
 _INPUT_ACTION = {"interlock": "pause", "flame": "estop", "pressure": "pause", "vfd_fault": "estop"}
-_EXPECTED_SENSORS = {"interlock", "flame", "pressure", "vfd_fault", "runout", "jam", "manual_stepper"}
+_EXPECTED_SENSORS = {"interlock", "flame", "pressure", "vfd_fault", "runout", "jam", "manual_stepper", "tachometer"}
 
 
 def _clean_settings(did, raw, ctx):
     out, spec = {}, dict(SETTINGS[did])
-    if did == "jam":
+    if did in ("jam", "encoder"):
         extruders = [h for h in ctx.heaters if h.startswith("extruder")] or ["extruder"]
         spec["extruder"] = ("choice", extruders[0], extruders)
     if did == "hotend_fan":
@@ -285,8 +288,11 @@ def clean(ctx, raw, held):
         tools = [w for w, on in (("laser", settings["must_close_laser"]), ("spindle", settings["must_close_spindle"])) if on]
         warnings.append("Opening it pauses a running job." + (f" While it's open, {' and '.join(tools)} jobs won't start or "
                         f"resume." if tools else ""))
-    if did in ("runout", "jam"):
+    if did in ("runout", "jam", "encoder"):
         warnings.append("It's switched on only while a print head is mounted, so laser and CNC jobs never pause for it.")
+    if did in ("encoder", "tachometer"):
+        warnings.append("Klipper needs the Rhino's own module for this section: Settings > Host shows whether it's linked. "
+                        "Without it Klipper refuses to start until the section is removed.")
     if did == "manual_stepper":
         warnings.append("Set up its driver (current, microsteps on a TMC) in your own config: the wizard writes the "
                         "motor, not the driver.")
@@ -423,6 +429,13 @@ def lines(name, d):
     elif did == "jam":
         out = [f"[filament_motion_sensor {name}]", head, f"switch_pin: {_p(d, 'pin')}",
                f"detection_length: {s['detection_length']:g}", f"extruder: {s['extruder']}", "pause_on_runout: True"]
+    elif did == "encoder":
+        out = [f"[filament_angle_sensor {name}]", head, f"adc_pin: {_p(d, 'pin')}",
+               f"wheel_circumference: {s['wheel_circumference']:g}", f"detection_length: {s['detection_length']:g}",
+               f"extruder: {s['extruder']}", "pause_on_runout: True"] + (["invert: True"] if s["invert"] else [])
+    elif did == "tachometer":
+        out = [f"[spindle_tachometer {name}]", head, f"pin: {_p(d, 'pin')}", f"pulses_per_rev: {int(s['pulses_per_rev'])}",
+               f"poll_interval: {s['poll_interval']:.5f}".rstrip("0")]
     elif did == "manual_stepper":
         out = [f"[manual_stepper {name}]", head, f"step_pin: {d['pins']['step']}", f"dir_pin: {d['pins']['dir']}",
                f"enable_pin: {'!' if s['enable_active_low'] else ''}{d['pins']['enable']}", f"microsteps: {s['microsteps']}",
@@ -561,7 +574,7 @@ def interlock_macro(reg, laser_tools, spindle_tools):
 
 def filament_macro(reg, print_tools):
     """_RHINO_FILAMENT_SENSORS: filament sensors on only while a print head is mounted (a laser job never pauses for runout)."""
-    sensors = [n for n, d in sorted(reg.get("devices", {}).items()) if d["device"] in ("runout", "jam")]
+    sensors = [n for n, d in sorted(reg.get("devices", {}).items()) if d["device"] in ("runout", "jam", "encoder")]
     body = _MOUNTED + [f"  {{% set on = 1 if tool in {sorted(print_tools)} else 0 %}}"]
     body += [f"  SET_FILAMENT_SENSOR SENSOR={n} ENABLE={{on}}" for n in sensors] or ["  {% if false %}{% endif %}"]
     return ("[gcode_macro _RHINO_FILAMENT_SENSORS]\n"

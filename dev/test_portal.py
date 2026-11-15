@@ -48,7 +48,7 @@ s = J(c.get("/api/state"))
 ok(s["ok"] and [t["name"] for t in s["tools"]][:5] == ["BlockOne", "SwitchFly", "LightSaber", "HotJoe", "DragKnife"], "state lists built-in tools")
 ok(s["printer"]["online"] and s["printer"]["mounted_slot"] == 3 and not s["restart_pending"], "printer status from moonraker")
 o = J(c.get("/api/options"))
-ok(o["free_pins"] == ["PB1", "PC0", "PC1"] and o["next_slot"] == 6 and "BlockOne" in o["print_bases"], "options: free pins / next slot / bases")
+ok(o["free_pins"] == ["PB1", "PC0", "PC1", "PC5"] and o["next_slot"] == 6 and "BlockOne" in o["print_bases"], "options: free pins / next slot / bases")
 
 # ---- theme + dashboard
 from rhino.portal import routes as _routes
@@ -100,7 +100,7 @@ ok(os.path.exists(ROOT + "/printer_data/rhino_data/restart_pending"), "restart f
 cfg = open(ROOT + "/printer_data/config/myrhino/custom_tools.cfg").read()
 ok("HotWire_PWR" in cfg and "<script>" not in cfg and "pin: PB1" in cfg and "pin: PC0" in cfg, "generated cfg has pins, no notes")
 ok("<script>" in open(ROOT + "/printer_data/config/myrhino/custom_tools.json").read(), "notes kept in JSON only")
-o = J(c.get("/api/options")); ok(o["free_pins"] == ["PC1"], "free pins updated after add")
+o = J(c.get("/api/options")); ok(o["free_pins"] == ["PC1", "PC5"], "free pins updated after add")
 pr = J(c.get("/api/state"))["pins"]["pins"]; ok({p["pin"]: p["state"] for p in pr}["PB1"] == "tool", "pin report shows tool-reserved pin")
 
 # ---- edit / rename
@@ -109,7 +109,8 @@ ok(r.status_code == 200 and "power_cap" in J(r)["changes"], "edit ok")
 d = J(c.get("/api/tools/HotWire"))["tool"]; ok(d["power_cap"] == 0.45 and set(d["materials"]) == {"EPS", "XPS"}, "edit persisted")
 ok(c.post("/api/tools/HotWire/edit", json={"cap": 5}, headers=HDR).status_code == 400, "edit out of range rejected")
 sh = J(c.get("/api/tools/HotWire/sheet"))
-ok(sh["ok"] and not sh["builtin"] and len(sh["contacts"]) == 21 and {p["pin"] for p in sh["other_pins"]} == {"PB1", "PC0"}
+c17 = next(x for x in sh["contacts"] if x["contact"] == 17)
+ok(sh["ok"] and not sh["builtin"] and len(sh["contacts"]) == 21 and {p["pin"] for p in sh["other_pins"]} == {"PC0"} and c17["used"] and c17["pin"] == "PB1"
    and {m["label"] for m in sh["material_rows"]} == {"EPS", "XPS"} and sh["macro_list"][0]["name"] == "TOOL_JOB_SETUP", "tool page: added tool's contacts, materials and macros")
 sb = J(c.get("/api/tools/BlockOne/sheet"))
 ok(sb["image"].endswith("blockone-light.png") and c.get(sb["image"]).status_code == 200 and c.get(sb["image_dark"]).status_code == 200 and sb["contacts"][0]["use"] == "24 V hotend"
@@ -160,7 +161,7 @@ r = c.post("/api/restart", headers=HDR); ok(r.status_code == 200 and STATE["rest
 # ---- remove
 r = c.delete("/api/tools/WireCutter", headers=HDR); ok(r.status_code == 200, "remove ok")
 ok(not os.path.exists(ROOT + "/printer_data/rhino_data/images/WireCutter"), "photos deleted with tool")
-ok(J(c.get("/api/options"))["free_pins"] == ["PB1", "PC0", "PC1"], "pins freed after remove")
+ok(J(c.get("/api/options"))["free_pins"] == ["PB1", "PC0", "PC1", "PC5"], "pins freed after remove")
 
 # ---- print head + passive via API
 r = c.post("/api/tools", json={"name": "Wide", "kind": "PRINT_HEAD", "base": "BlockOne", "nozzles": "0.6, 1.0"}, headers=HDR); ok(r.status_code == 200, "print head clone ok")

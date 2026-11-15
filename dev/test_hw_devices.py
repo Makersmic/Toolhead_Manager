@@ -154,6 +154,21 @@ ok(code == 200 and "[filament_switch_sensor runout]" in gen() and any("print hea
    "runout sensor: says it's only on with a print head")
 code, r = save({"device": "jam", "name": "jam", "pins": {"pin": pick("digital_in")}, "sensor_type": "mech_no", "extruder": "nope"}, preview=True)
 ok(code == 400, "jam sensor needs a real extruder")
+code, r = save({"device": "encoder", "name": "enc", "pins": {"pin": pick("adc", adc=True)}, "wheel_circumference": 31.5, "detection_length": 9})
+g = gen()
+ok(code == 200 and "[filament_angle_sensor enc]" in g and "wheel_circumference: 31.5" in g and "detection_length: 9" in g
+   and "pause_on_runout: True" in g and "invert" not in g.split("[filament_angle_sensor enc]")[1].split("\n\n")[0],
+   "filament encoder: its section on an ADC pin, invert only when asked")
+ok(any("print head is mounted" in w for w in r["warnings"]) and any("Settings > Host" in w for w in r["warnings"]),
+   "...says it's only on with a print head and needs the Rhino's Klipper module")
+code, r = save({"device": "encoder", "name": "enc2", "pins": {"pin": pick("adc", adc=True)}, "wheel_circumference": 0.5}, preview=True)
+ok(code == 400, "encoder: a wheel circumference under 1 mm is refused")
+hooks = open(os.path.join(CFG, "myrhino", "job_hooks.cfg")).read() if os.path.exists(os.path.join(CFG, "myrhino", "job_hooks.cfg")) else ""
+code, r = save({"device": "tachometer", "name": "spindle_rpm", "pins": {"pin": pick("digital_in")}, "sensor_type": "npn_no", "pulses_per_rev": 7})
+g = gen()
+sec = g.split("[spindle_tachometer spindle_rpm]")[1].split("\n\n")[0] if "[spindle_tachometer spindle_rpm]" in g else ""
+ok(code == 200 and "pin: ^" in sec and "pulses_per_rev: 7" in sec and "poll_interval: 0.0001" in sec,
+   f"spindle tachometer: NPN hall gets the pull-up, 7 pulses per turn, 0.0001 s poll ({sec.strip()!r})")
 code, r = save({"device": "manual_stepper", "name": "rotary", "pins": {"step": pick("step"), "dir": pick("dir"), "enable": pick("enable")},
                 "rotation_distance": 360})
 ok(code == 200 and "[manual_stepper rotary]" in gen() and any("driver" in w for w in r["warnings"]), "manual stepper, with the driver note")

@@ -27,6 +27,14 @@ echo "Restoring $B  ->  $CFG"
 UNDONE="$HOME/rhino-undone-$(date +%Y-%m-%d-%H%M)"
 n=1; while [ -e "$UNDONE" ]; do n=$((n+1)); UNDONE="$HOME/rhino-undone-$(date +%Y-%m-%d-%H%M)-$n"; done
 do_ cp -a "$CFG" "$UNDONE"
+# The Rhino's Klipper extras: only links that point into the config folder are removed (1.9.30)
+KLIPPY_EXTRAS="${KLIPPER_DIR:-$HOME/klipper}/klippy/extras"
+if [ -d "$KLIPPY_EXTRAS" ]; then
+  for l in "$KLIPPY_EXTRAS"/*.py; do
+    [ -L "$l" ] || continue
+    case "$(readlink "$l")" in "$CFG"/klipper_extras/*) do_ rm -f "$l" ;; esac
+  done
+fi
 do_ sudo systemctl disable --now rhino-portal
 # 1.4.8+: the network helper and its sudoers line go too (reinstall puts them back)
 if [ "${RHINO_SKIP_NET:-0}" = 0 ] && [ -e /usr/local/sbin/rhino-net -o -e /etc/sudoers.d/rhino-net ]; then

@@ -196,6 +196,11 @@ DEVICES = {
                        purpose="runout", expose=("dashboard",)),
     "jam":          _d("sensors", "Filament jam (motion)", "filament_motion_sensor", [("pin", "digital_in", True)], sensor=True,
                        purpose="jam", expose=("dashboard",)),
+    "encoder":      _d("sensors", "Filament encoder (AS5600, travel and slip)", "filament_angle_sensor", [("pin", "adc", True)], sensor=True,
+                       purpose="jam", expose=("dashboard",),
+                       help="An AS5600 angle board on a filament wheel, analog output on an ADC pin (not a thermistor header: its "
+                            "pull-up loads the sensor). Pauses a print when the filament stops moving; shows travel and slip. "
+                            "Needs the Rhino's Klipper extra (Settings > Host). Build sheet: docs/filament-encoder-wiring.pdf."),
     "width_hall":   _d("sensors", "Filament width (hall)", "hall_filament_width_sensor", [("adc1", "adc", True), ("adc2", "adc", True)]),
     "width_tsl":    _d("sensors", "Filament width (TSL1401CL)", "tsl1401cl_filament_width_sensor", [("sensor", "adc", True)]),
     # movement
@@ -206,6 +211,9 @@ DEVICES = {
     "accelerometer": _d("measure", "Accelerometer (for input shaping)", "adxl345", [("cs", "spi_cs", True)], expose=(),
                         help="Also adds resonance_tester. Chips: ADXL345, LIS2DW, LIS3DH, MPU9250, ICM20948, BMI160."),
     "angle":        _d("measure", "Angle sensor", "angle", [("cs", "spi_cs", True)], expose=()),
+    "tachometer":   _d("measure", "Spindle tachometer (pulses)", "spindle_tachometer", [("pin", "digital_in", True)], expose=("control",),
+                       help="A hall switch or other pulse source on a logic pin; RPM = pulses per second x 60 / pulses per turn. "
+                            "Needs the Rhino's Klipper extra (Settings > Host). Build sheet: docs/spindle-tachometer-wiring.pdf."),
     "load_cell":    _d("measure", "Load cell", "load_cell", expose=("dashboard",)),
     "analog_in":    _d("measure", "Analog input", "adc_scaled", [("vref", "adc", True), ("vssa", "adc", True)], expose=()),
     # boards (decisions.md 2026-10-26: second board is in this job, step 2)
@@ -229,6 +237,8 @@ KLIPPER_SECTIONS = {
     "hall_filament_width_sensor", "tsl1401cl_filament_width_sensor", "servo", "manual_stepper", "adxl345", "lis2dw",
     "lis3dh", "mpu9250", "icm20948", "bmi160", "resonance_tester", "angle", "load_cell", "adc_scaled", "ads1x1x",
     "sx1509", "ad5206", "mcp4451", "mcp4728", "mcp4018", "samd_sercom", "mcu",
+    # the Rhino's own Klipper extras (klipper_extras/, linked into klippy/extras by install.sh)
+    "filament_angle_sensor", "spindle_tachometer",
 }
 
 
