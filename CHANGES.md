@@ -1,5 +1,18 @@
 # What changed
 
+## 1.9.31 - Belt guide, batch A: Care › Microphone test (Studio 0.27.0)
+
+No Klipper macro or config changes, and nothing new is sent to the machine. This is the first step of a guided
+X/Y belt-tensioning wizard (design in Mike's notes; checks BT0-BT3 in Studio's `docs/testing.md`).
+
+- **Care › Microphone test.** Listens to the camera's microphone through the sound Studio already receives
+  (Settings › Cameras › Sound; no browser microphone permission or HTTPS needed) and draws a live spectrogram,
+  20-500 Hz, with "Hearing N Hz", the last pluck found and a level line. *Learn the room (5 s)* names a steady fan tone
+  and its multiples and takes them off the picture, so a plucked belt stands out. A *Self-test* button uses a pretend
+  microphone so the page can be tried without hardware. It only listens.
+- **Not proven on the machine.** Whether the C920's microphone and the Opus stream can carry a belt's note is what
+  BT0 (a phone tone read to about 1 Hz) finds out; the guided wizard is built only after it passes.
+
 ## 1.9.30 - The Rhino's first Klipper extras; the audit's should-fixes
 
 No Klipper macro changes. The extras do nothing until a section of theirs is in the config; the readouts in

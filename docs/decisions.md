@@ -193,3 +193,13 @@ Append-only. Each entry is dated and gives its reason. An entry is never edited;
   bits' feeds assume an RPM nobody measured; a magnet on the shaft would unbalance a 30,000 RPM spindle and can let go;
   the ESC (Skywalker 80A) has no RPM output. What consumes the RPM (tuning, Bits, a stall rule, target-RPM mode) each
   gets its own review; target RPM needs a design note first.
+- **2026-11-15: The belt-tension guide listens with the camera's microphone and its analyser lives in Studio** (Mike:
+  "I want to build our own frequency app into Rhino Studio", "use the microphone from the webcam", "structured like a
+  wizard", a live spectrogram while the belt is tuned; the 7050's own microphone input as a second source later).
+  Belts are 15 mm 2GT with no tensioners yet (tension is a clamp on the carriage). Built in batches: the analyser and a
+  microphone test page first (1.9.31), the wizard only after BT0 proves the microphone path. The analyser is browser
+  Web Audio on the WebRTC sound that already reaches Studio, so it needs no HTTPS and no new service on the host; it
+  sends nothing to the machine. *Reason:* matching the two belts is what keeps a CoreXY square, and a belt that drifts
+  while the machine sits idle is a real cause of a bad first print; a phone app would do it, but Mike wants it built in,
+  so it is built in small steps with a typed-Hz fallback. Not decided yet: how the driver fans are switched off, and the
+  host-side second source (needs its own proposal and install document).
