@@ -1,5 +1,24 @@
 # What changed
 
+## 1.9.34 - Care wizards: Z drive, nozzle, spindle run-in and runout, umbilical; guides remember where you are (Studio 0.30.0)
+
+No Klipper macro or config changes. Studio's own commands are `G28`, `Z_TILT_ADJUST` and the heater paths of Control's temperature fields,
+and each asks or is limited as in Control. **No guide starts the spindle.** Checks ZD1-ZD6, GP1, NZ1-NZ3, SR1-SR4 and UF1 are in Studio's `docs/testing.md`.
+
+- **Guides remember where you are** for the session: leave to type a command in Control and come back to the same step, with your answers and any
+  countdown still running. Reloading the page forgets it; **Start over** clears it.
+- **Z drive service** (Guide me on "Clean and lubricate the Z leadscrews" and "Check the Z belt drive"): reach, clean, grease, a **Home** that you have
+  to run, run Z through its travel in Control, backlash; or for the belt: look, set screws, turn by hand with Bed › Configuration, what you found, home, level.
+  Studio never moves Z itself.
+- **Replace the nozzle**: pick the filament's temperature (210, 235 or 250°), **Heat the hotend**, wait for the temperature and a two-minute soak, swap and
+  hot-tighten, say which size, **Switch the heater off**, redo the Z offset.
+- **Spindle run-in**: the guide shows the exact console lines (`Spindle_ACTIVATE`, `SET_PIN` at 0.5, 0.65, 0.8, 1.0 for a minute each, `Spindle_DEACTIVATE`); you
+  type each one and each asks first. Studio holds the waits, shows the live relay, throttle and RPM, records the RPM, and finishes only with the spindle off.
+  *Why not start it for you:* the existing warm-up macro needs the HotJoe's Z zero and lifts the head, and powering a 20,000 RPM spindle from a new path is
+  a safety decision for Mike.
+- **Spindle runout**: four dial-indicator readings (0, 90, 180, 270 degrees), the total, and a log of all of them. The spindle must stay off.
+- **Umbilical flex test**: press Start watching and flex the cable for a minute; Studio counts drop-outs of the tool's thermistor and the tool sensor.
+
 ## 1.9.33 - Care wizards: after an emergency stop, and level the gantry (Studio 0.29.0)
 
 No Klipper macro or config changes. The wizards send only Studio's own commands (`FIRMWARE_RESTART`, `G28`, `Z_TILT_ADJUST`) through the
