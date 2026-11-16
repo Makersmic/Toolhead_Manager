@@ -1,5 +1,20 @@
 # What changed
 
+## 1.9.33 - Care wizards: after an emergency stop, and level the gantry (Studio 0.29.0)
+
+No Klipper macro or config changes. The wizards send only Studio's own commands (`FIRMWARE_RESTART`, `G28`, `Z_TILT_ADJUST`) through the
+same check and confirm as the console. Checks ES1-ES5 and LV1-LV6 are in Studio's `docs/testing.md`.
+
+- **After an emergency stop or shutdown** (Care › Tasks › Guide me on that task): shows Klipper's state and message and picks the nearest
+  cause (emergency stop pressed, Klipper error, a board lost contact, heater or thermistor fault, not sure); a look-first step; **Restart
+  Klipper** only if it was down (asks first, and you can go on only when Klipper says Ready); **Home all axes** only with Klipper ready, no
+  job, no heater on and the tool sensor agreeing with the selected tool (asks first, and it must actually be run); a move check in Control; and a
+  Work log note of the cause, what Klipper said and what was done.
+- **Level the gantry** (Guide me on the Z-tilt task): needs a print head mounted and confirmed; homes first only if the axes aren't homed;
+  runs `Z_TILT_ADJUST` after a confirm, lists each pass with its range, goes on only when Klipper finished within its tolerance, explains
+  a failure and what to do, offers a first-layer check, and logs the passes and the final range.
+- Guides leave room above the phone's bottom bar so the last buttons can be reached.
+
 ## 1.9.32 - Care guides and the "What's happening" strip (Studio 0.28.0)
 
 No Klipper macro or config changes, and the guides send nothing to the machine. Checks CG1-CG4 are in Studio's `docs/testing.md`.
