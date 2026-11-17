@@ -676,6 +676,38 @@ s = sf(); s.save_vars.update(rhino_pa_switchfly_petg_0_4=0.05, rhino_em_switchfl
 s.run_script("SWITCH_T1")
 ok(pa_now(s) == 0.05 and "M221 S95.0" in cmds(s), "SwitchFly path change: the new path's material gets its tuned PA and flow")
 
+# SwitchFly lanes (1.9.35, docs/proposal-switchfly-lanes.md): servo power for a task, saved angles, retract per lane
+def duty(angle): return (0.0005 + 0.002 * angle / 180.0) / 0.02
+s = sf(); ok(s.pins.get("Spindle_power", 0) == 0, "lanes: the servo rail starts off")
+s.run_script("SWITCH_T1 MATERIAL=PLA")
+ok(s.pins["Spindle_power"] == 1 and abs(s.pins["SERVO_LASER"] - duty(180)) < 1e-6, "a lane change powers the servo's UBEC (PA1) and sends the default 180 degrees for lane 2")
+s.run_script("SWITCH_T0 MATERIAL=PLA"); ok(abs(s.pins["SERVO_LASER"] - duty(0)) < 1e-6, "...and the default 0 degrees for lane 1")
+s.run_script("_TOOL_SAFE_OFF"); ok(s.pins["Spindle_power"] == 0, "the end of a job / cancel / swap / e-stop (_TOOL_SAFE_OFF) still cuts the rail")
+s = sf({"switchfly_angle_t1": 150.0}); s.run_script("SWITCH_T1 MATERIAL=PLA"); ok(abs(s.pins["SERVO_LASER"] - duty(150)) < 1e-6, "a saved lane angle is the one sent")
+s = fresh(1); s.run_script("_SWITCHFLY_POWER_ON"); ok(s.pins.get("Spindle_power", 0) == 0, "the power-on does nothing with another tool mounted (BlockOne)")
+s = fresh(4); s.run_script("_SWITCHFLY_POWER_ON"); ok(s.pins.get("Spindle_power", 0) == 0, "...nor with HotJoe, whose relay is its own")
+s = sf(); s.run_script("SWITCHFLY_SERVO_POWER ON=1"); ok(s.pins["Spindle_power"] == 1, "SWITCHFLY_SERVO_POWER ON=1 powers the rail")
+s.run_script("SWITCHFLY_SERVO_POWER ON=0"); ok(s.pins["Spindle_power"] == 0, "...ON=0 cuts it")
+s = fresh(1); ok(raises(lambda: s.run_script("SWITCHFLY_SERVO_POWER ON=1"), "not the mounted tool") and s.pins.get("Spindle_power", 0) == 0, "power on is refused unless SwitchFly is mounted")
+s.pins["Spindle_power"] = 1.0; s.run_script("SWITCHFLY_SERVO_POWER ON=0"); ok(s.pins["Spindle_power"] == 0, "power off always works")
+s = sf(); ok(raises(lambda: s.run_script("SWITCHFLY_SERVO_POWER"), "ON=1"), "no ON= is an error, not a guess")
+s = sf(); ok(raises(lambda: s.run_script("SWITCHFLY_SERVO_TEST ANGLE=90"), "power on first") and not s.pins.get("SERVO_LASER"), "the servo test needs the power on first and moves nothing without it")
+s.run_script("SWITCHFLY_SERVO_POWER ON=1"); s.run_script("SWITCHFLY_SERVO_TEST ANGLE=90")
+ok(abs(s.pins["SERVO_LASER"] - duty(90)) < 1e-6 and "switchfly_angle_t0" not in s.save_vars, "the test moves the servo and saves nothing")
+for bad in ("ANGLE=181", "ANGLE=-1", ""): ok(raises(lambda: s.run_script("SWITCHFLY_SERVO_TEST " + bad), "0 to 180"), f"servo test refuses '{bad}'")
+s = fresh(1); s.pins["Spindle_power"] = 1.0; ok(raises(lambda: s.run_script("SWITCHFLY_SERVO_TEST ANGLE=90"), "not the mounted tool"), "the servo test refuses with another tool mounted")
+s = sf(); s.run_script("SWITCHFLY_SET_LANE PATH=1 ANGLE=148.5 RETRACT=22")
+ok(s.save_vars["switchfly_angle_t1"] == 148.5 and s.save_vars["switchfly_retract_t1"] == 22 and "switchfly_angle_t0" not in s.save_vars and not s.pins.get("SERVO_LASER"),
+   "SWITCHFLY_SET_LANE saves that lane's angle and retract, and moves nothing")
+for bad, why in (("PATH=2 ANGLE=90", "PATH must be"), ("PATH=0 ANGLE=181", "0 to 180"), ("PATH=0 RETRACT=101", "0 to 100"), ("PATH=0 RETRACT=-1", "0 to 100"), ("PATH=0", "give ANGLE")):
+    s = sf(); ok(raises(lambda: s.run_script("SWITCHFLY_SET_LANE " + bad), why) and not any(k.startswith("switchfly_angle") or k.startswith("switchfly_retract") for k in s.save_vars), f"SET_LANE refuses {bad}, saves nothing")
+s = fresh(1); ok(raises(lambda: s.run_script("SWITCHFLY_SET_LANE PATH=0 ANGLE=10"), "not the mounted tool"), "SET_LANE refuses with another tool mounted")
+def retract_line(s): return next((c for c in cmds(s) if c.startswith("G1 E-")), "")
+s = sf({"set_material_extruder_index": 1, "switchfly_retract_t1": 33.0, "switchfly_retract_t0": 7.0}); s.run_script("SWITCH_T0 MATERIAL=PLA")
+ok(retract_line(s).startswith("G1 E-33.0 "), f"the retract is the lane being LEFT's own saved distance ({retract_line(s)})")
+s = sf({"switchfly_retract_t0": 0.0}); s.run_script("SWITCH_T1 MATERIAL=PLA")
+ok(retract_line(s).startswith("G1 E-") and not retract_line(s).startswith("G1 E-0.0 "), f"no saved retract (0): the material's own is used ({retract_line(s)})")
+
 shutil.rmtree(ROOT, ignore_errors=True)
 print("\nFAILED:" if fails else "\nALL PASSED", fails or "")
 sys.exit(1 if fails else 0)

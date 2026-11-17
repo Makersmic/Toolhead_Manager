@@ -1,5 +1,22 @@
 # What changed
 
+## 1.9.35 - SwitchFly lanes: servo power for a task, a saved angle and retract per lane (Studio 0.31.0)
+
+**Klipper macro changes** (all in `tools/3dp_macros.cfg`; written up in `docs/proposal-switchfly-lanes.md`). `_TOOL_SAFE_OFF`, the tool swap and the e-stop are not changed.
+
+- **The servo's UBEC (PA1) is powered for a task, never because SwitchFly is mounted.** New `_SWITCHFLY_POWER_ON` (only with SwitchFly mounted; any other tool, nothing happens)
+  is the first thing `_SWITCHFLY_SET_PATH` does, so a swap to SwitchFly, a job start, `SWITCH_T0` / `SWITCH_T1` and a filament change all power the servo and re-send the lane's
+  angle. A servo with no power does not hold its place. The end of a job, a cancel, a swap and the e-stop cut the rail as before.
+- **Each lane has a saved angle** (`switchfly_angle_t0` / `_t1`, default 0 and 180, the values that were fixed in code) and **a retract** (`switchfly_retract_t0` / `_t1`, mm; 0 = the
+  material's own). The retract is the lane being left's, applied before the servo moves.
+- New macros: `SWITCHFLY_SERVO_POWER ON=1|0` (on needs SwitchFly mounted; off always works), `SWITCHFLY_SERVO_TEST ANGLE=n` (SwitchFly mounted, power already on, 0-180, saves nothing),
+  `SWITCHFLY_SET_LANE PATH=0|1 ANGLE= RETRACT=` (0-180 degrees, 0-100 mm, moves nothing).
+- **Studio: Assets > Toolheads > SwitchFly > Tune > Lanes**: a power button, an angle field and Try / Save for each lane, a Switch to lane button, a retract field per lane, and
+  a small picture for each step. The angle controls wake up only while the power is on; behind the padlock (Turn power off needs none).
+- **Not changed:** the manual's pin table and servo diagram still show the old fan-header wiring (the signal is on umbilical contact 16, PB0).
+
+Check on the machine: **SF1-SF7** (Studio `docs/testing.md`) and **SFM1-SFM4** (`docs/testing.md`). Unproven on hardware: everything above; the simulator is not real Klipper.
+
 ## 1.9.34 - Care wizards: Z drive, nozzle, spindle run-in and runout, umbilical; guides remember where you are (Studio 0.30.0)
 
 No Klipper macro or config changes. Studio's own commands are `G28`, `Z_TILT_ADJUST` and the heater paths of Control's temperature fields,

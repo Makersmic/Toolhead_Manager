@@ -709,3 +709,16 @@ available, and the readouts FE1-FE6 / SP1-SP7 come first.
 - [ ] **S3 Frame headers.** `curl -sI http://rhino.local/ | grep -i -E "x-frame|content-security"`, then the same
   for `/index.html` and `/help/index.html`. *Pass if:* each shows `X-Frame-Options: DENY` and
   `Content-Security-Policy: frame-ancestors 'none'`. *Stop if:* a path is missing them: send the path.
+
+## SwitchFly lanes (1.9.35): the macros from the console
+
+The Studio Lanes panel checks (SF1-SF7) are in the Studio repo's `docs/testing.md`. These are the same macros typed in Control's console, SwitchFly mounted and
+confirmed, the servo on a current-limited supply the first time.
+
+- [ ] **SFM1 Power.** `SWITCHFLY_SERVO_POWER ON=1`, then `ON=0`. *Pass if:* the UBEC lights and the servo holds when on; both go dead when off. *Stop if:* the UBEC or
+  servo gets hot, or the supply trips.
+- [ ] **SFM2 Test needs power.** With the power off `SWITCHFLY_SERVO_TEST ANGLE=90`. *Pass if:* it refuses ("turn the servo power on first") and nothing moves; with the
+  power on it moves to the middle. `ANGLE=181` refuses. *Stop if:* it moves with the power off.
+- [ ] **SFM3 Saved lanes.** `SWITCHFLY_SET_LANE PATH=0 ANGLE=<yours> RETRACT=20`, restart Klipper, then `SWITCH_T0 MATERIAL=PLA` (hot, Z homed). *Pass if:* the servo goes to
+  your angle, and with lane 2 in use the console shows a 20 mm pull-back first when leaving lane 1. *Stop if:* it uses 0 or 180.
+- [ ] **SFM4 The rail is cut.** Power on, then `_TOOL_SAFE_OFF`. *Pass if:* the UBEC is off. A swap to another tool also cuts it. *Stop if:* it stays on.
