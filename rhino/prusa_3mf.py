@@ -13,6 +13,7 @@ wing only, with "support_material = 1, support_material_auto = 0"; a blocker bal
 stops the automatic support there; --center moves the balls with the part. Enforcers need
 support_material on: with it off they do nothing.
 """
+import array
 import json
 import math
 import struct
@@ -21,8 +22,9 @@ import zipfile
 from .errors import Fail
 
 MAX_MARKS = 500
-# The 3MF repeats every corner as text, so a part with marks is held to fewer triangles than a plain STL
-MAX_TRIANGLES = 3_000_000
+# The corners are kept in memory while the 3MF is written (about 100 bytes each), so a part with marks is held to fewer
+# triangles than a plain STL
+MAX_TRIANGLES = 1_500_000
 KINDS = ("enforce", "block")
 
 
@@ -101,8 +103,8 @@ _VOLUME_TYPE = {"part": "ModelPart", "enforce": "SupportEnforcer", "block": "Sup
 
 
 def write_3mf(model, supports, path):
-    """The part (binary STL bytes) and its marks as a PrusaSlicer 3MF at `path`. Corners are written as they come,
-    three per triangle, streamed so a big part never sits in memory as text."""
+    """The part (binary STL bytes) and its marks as a PrusaSlicer 3MF at `path`. Each distinct corner is written once and
+    shared (a part of a million triangles holds about half a million corners in memory as numbers, never as text)."""
     n = stl_triangles(model)
     if n > MAX_TRIANGLES:
         raise Fail(f"The part has too many triangles for marked supports ({n:,}); use automatic supports")
@@ -121,18 +123,35 @@ def write_3mf(model, supports, path):
               'xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02" '
               'xmlns:slic3rpe="http://schemas.slic3r.org/3mf/2017/06">\n<metadata name="slic3rpe:Version3mf">1</metadata>\n'
               '<resources><object id="1" type="model"><mesh><vertices>\n')
+            # One vertex per distinct corner, shared by the triangles that meet there. PrusaSlicer reads a 3MF's mesh as
+            # it is written and doesn't weld loose corners the way it does for an STL, so a part written corner by corner
+            # slices as if its surface had cracks: holes fill and walls change (Mike, Nov 21: his part, 3MF vs STL).
+            # The corners are the STL's own float32 values, written with the nine digits that give each one back exactly.
+            index = {}
+            corners = []
+            tris = array.array("I")
+
+            def corner(key):
+                i = index.get(key)
+                if i is None:
+                    i = index[key] = len(corners)
+                    corners.append(key)
+                tris.append(i)
+
             for i in range(n):
                 o = 84 + 50 * i + 12
                 for c in range(3):
-                    x, y, zz = struct.unpack_from("<3f", model, o + 12 * c)
-                    w(f'<vertex x="{x:.5g}" y="{y:.5g}" z="{zz:.5g}"/>\n')
+                    corner(model[o + 12 * c:o + 12 * c + 12])
             for k in ("enforce", "block"):
                 for t in balls[k]:
                     for x, y, zz in t:
-                        w(f'<vertex x="{x:.5g}" y="{y:.5g}" z="{zz:.5g}"/>\n')
+                        corner(struct.pack("<3f", x, y, zz))
+            for key in corners:
+                x, y, zz = struct.unpack("<3f", key)
+                w(f'<vertex x="{x:.9g}" y="{y:.9g}" z="{zz:.9g}"/>\n')
             w("</vertices><triangles>\n")
-            for t in range(n + len(balls["enforce"]) + len(balls["block"])):
-                w(f'<triangle v1="{3 * t}" v2="{3 * t + 1}" v3="{3 * t + 2}"/>\n')
+            for t in range(len(tris) // 3):
+                w(f'<triangle v1="{tris[3 * t]}" v2="{tris[3 * t + 1]}" v3="{tris[3 * t + 2]}"/>\n')
             w('</triangles></mesh></object></resources>\n<build><item objectid="1" printable="1"/></build></model>\n')
         cfg = ['<?xml version="1.0" encoding="UTF-8"?>\n<config><object id="1" instances_count="1">'
                '<metadata type="object" key="name" value="part"/>']

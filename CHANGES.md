@@ -1,5 +1,17 @@
 # What changed
 
+## 1.9.37 - PrusaSlicer: a part with support marks no longer slices with filled-in holes
+
+No Klipper macro or machine value changes. Studio is unchanged (0.31.1).
+
+- **The cause** (Mike, Nov 21): with marks, the Portal wraps the part in a 3MF so PrusaSlicer can read the support spots. It wrote every triangle's three corners as
+  separate points. PrusaSlicer welds an STL's loose corners together when it reads one, but not a 3MF's, so the part sliced as if its surface were cracked. Through holes
+  filled in and walls changed, and the result varied from run to run. It happened with "Only where I mark" and with Automatic plus marks, and not with no marks (a plain STL).
+  Not a stale model, as first suspected: the part and its ID were right all along.
+- **The fix**: each distinct corner is written once and shared by the triangles that meet there, with exact float32 values (nine digits, not five). In a PrusaSlicer 2.8.1
+  test on a drilled washer, the 3MF slice now matches the STL slice (1018.25 mm of filament, hole open); before, it used 1071 to 1425 mm with the hole part filled.
+- A part with marks is now held to 1.5 million triangles (was 3 million), because the corners are kept in memory while the file is written.
+
 ## 1.9.36 - PrusaSlicer: the Portal says what it received (Studio 0.31.1)
 
 No Klipper macro or machine value changes.

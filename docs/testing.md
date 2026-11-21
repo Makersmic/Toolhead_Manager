@@ -734,3 +734,12 @@ Needs PrusaSlicer installed on the Rhino (Settings > Software > PrusaSlicer engi
 3. Repeat step 2 with the new file renamed. **Pass:** the same.
 4. **Stop if** the Preview shows the earlier model, or the check "The Rhino received a different part from the one sent" appears: write down both IDs and the Portal and Studio
    versions. Different IDs mean the wrong part reached the Rhino; the same IDs with the wrong preview mean PrusaSlicer sliced the wrong thing.
+
+## PrusaSlicer: marks don't fill in holes (1.9.37)
+
+Needs PrusaSlicer installed on the Rhino and a model with at least two through holes (Mike's part from Fusion is the test). Nothing moves; no printing.
+
+1. Load the part, choose PrusaSlicer, **Only where I mark**, place no marks, open Preview. Note the holes and the "filament used" figure in Job file > Checks.
+2. Go back, place three marks away from the holes, open Preview. **Pass:** every hole is open in Preview and the filament figure is the unmarked figure plus only the support under the marks.
+3. Switch to **Automatic** with the same marks. **Pass:** the same, holes open.
+4. **Stop if** any hole is filled or narrowed: write down the Portal version (should be 1.9.37), the PrusaSlicer version (Settings > Software), and send the STL. 2.9.x is the version in use; 2.8.1 is the one this was checked on.

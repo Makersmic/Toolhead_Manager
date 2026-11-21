@@ -4,7 +4,7 @@ downloaded and no real slicing happens; the real engine is checked on the machin
 
 The stand-in behaves like the real thing where it matters: `flatpak run` starts the slicer as a grandchild in a
 session of its own (as bubblewrap can), and the slicer can only write inside the --filesystem folders it was given."""
-import zipfile, io, json, os, shutil, sys, tempfile, time
+import zipfile, io, json, os, re, shutil, struct, sys, tempfile, time
 sys.dont_write_bytecode = True
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
@@ -249,6 +249,20 @@ ok(names == ["3D/3dmodel.model", "Metadata/Slic3r_PE_model.config", "[Content_Ty
 ok(counts == {"enforce": 1, "block": 2} and 'value="SupportEnforcer"' in cfg and 'value="SupportBlocker"' in cfg and 'value="ModelPart"' in cfg,
    "the part, its enforcer and its blockers are separate volumes")
 ok(mod.count("<triangle ") == 1 + 3 * 144 and 'firstid="0" lastid="0"' in cfg, "every triangle is written, the part's first")
+# a part's corners are shared between the triangles that meet there (1.9.37): PrusaSlicer doesn't weld a 3MF's loose corners
+box = [(0, 0, 0), (1, 0, 0), (1, 1, 0), (0, 1, 0), (0, 0, 1), (1, 0, 1), (1, 1, 1), (0, 1, 1)]
+faces = [(0, 2, 1), (0, 3, 2), (4, 5, 6), (4, 6, 7), (0, 1, 5), (0, 5, 4), (1, 2, 6), (1, 6, 5), (2, 3, 7), (2, 7, 6), (3, 0, 4), (3, 4, 7)]
+cube = struct.pack("<80sI", b"", 12) + b"".join(struct.pack("<12fH", 0, 0, 0, *[c for i in f for c in box[i]], 0) for f in faces)
+write_3mf(cube, {"enforce": [], "block": []}, three)
+with zipfile.ZipFile(three) as z: mod = z.read("3D/3dmodel.model").decode()
+ok(mod.count("<vertex ") == 8 and mod.count("<triangle ") == 12, "a cube is 8 corners and 12 triangles, not 36 loose corners")
+vs = re.findall(r'<vertex x="([^"]+)" y="([^"]+)" z="([^"]+)"', mod)
+f32 = lambda v: struct.unpack("<f", struct.pack("<f", v))[0]
+ok(all(float(c) in (0.0, 1.0) for v in vs for c in v), "each corner is written as the STL had it")
+odd = struct.pack("<80sI", b"", 1) + struct.pack("<12fH", 0, 0, 0, 12.345678, 0.1, 99.87654, 1, 2, 3, 4, 5, 6, 0)
+write_3mf(odd, {"enforce": [], "block": []}, three)
+with zipfile.ZipFile(three) as z: first = re.search(r'<vertex x="([^"]+)" y="([^"]+)" z="([^"]+)"', z.read("3D/3dmodel.model").decode()).groups()
+ok([f32(float(c)) for c in first] == [f32(12.345678), f32(0.1), f32(99.87654)], "odd values come back exactly (five digits would have lost them)")
 ok(raises(lambda: write_3mf(b"\0" * 84 + b"x", {"enforce": [[0, 0, 0, 1]]}, three), "binary STL"), "a part that isn't a binary STL is refused")
 
 j = s.submit(STL, "layer_height = 9\n", "part", "275,187.5")
