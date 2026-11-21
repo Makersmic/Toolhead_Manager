@@ -1,5 +1,12 @@
 # What changed
 
+## 1.9.38 - Studio 0.32.0: Job setup puts the model full width, with the panels floating over it
+
+No Klipper macro or machine value changes. Studio only.
+
+- **Job setup, Setup step**: the model view takes the whole page width, and Process and Settings float over its right edge. Each has a chevron to fold it away (remembered in that
+  browser). A long Settings list scrolls inside its panel; the viewer's Angle / Top / Fit part buttons stay clear. On a narrow window or a phone the panels stack under the model as before.
+
 ## 1.9.37 - PrusaSlicer: a part with support marks no longer slices with filled-in holes
 
 No Klipper macro or machine value changes. Studio is unchanged (0.31.1).
