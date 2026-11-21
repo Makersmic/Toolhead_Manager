@@ -1,5 +1,14 @@
 # What changed
 
+## 1.9.36 - PrusaSlicer: the Portal says what it received (Studio 0.31.1)
+
+No Klipper macro or machine value changes.
+
+- **The slice job reports the part it received**: triangle count, size, a CRC-32 of the bytes (the same sum Studio makes) and whether it went to PrusaSlicer as a plain STL
+  or as a 3MF with support marks. Studio compares it with what it sent and shows the result in Job file > Checks. Added for a report that with "Only where I mark" a slice
+  kept showing the first model; nothing sent or built by Studio or the Portal was wrong in tests, so this tells a wrong part arriving from a wrong part being sliced.
+- Marks still travel as a 3MF (an STL can't carry "support here"); with no marks the part is a plain STL as before.
+
 ## 1.9.35 - SwitchFly lanes: servo power for a task, a saved angle and retract per lane (Studio 0.31.0)
 
 **Klipper macro changes** (all in `tools/3dp_macros.cfg`; written up in `docs/proposal-switchfly-lanes.md`). `_TOOL_SAFE_OFF`, the tool swap and the e-stop are not changed.

@@ -224,6 +224,16 @@ ok(wait(lambda: s.job(jm["id"])["state"] == "done"), "a slice with marks finishe
 mdir = os.path.join(s.base, "jobs", jm["id"])
 ok(open(os.path.join(mdir, "argv.txt")).read().rstrip().endswith("part.3mf"), "with marks, PrusaSlicer gets the 3MF the Portal built")
 ok(not os.path.exists(os.path.join(mdir, "part.3mf")), "and it's deleted after slicing")
+import zlib
+ok(jm["model"] == {"triangles": 1, "bytes": len(STL), "crc": f"{zlib.crc32(STL):08x}", "as": "3mf", "enforce": 1, "block": 1},
+   "the job says what it received: triangles, size, CRC and that it went as a 3MF with its marks")
+STL2 = b"\0" * 80 + (2).to_bytes(4, "little") + b"\1" * 100
+jm2 = s.submit(STL2, "layer_height = 0.2\nperimeters = 3\n", "part", "275,187.5", '{"enforce": [[1, 2, 3, 4]], "block": [[0, 0, 5, 6]]}')
+ok(not jm2["cached"] and jm2["model"]["triangles"] == 2 and jm2["model"]["crc"] != jm["model"]["crc"],
+   "another part with the same marks is a new slice, not the first part's result")
+wait(lambda: s.job(jm2["id"])["state"] == "done")
+ok(s.job(jm2["id"])["model"]["crc"] == f"{zlib.crc32(STL2):08x}", "and a job asked about later still reports its own part")
+ok(j2["model"]["as"] == "stl" and j2["model"]["enforce"] == 0, "a plain slice reports an STL and no marks")
 ok(raises(lambda: s.submit(STL, "", "part", "275,187.5", '{"enforce": [[1, 2, 3, 99]]}'), "out of range"), "a mark too big is refused")
 ok(raises(lambda: s.submit(STL, "", "part", "275,187.5", '{"paint": []}'), "enforce and block"), "anything but enforce and block is refused")
 ok(raises(lambda: s.submit(STL, "", "part", "275,187.5", '{"enforce": [[1, 2, "3", 4]]}'), "numbers only"), "a mark that isn't numbers is refused")

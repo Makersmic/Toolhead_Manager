@@ -40,6 +40,7 @@ import tempfile
 import threading
 import time
 import uuid
+import zlib
 
 from .errors import Fail
 from .prusa_3mf import clean_supports, write_3mf
@@ -197,6 +198,15 @@ def _kill_tree(proc):
         pass
 
 
+def _model_facts(model, marks):
+    """What arrived, for Studio to compare with what it sent: triangle count, size, a CRC-32 of the bytes (the same
+    sum Studio makes), and how the part goes to PrusaSlicer (a plain STL, or a 3MF when marks are placed)."""
+    tris = struct.unpack_from("<I", model, 80)[0] if len(model) >= 84 else 0
+    return {"triangles": tris, "bytes": len(model), "crc": f"{zlib.crc32(model) & 0xFFFFFFFF:08x}",
+            "as": "3mf" if marks else "stl", "enforce": len(marks["enforce"]) if marks else 0,
+            "block": len(marks["block"]) if marks else 0}
+
+
 class Job:
     def __init__(self, jid, workdir, key):
         self.id, self.dir, self.key = jid, workdir, key
@@ -205,13 +215,14 @@ class Job:
         self.finished = None
         self.cached = False
         self.model_file = "part.stl"
+        self.model = None  # what the Portal received, sent back so Studio can check it is the part on screen
         self.proc = None
         self.cancel = False
 
     def view(self):
         end = self.finished or time.time()
         return {"id": self.id, "state": self.state, "phase": self.phase, "progress": self.progress, "error": self.error,
-                "seconds": round(end - self.started, 1), "cached": self.cached}
+                "seconds": round(end - self.started, 1), "cached": self.cached, "model": self.model}
 
 
 class PrusaService:
@@ -691,6 +702,7 @@ class PrusaService:
             d = os.path.join(self.base, "jobs", jid)
             os.makedirs(d)
             job = Job(jid, d, key)
+            job.model = _model_facts(model, marks)
             self.jobs[jid] = job
             cached = os.path.join(self.base, "cache", key + ".gcode")
             if os.path.exists(cached):

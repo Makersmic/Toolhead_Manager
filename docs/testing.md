@@ -722,3 +722,15 @@ confirmed, the servo on a current-limited supply the first time.
 - [ ] **SFM3 Saved lanes.** `SWITCHFLY_SET_LANE PATH=0 ANGLE=<yours> RETRACT=20`, restart Klipper, then `SWITCH_T0 MATERIAL=PLA` (hot, Z homed). *Pass if:* the servo goes to
   your angle, and with lane 2 in use the console shows a 20 mm pull-back first when leaving lane 1. *Stop if:* it uses 0 or 180.
 - [ ] **SFM4 The rail is cut.** Power on, then `_TOOL_SAFE_OFF`. *Pass if:* the UBEC is off. A swap to another tool also cuts it. *Stop if:* it stays on.
+
+## PrusaSlicer: the slice is the part on screen (1.9.36)
+
+Needs PrusaSlicer installed on the Rhino (Settings > Software > PrusaSlicer engine). Nothing moves; no printing.
+
+1. In Studio, load a model, choose PrusaSlicer, set supports to **Only where I mark**, mark one spot, then open Preview. In Job file > Checks find
+   "The Rhino received this part: N triangles, as a 3MF with 1 support spot". **Pass:** that line is there with a tick, and the model in Preview is the one on screen.
+2. Go back to the file step, load a different model (one with a clearly different height), mark one spot, open Preview. **Pass:** the triangle count and ID differ from step 1,
+   the Preview shows the new model, and the check "The file is the part on screen" has a tick.
+3. Repeat step 2 with the new file renamed. **Pass:** the same.
+4. **Stop if** the Preview shows the earlier model, or the check "The Rhino received a different part from the one sent" appears: write down both IDs and the Portal and Studio
+   versions. Different IDs mean the wrong part reached the Rhino; the same IDs with the wrong preview mean PrusaSlicer sliced the wrong thing.
