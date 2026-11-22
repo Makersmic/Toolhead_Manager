@@ -225,7 +225,7 @@ mdir = os.path.join(s.base, "jobs", jm["id"])
 ok(open(os.path.join(mdir, "argv.txt")).read().rstrip().endswith("part.3mf"), "with marks, PrusaSlicer gets the 3MF the Portal built")
 ok(not os.path.exists(os.path.join(mdir, "part.3mf")), "and it's deleted after slicing")
 import zlib
-ok(jm["model"] == {"triangles": 1, "bytes": len(STL), "crc": f"{zlib.crc32(STL):08x}", "as": "3mf", "enforce": 1, "block": 1},
+ok(jm["model"] == {"triangles": 1, "bytes": len(STL), "crc": f"{zlib.crc32(STL):08x}", "as": "3mf", "enforce": 1, "block": 1, "objects": 1},
    "the job says what it received: triangles, size, CRC and that it went as a 3MF with its marks")
 STL2 = b"\0" * 80 + (2).to_bytes(4, "little") + b"\1" * 100
 jm2 = s.submit(STL2, "layer_height = 0.2\nperimeters = 3\n", "part", "275,187.5", '{"enforce": [[1, 2, 3, 4]], "block": [[0, 0, 5, 6]]}')
@@ -264,6 +264,41 @@ write_3mf(odd, {"enforce": [], "block": []}, three)
 with zipfile.ZipFile(three) as z: first = re.search(r'<vertex x="([^"]+)" y="([^"]+)" z="([^"]+)"', z.read("3D/3dmodel.model").decode()).groups()
 ok([f32(float(c)) for c in first] == [f32(12.345678), f32(0.1), f32(99.87654)], "odd values come back exactly (five digits would have lost them)")
 ok(raises(lambda: write_3mf(b"\0" * 84 + b"x", {"enforce": [[0, 0, 0, 1]]}, three), "binary STL"), "a part that isn't a binary STL is refused")
+
+# ---------------------------------------------------------------- several parts, each in a filament lane (prusa_3mf.py, Nov 2026)
+from rhino.prusa_3mf import clean_objects, write_objects_3mf
+two = json.dumps([{"triangles": 6, "lane": 0}, {"triangles": 6, "lane": 1}])
+ok(clean_objects("", cube) is None and clean_objects(None, cube) is None, "no parts list: a plain STL, as before")
+ok(clean_objects(json.dumps([{"triangles": 6, "lane": 0}, {"triangles": 6, "lane": 0}]), cube) is None, "every part in lane 1: a plain STL, as before")
+ok(clean_objects(two, cube) == [{"triangles": 6, "lane": 0}, {"triangles": 6, "lane": 1}], "parts in two lanes: kept, in order")
+for bad, why in ((json.dumps([{"triangles": 6, "lane": 0}, {"triangles": 5, "lane": 1}]), "add up"), ("nope", "readable"), ("{}", "expected a list"),
+                 (json.dumps([{"triangles": 12, "lane": 8}]), "out of range"), (json.dumps([{"triangles": 12, "lane": True}]), "whole numbers"),
+                 (json.dumps([{"triangles": 12.0, "lane": 1}]), "whole numbers"), (json.dumps([{"triangles": 12, "lane": 1, "x": 1}]), "each is"),
+                 (json.dumps([{"triangles": 0, "lane": 1}, {"triangles": 12, "lane": 1}]), "out of range"), (json.dumps([{"triangles": 1, "lane": 1}] * 65), "1 to 64")):
+    ok(raises(lambda b=bad: clean_objects(b, cube), why), f"a bad parts list is refused ({why})")
+lanes3 = os.path.join(TMP, "lanes.3mf")
+write_objects_3mf(cube, clean_objects(two, cube), lanes3)
+with zipfile.ZipFile(lanes3) as z:
+    lcfg, lmod = z.read("Metadata/Slic3r_PE_model.config").decode(), z.read("3D/3dmodel.model").decode()
+    lnames = sorted(z.namelist())
+ok(lnames == ["3D/3dmodel.model", "Metadata/Slic3r_PE_model.config", "[Content_Types].xml", "_rels/.rels"], "the lanes' 3MF holds the same four files, nothing else")
+ok(lmod.count("<object ") == 2 and lmod.count("<item ") == 2 and lmod.count("<triangle ") == 12, "two parts, two build items, every triangle written")
+ok('key="extruder" value="1"' in lcfg and 'key="extruder" value="2"' in lcfg, "each part carries its lane as PrusaSlicer's extruder, from 1")
+ok(re.findall(r'<object id="(\d)" instances_count="1"><metadata type="object" key="name" value="part \d"/><metadata type="object" key="extruder" value="(\d)"', lcfg) == [("1", "1"), ("2", "2")],
+   "the first part is lane 1 and the second lane 2")
+jl = s.submit(cube, "layer_height = 0.2\nperimeters = 3\n", "part", "275,187.5", None, two)
+ok(wait(lambda: s.job(jl["id"])["state"] == "done"), "a slice with parts in two lanes finishes")
+ok(open(os.path.join(s.base, "jobs", jl["id"], "argv.txt")).read().rstrip().endswith("part.3mf"), "PrusaSlicer gets the 3MF the Portal built")
+ok(jl["model"]["as"] == "3mf" and jl["model"]["objects"] == 2 and jl["model"]["triangles"] == 12, "the job says it went as a 3MF of two parts")
+jp = s.submit(cube, "layer_height = 0.2\nperimeters = 3\n", "part", "275,187.5")
+ok(not jp["cached"] and jp["model"]["objects"] == 1 and jp["model"]["as"] == "stl", "the same parts without lanes aren't taken from the lanes' cache")
+ok(raises(lambda: s.submit(cube, "", "part", "275,187.5", '{"enforce": [[1, 2, 3, 4]], "block": []}', two), "different lanes"), "support marks with parts in two lanes are refused for now")
+# only the one lane-change comment may come through the INI's G-code templates
+from rhino.prusa import clean_ini, LANE_MARK
+ok("toolchange_gcode = ;RHINO_LANE {next_extruder}" in clean_ini("toolchange_gcode = ;RHINO_LANE {next_extruder}\n", {"toolchange_gcode"}), "the lane-change comment is accepted")
+ok("toolchange_gcode = G28" not in clean_ini("toolchange_gcode = G28\n", {"toolchange_gcode"}), "any other change template is dropped")
+ok("toolchange_gcode = ;RHINO_LANE {next_extruder}\nG28" not in clean_ini("toolchange_gcode = ;RHINO_LANE {next_extruder}\\nG28\n", {"toolchange_gcode"}), "even one that starts with the comment")
+ok(LANE_MARK == ";RHINO_LANE {next_extruder}", "the marker is the one Studio expects")
 
 j = s.submit(STL, "layer_height = 9\n", "part", "275,187.5")
 ok(wait(lambda: s.job(j["id"])["state"] == "failed") and "layer height too big" in s.job(j["id"])["error"], "engine errors come back in its own words")

@@ -43,7 +43,7 @@ import uuid
 import zlib
 
 from .errors import Fail
-from .prusa_3mf import clean_supports, write_3mf
+from .prusa_3mf import clean_objects, clean_supports, write_3mf, write_objects_3mf
 
 APP = "com.prusa3d.PrusaSlicer"
 REMOTE = "flathub"
@@ -67,6 +67,9 @@ FORCED = {"post_process": "", "gcode_substitutions": "", "binary_gcode": "0", "o
 # way, so an engine update that can't take Studio's settings fails its test and is put back.
 TEMPLATES = ("start_gcode", "end_gcode", "before_layer_gcode", "layer_gcode", "toolchange_gcode", "between_objects_gcode",
              "color_change_gcode", "pause_print_gcode", "template_custom_gcode", "start_filament_gcode", "end_filament_gcode")
+# The one lane-change template Studio may send (Nov 2026): a comment PrusaSlicer fills in at each change. Studio turns these
+# markers into the machine's own change command after slicing, so no G-code the machine would run goes through the INI.
+LANE_MARK = ";RHINO_LANE {next_extruder}"
 # Phases PrusaSlicer logs, roughly in order, for a progress bar
 PHASES = [("Processing triangulated mesh", 0.05, "Reading the part"), ("Generating perimeters", 0.2, "Walls"),
           ("Preparing infill", 0.45, "Infill"), ("Generating support", 0.6, "Supports"), ("Generating skirt", 0.75, "Skirt and brim"),
@@ -152,6 +155,8 @@ def clean_ini(text, known):
         k, v = k.strip(), v.strip()
         if not sep or not KEY_RE.match(k) or (known and k not in known) or k in FORCED or k in seen:
             continue
+        if k == "toolchange_gcode" and v not in ("", LANE_MARK):
+            continue
         seen.add(k)
         out.append(f"{k} = {v}")
     for k, v in FORCED.items():
@@ -198,13 +203,13 @@ def _kill_tree(proc):
         pass
 
 
-def _model_facts(model, marks):
+def _model_facts(model, marks, objects=None):
     """What arrived, for Studio to compare with what it sent: triangle count, size, a CRC-32 of the bytes (the same
     sum Studio makes), and how the part goes to PrusaSlicer (a plain STL, or a 3MF when marks are placed)."""
     tris = struct.unpack_from("<I", model, 80)[0] if len(model) >= 84 else 0
     return {"triangles": tris, "bytes": len(model), "crc": f"{zlib.crc32(model) & 0xFFFFFFFF:08x}",
-            "as": "3mf" if marks else "stl", "enforce": len(marks["enforce"]) if marks else 0,
-            "block": len(marks["block"]) if marks else 0}
+            "as": "3mf" if (marks or objects) else "stl", "enforce": len(marks["enforce"]) if marks else 0,
+            "block": len(marks["block"]) if marks else 0, "objects": len(objects) if objects else 1}
 
 
 class Job:
@@ -674,7 +679,7 @@ class PrusaService:
         self._install(on_done=note)
 
     # ------------------------------------------------------------ slicing
-    def submit(self, model, ini, name, center, supports=None):
+    def submit(self, model, ini, name, center, supports=None, objects=None):
         why = self.refuse()
         if why:
             raise Fail(why)
@@ -690,9 +695,13 @@ class PrusaService:
             raise Fail("Part position outside the bed")
         # supports placed by hand: checked numbers, built into a 3MF here (prusa_3mf.py), never a file from outside
         marks = clean_supports(supports)
+        # several parts, each in a filament lane (prusa_3mf.py): built into a 3MF with one object per part
+        objs = clean_objects(objects, model)
+        if objs and marks:
+            raise Fail("Support marks aren't used with parts in different lanes yet: use automatic supports")
         known = set(self.keys())
         ini = clean_ini(ini, known)
-        key = hashlib.sha256(model + ini.encode() + f"{cx:.3f},{cy:.3f}|{self.info()['commit']}|{json.dumps(marks, sort_keys=True)}".encode()).hexdigest()[:32]
+        key = hashlib.sha256(model + ini.encode() + f"{cx:.3f},{cy:.3f}|{self.info()['commit']}|{json.dumps(marks, sort_keys=True)}|{json.dumps(objs)}".encode()).hexdigest()[:32]
         with self.lock:
             # Studio sends a new request when its settings change: the older ones are no longer wanted
             for j in self.jobs.values():
@@ -702,7 +711,7 @@ class PrusaService:
             d = os.path.join(self.base, "jobs", jid)
             os.makedirs(d)
             job = Job(jid, d, key)
-            job.model = _model_facts(model, marks)
+            job.model = _model_facts(model, marks, objs)
             self.jobs[jid] = job
             cached = os.path.join(self.base, "cache", key + ".gcode")
             if os.path.exists(cached):
@@ -710,9 +719,12 @@ class PrusaService:
                 job.state, job.phase, job.progress, job.cached, job.finished = "done", "Done", 1.0, True, time.time()
                 os.utime(cached)
                 return job.view()
-            if marks:
+            if marks or objs:
                 try:
-                    write_3mf(model, marks, os.path.join(d, "part.3mf"))
+                    if objs:
+                        write_objects_3mf(model, objs, os.path.join(d, "part.3mf"))
+                    else:
+                        write_3mf(model, marks, os.path.join(d, "part.3mf"))
                 except Exception:
                     shutil.rmtree(d, ignore_errors=True)
                     del self.jobs[jid]

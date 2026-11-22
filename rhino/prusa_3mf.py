@@ -163,3 +163,82 @@ def write_3mf(model, supports, path):
         cfg.append("</object></config>\n")
         z.writestr("Metadata/Slic3r_PE_model.config", "".join(cfg))
     return {k: len(supports.get(k, [])) for k in ("enforce", "block")}
+
+
+# ---------------------------------------------------------------- several parts, each in a filament lane
+MAX_OBJECTS = 64
+MAX_LANES = 8
+
+
+def clean_objects(text, model):
+    """The parts in the model and the lane each prints in: [{"triangles": n, "lane": k}, ...], in the order they sit in the
+    STL, their counts adding up to the STL's triangles. None when there is nothing to build a project for: no list, or every
+    part in lane 1 (the plain STL goes to PrusaSlicer as it always has)."""
+    if text in (None, ""):
+        return None
+    if len(text) > 20_000:
+        raise Fail("Too many parts")
+    try:
+        data = json.loads(text)
+    except ValueError:
+        raise Fail("The parts and their lanes aren't readable")
+    if not isinstance(data, list) or not 1 <= len(data) <= MAX_OBJECTS:
+        raise Fail(f"Parts and lanes: expected a list of 1 to {MAX_OBJECTS} parts")
+    out = []
+    for o in data:
+        if not isinstance(o, dict) or set(o) != {"triangles", "lane"}:
+            raise Fail("Parts and lanes: each is {triangles, lane}")
+        t, lane = o["triangles"], o["lane"]
+        if isinstance(t, bool) or isinstance(lane, bool) or not isinstance(t, int) or not isinstance(lane, int):
+            raise Fail("Parts and lanes: whole numbers only")
+        if t < 1 or not 0 <= lane < MAX_LANES:
+            raise Fail("Parts and lanes: a part is out of range")
+        out.append({"triangles": t, "lane": lane})
+    if sum(o["triangles"] for o in out) != stl_triangles(model):
+        raise Fail("The parts' triangles don't add up to the model's")
+    return out if any(o["lane"] for o in out) else None
+
+
+def write_objects_3mf(model, objects, path):
+    """The parts as one PrusaSlicer project, each its own object with its lane (PrusaSlicer's extruder, from 1). Corners are
+    shared within a part and written exactly, as in write_3mf. Supports placed by hand aren't part of this: the Portal refuses both."""
+    n = stl_triangles(model)
+    if n > MAX_TRIANGLES:
+        raise Fail(f"The parts have too many triangles for lanes ({n:,}); use fewer or simpler parts")
+    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as z:
+        z.writestr("[Content_Types].xml", _CONTENT_TYPES)
+        z.writestr("_rels/.rels", _RELS)
+        cfg = ['<?xml version="1.0" encoding="UTF-8"?>\n<config>']
+        with z.open("3D/3dmodel.model", "w", force_zip64=True) as f:
+            w = lambda s: f.write(s.encode())  # noqa: E731
+            w('<?xml version="1.0" encoding="UTF-8"?>\n<model unit="millimeter" xml:lang="en-US" '
+              'xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02" '
+              'xmlns:slic3rpe="http://schemas.slic3r.org/3mf/2017/06">\n<metadata name="slic3rpe:Version3mf">1</metadata>\n<resources>')
+            first = 0
+            for oid, o in enumerate(objects, 1):
+                index, corners, tris = {}, [], array.array("I")
+                for i in range(first, first + o["triangles"]):
+                    base = 84 + 50 * i + 12
+                    for c in range(3):
+                        key = model[base + 12 * c:base + 12 * c + 12]
+                        k = index.get(key)
+                        if k is None:
+                            k = index[key] = len(corners)
+                            corners.append(key)
+                        tris.append(k)
+                w(f'<object id="{oid}" type="model"><mesh><vertices>\n')
+                for key in corners:
+                    x, y, zz = struct.unpack("<3f", key)
+                    w(f'<vertex x="{x:.9g}" y="{y:.9g}" z="{zz:.9g}"/>\n')
+                w("</vertices><triangles>\n")
+                for t in range(len(tris) // 3):
+                    w(f'<triangle v1="{tris[3 * t]}" v2="{tris[3 * t + 1]}" v3="{tris[3 * t + 2]}"/>\n')
+                w("</triangles></mesh></object>\n")
+                cfg.append(f'<object id="{oid}" instances_count="1"><metadata type="object" key="name" value="part {oid}"/>'
+                           f'<metadata type="object" key="extruder" value="{o["lane"] + 1}"/>'
+                           f'<volume firstid="0" lastid="{o["triangles"] - 1}"><metadata type="volume" key="name" value="part {oid}"/>'
+                           f'<metadata type="volume" key="volume_type" value="ModelPart"/></volume></object>')
+                first += o["triangles"]
+            w("</resources>\n<build>" + "".join(f'<item objectid="{i}" printable="1"/>' for i in range(1, len(objects) + 1)) + "</build></model>\n")
+        cfg.append("</config>\n")
+        z.writestr("Metadata/Slic3r_PE_model.config", "".join(cfg))
