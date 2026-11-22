@@ -1,5 +1,13 @@
 # What changed
 
+## 1.9.42 - Studio 0.35.1: turning the model no longer snaps back; lane colours you pick; flat grey in the style guide
+
+No Klipper macro or machine value changes. Studio only.
+
+- **Fixed (Mike, Nov 22): the 3D view reset about twice a second** while turning the model, when parts were in two lanes. The purge tower's area was handed to the view as a new object each time something nearby updated, and the view re-framed its camera for any new bed. The area stays one object until it really moves, and the view re-frames only when the bed's size changes.
+- **Style guide**: click a lane's colour to pick it with the browser's colour picker; it colours the lane keys, part chips, lane tabs and the Preview and is kept in that browser. "Back to the look's colours" undoes it.
+- **Style guide**: the dither swatch is now one flat light grey (the dots made its text hard to read), and so is an empty lane key.
+
 ## 1.9.41 - Studio 0.35.0: two filaments in one job (slices and previews; sending waits for the machine's lane-change macro)
 
 No Klipper macro or machine value changes. A job file that changes filament lane **can't be sent or downloaded** until Klipper has a `SWITCH_LANE` macro (written with the new hardware): without it Klipper would skip each lane change and print with the wrong filament. Slicing and previewing work.
