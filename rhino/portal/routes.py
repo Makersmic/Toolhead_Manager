@@ -116,6 +116,39 @@ def delete_theme_image(filename):
     return _write(go)
 
 
+@bp.get("/theme-font/<filename>")
+def theme_font(filename):
+    p = media.font_path(_paths(), filename)
+    if not os.path.isfile(p):
+        return security.error("No such font", 404)
+    r = send_file(p, mimetype=media.font_type(filename))
+    r.headers["X-Content-Type-Options"] = "nosniff"
+    return r
+
+
+@bp.get("/api/theme-fonts")
+def theme_fonts():
+    return jsonify({"ok": True, "fonts": media.font_list(_paths()), "max": media.MAX_THEME_FONTS, "max_bytes": media.MAX_FONT_BYTES})
+
+
+@bp.post("/api/theme-fonts")
+def add_theme_font():
+    def go():
+        up = request.files.get("font")
+        if up is None:
+            raise Fail("No font was sent")
+        return {"ok": True, "name": media.font_save(_paths(), up), "fonts": media.font_list(_paths())}
+    return _write(go)
+
+
+@bp.delete("/api/theme-fonts/<filename>")
+def delete_theme_font(filename):
+    def go():
+        media.font_delete(_paths(), filename)
+        return {"ok": True, "fonts": media.font_list(_paths())}
+    return _write(go)
+
+
 @bp.get("/media/<tool>/<filename>")
 def photo(tool, filename):
     p = media.path_for(_paths(), tool, filename)

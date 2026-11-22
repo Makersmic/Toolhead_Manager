@@ -148,6 +148,29 @@ ok(r.status_code == 400 and "12" in J(r).get("error", ""), "the 13th picture is 
 for im in J(c.get("/api/theme-images"))["images"]:
     r = c.delete(f"/api/theme-images/{im['name']}", headers=HDR)
 ok(r.status_code == 200 and J(r)["images"] == [] and c.get(f"/theme-media/{bg}").status_code == 404, "pictures can be deleted")
+# ---- fonts for themes
+woff2 = b"wOF2" + b"\x00" * 60
+fr = lambda data, name, hdr=HDR: c.post("/api/theme-fonts", data={"font": (io.BytesIO(data), name)}, headers=hdr, content_type="multipart/form-data")
+r = c.get("/api/theme-fonts"); ok(J(r)["fonts"] == [] and J(r)["max"] == 12, "no fonts to start with")
+r = fr(woff2, "My Face.woff2", {}); ok(r.status_code != 200 and J(c.get("/api/theme-fonts"))["fonts"] == [], "a font needs the write token")
+r = fr(woff2, "My Face.woff2"); ft = J(r).get("name", "")
+ok(r.status_code == 200 and ft.endswith(".woff2") and J(r)["fonts"][0]["label"] == "My Face", "a font is stored under a new name and keeps its label")
+r = c.get(f"/theme-font/{ft}"); ok(r.data == woff2 and r.headers["Content-Type"].startswith("font/woff2") and r.headers.get("X-Content-Type-Options") == "nosniff", "served as a font")
+ok(os.path.isfile(os.path.join(ROOT, "printer_data", "rhino_data", "images", "_theme", "fonts", ft)), "outside the config folder, with the pictures")
+ok(J(c.get("/api/theme-images"))["images"] == [], "a font is not listed as a picture")
+ok(fr(b"<?php evil ?>", "x.woff2").status_code == 400, "a fake font is refused")
+ok(fr(woff2, "x.svg").status_code == 400 and fr(woff2, "x.exe").status_code == 400, "other file types are refused")
+ok(fr(b"wOF2" + b"\x00" * (2 * 1024 * 1024), "big.woff2").status_code == 400, "a font over 2 MB is refused")
+ok(fr(b"\x00\x01\x00\x00" + b"\x00" * 20, "a.ttf").status_code == 200 and fr(b"OTTO" + b"\x00" * 20, "b.otf").status_code == 200, "TTF and OTF are accepted")
+ok(c.get("/theme-font/..%2f..%2fprinter.cfg").status_code in (400, 404), "path traversal blocked on fonts")
+ok(c.delete(f"/api/theme-fonts/{ft}").status_code != 200 and c.get(f"/theme-font/{ft}").status_code == 200, "deleting a font needs the token")
+for i in range(12):
+    r = fr(woff2, "f.woff2")
+ok(r.status_code == 400 and "12" in J(r).get("error", ""), "the 13th font is refused and says why")
+for f in J(c.get("/api/theme-fonts"))["fonts"]:
+    r = c.delete(f"/api/theme-fonts/{f['name']}", headers=HDR)
+ok(r.status_code == 200 and J(r)["fonts"] == [] and c.get(f"/theme-font/{ft}").status_code == 404, "fonts can be deleted")
+ok(os.listdir(os.path.join(ROOT, "printer_data", "rhino_data", "images", "_theme", "fonts")) == [], "and their label files go too")
 r = c.post("/api/tools/HotWire/rename", json={"new_name": "WireCutter"}, headers=HDR); ok(r.status_code == 200, "rename ok")
 ok(c.get(f"/media/WireCutter/{fn}").status_code == 200, "photos follow rename")
 ok(J(c.get("/api/state"))["tools"][-1]["name"] == "WireCutter", "renamed in library")

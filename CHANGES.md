@@ -1,5 +1,21 @@
 # What changed
 
+## 1.9.43 - Studio 0.36.0: Appearance in four pages, your own fonts, a sturdier link to Moonraker
+
+No Klipper macro or machine value changes. The Portal gains a font store; Studio reorganises Settings > Appearance and hardens its connection to Moonraker.
+
+- **Appearance is now four pages** in the Settings menu: **Theme** (day or night, the theme, Apply and Revert, save, share and reset), **Text** (text colour, typefaces, your fonts), **Background** (the picture) and **This screen** (3D view and camera settings, kept in this browser only). Each page says where its settings are kept. `/settings` still opens Theme.
+- **Your own fonts** (Text page): add a WOFF2, WOFF, TTF or OTF file (up to 2 MB, 12 fonts). The Rhino keeps it, so every screen has it and backups include it. It appears in the Category titles, Subcategories and Regular text lists under "Your fonts". A deleted or unreachable font shows Archivo. A theme file names an uploaded font but does not carry it.
+- **Portal**: `GET/POST /api/theme-fonts`, `DELETE /api/theme-fonts/<file>` and `GET /theme-font/<file>`. A font is checked by its leading bytes (not its extension), stored under a random name in `images/_theme/fonts/` (outside the config folder), and served as a font with `nosniff`. Writes need the token; the 13th font and anything over 2 MB are refused with the reason.
+- Studio also refuses a file the browser can't read as a font before sending it.
+- **Moonraker connection (Studio)**:
+  - **Emergency Stop** goes out over the websocket and over HTTP at the same time, and counts if either is accepted. Before, a websocket that looked open but was dead made Stop wait 4 seconds and fail without trying HTTP. If neither route is accepted the message says it was NOT confirmed and to use the machine's own stop or power switch.
+  - **A dead connection is noticed.** After 10 seconds of silence Studio asks Moonraker something; with no answer in 5 seconds it drops the link and reconnects, so "Connected" and the readings can't sit frozen. It also checks at once when a phone wakes or the network comes back.
+  - **Reconnect back-off** now resets only once Moonraker answers, so a server that accepts and hangs up isn't retried every second.
+  - **A command with no answer** (or cut off by a closed connection) says it may still have run and to check the machine before sending it again. Reads keep the short wording.
+  - Klipper's state is looked at one check at a time, so a restart no longer subscribes twice.
+
+
 ## 1.9.42 - Studio 0.35.1: turning the model no longer snaps back; lane colours you pick; flat grey in the style guide
 
 No Klipper macro or machine value changes. Studio only.

@@ -117,3 +117,88 @@ def delete_all(paths, tool):
             os.rmdir(d)
         except OSError:
             pass
+
+
+# ---- fonts for Studio's themes, in images/_theme/fonts: backed up with the pictures, outside the config folder.
+# The file name is random, so a name can't reach outside the folder; the name the person gave is kept beside it in a .name file.
+FONT_DIR = os.path.join(THEME_DIR, "fonts")
+MAX_THEME_FONTS = 12
+MAX_FONT_BYTES = 2 * 1024 * 1024
+FONT_SIGNATURES = {".woff2": (b"wOF2",), ".woff": (b"wOFF",), ".ttf": (b"\x00\x01\x00\x00", b"true"), ".otf": (b"OTTO",)}
+FONT_TYPES = {".woff2": "font/woff2", ".woff": "font/woff", ".ttf": "font/ttf", ".otf": "font/otf"}
+_FONT_RE = re.compile(r"^[0-9a-f]{16}\.(woff2|woff|ttf|otf)$")
+_FONT_LABEL_BAD = re.compile(r"[^A-Za-z0-9 ._-]+")
+
+
+def valid_font(name):
+    return bool(_FONT_RE.match(name or ""))
+
+
+def font_type(name):
+    return FONT_TYPES[os.path.splitext(name)[1].lower()]
+
+
+def _font_dir(paths):
+    return os.path.join(paths.images_dir, FONT_DIR)
+
+
+def font_label(upload_name):
+    """A short, plain name for the list, from the file name the person chose."""
+    stem = os.path.splitext(os.path.basename(upload_name or ""))[0]
+    return _FONT_LABEL_BAD.sub(" ", stem).strip()[:40] or "Uploaded font"
+
+
+def font_list(paths):
+    d = _font_dir(paths)
+    if not os.path.isdir(d):
+        return []
+    out = []
+    for f in os.listdir(d):
+        if valid_font(f):
+            s = os.stat(os.path.join(d, f))
+            try:
+                with open(os.path.join(d, f.rsplit(".", 1)[0] + ".name"), encoding="utf-8") as h:
+                    label = font_label(h.read(80))
+            except OSError:
+                label = "Uploaded font"
+            out.append({"name": f, "label": label, "size": s.st_size, "added": int(s.st_mtime)})
+    return sorted(out, key=lambda x: (x["added"], x["name"]))
+
+
+def font_save(paths, upload):
+    if len(font_list(paths)) >= MAX_THEME_FONTS:
+        raise Fail(f"There are already {MAX_THEME_FONTS} fonts on the Rhino. Delete one first.")
+    ext = os.path.splitext(upload.filename or "")[1].lower()
+    if ext not in FONT_SIGNATURES:
+        raise Fail("Fonts must be WOFF2, WOFF, TTF or OTF files")
+    data = upload.read(MAX_FONT_BYTES + 1)
+    if len(data) > MAX_FONT_BYTES:
+        raise Fail(f"That font is larger than {MAX_FONT_BYTES // (1024 * 1024)} MB")
+    if not any(data.startswith(sig) for sig in FONT_SIGNATURES[ext]):
+        raise Fail("That file is not really a " + ext[1:].upper() + " font")
+    d = _font_dir(paths)
+    os.makedirs(d, exist_ok=True)
+    stem = secrets.token_hex(8)
+    name = stem + ext
+    tmp = os.path.join(d, name + ".tmp")
+    with open(tmp, "wb") as f:
+        f.write(data)
+    os.replace(tmp, os.path.join(d, name))
+    with open(os.path.join(d, stem + ".name"), "w", encoding="utf-8") as f:
+        f.write(font_label(upload.filename))
+    return name
+
+
+def font_path(paths, filename):
+    if not valid_font(filename):
+        raise Fail("Bad file name")
+    return os.path.join(_font_dir(paths), filename)
+
+
+def font_delete(paths, filename):
+    p = font_path(paths, filename)
+    for q in (p, p.rsplit(".", 1)[0] + ".name"):
+        try:
+            os.remove(q)
+        except FileNotFoundError:
+            pass
