@@ -210,3 +210,22 @@ Append-only. Each entry is dated and gives its reason. An entry is never edited;
   stop, level, Z drive, nozzle, spindle, umbilical. Also: a read-only "What's happening" strip on the tuning pages (Mike: it would
   help to be informed while a test heats and runs). *Reason:* one component to build and test instead of ten, and a precondition such
   as "spindle relay off" is only a safety gate if Studio reads it from Klipper.
+- **2026-11-21: Support marks belong to the model on screen** (Mike, Nov 21). Marks start empty with each model and are not saved or restored per file name; removing a part
+  removes its marks; any change to the marks clears the prepared file. *Reason:* marks restored by file name had put old spots on a new part, and a stale prepared file looked
+  like "Preview kept the first model".
+- **2026-11-21: Marked supports go to PrusaSlicer as a 3MF the Portal builds with shared, exact corners** (found with Mike's drilled washer). A 3MF's loose corners are not
+  welded by PrusaSlicer the way an STL's are, so holes filled in; each corner is now written once with exact float32 values. No marks means a plain STL, and the slice reports what
+  the Rhino received (triangle count, size, CRC-32). Marked parts are capped at 1.5 million triangles. *Reason:* proved on PrusaSlicer 2.8.1 and confirmed by Mike on 2.9.7.
+- **2026-11-21: Job setup is the model full width, with floating, foldable Process and Settings panels** (Mike, Nov 21). They stack under the model at 1100 px and under. Fold state
+  is kept per browser only.
+- **2026-11-21: Supports have one control, settings groups start folded, changed settings get a red border, Preview asks to save** (Mike, Nov 21: "keep the red border").
+  The Supports drop-down (Off / Automatic / Only where I mark) is the only support control; PrusaSlicer's `support_material` and `support_material_auto` checkboxes are hidden
+  because it sets them. Every settings group starts folded (PrusaSlicer groups keep what the viewer opened). A setting that differs from the profile in use gets a red border
+  (`--rs-changed`): a deliberate exception to "red only means stop", recorded in Studio's AGENTS.md. Opening Preview with unsaved changes asks: save to the profile, save as a new
+  profile, or continue without saving; "continue" is not asked again until the changes change. *Reason:* two controls for one thing invited conflicting settings, and a profile
+  quietly drifting from what was sliced is how a good setup gets lost.
+- **2026-11-21: The part cooling fan is set from Control, in the status strip** (Mike, Nov 21). Click the Part fan reading, type 0 to 100 %, Enter; it sends `M106 S<0-255>` or
+  `M107` through the normal command check (no confirmation, like the heat commands) and only for a confirmed print head. *Reason:* the strip showed the fan but there was no way to
+  set it. The Rhino's `[fan]` pin and cycle time are untouched.
+- **Logged late, from earlier sessions (wording as in the handoff; no new decision):** tool power is on for a task, not a mount (SwitchFly UBEC PA1); WireViz not adopted; the
+  notes folder was restructured; Studio does not start the spindle in the run-in; Studio never moves Z in the Z drive wizard; Care guide progress is kept in memory only.
