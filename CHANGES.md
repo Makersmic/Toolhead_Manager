@@ -1,5 +1,14 @@
 # What changed
 
+## 1.9.41 - Studio 0.35.0: two filaments in one job (slices and previews; sending waits for the machine's lane-change macro)
+
+No Klipper macro or machine value changes. A job file that changes filament lane **can't be sent or downloaded** until Klipper has a `SWITCH_LANE` macro (written with the new hardware): without it Klipper would skip each lane change and print with the wrong filament. Slicing and previewing work.
+
+- **Job setup, SwitchFly's two lanes**: lane keys (two to eight lanes) with a filament per lane; a lane chip on each part; "Support filament" and, in PrusaSlicer, "Interface filament" choose which lane prints them; "Purge at a lane change": a tower on the bed or the machine purges (PrusaSlicer can't build its tower when supports come from another lane, so the machine purges then).
+- **Slicing**: the Portal builds a 3MF with one object per part and its lane (parts in lane 1 only still go as a plain STL); the settings file may carry only one G-code template, a comment marker. Studio turns the markers into `SWITCH_LANE LANE=n`, removes PrusaSlicer's bare `Tn` and heat commands, and starts `START_JOB` in the lane the slicer starts in. Kiri:Moto: the whole job in one lane, supports from another.
+- **Lane tabs** for PrusaSlicer's filament options, an estimate of the lane changes before slicing, temperature notes, the purge tower's area drawn on the bed, **preview coloured by lane**, and **assemblies**: files dropped together keep their places relative to each other and move as one.
+- Support marks can't be used with parts in different lanes yet.
+
 ## 1.9.40 - Studio 0.34.0: set the part fan from Control, and the lane keys (style guide only)
 
 No Klipper macro or machine value changes. Studio only.
