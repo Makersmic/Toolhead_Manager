@@ -1,5 +1,14 @@
 # What changed
 
+## 1.9.39 - Studio 0.33.0: one supports control, folded settings, red borders on changed settings, save before Preview
+
+No Klipper macro or machine value changes. Studio only.
+
+- **Supports**: PrusaSlicer's own "Generate support material" and "Auto generated supports" checkboxes are no longer shown. The Supports drop-down (Off / Automatic / Only where I mark) is the one control and sets the same two options as before.
+- **Settings groups start folded** in Job setup. PrusaSlicer's groups remember what you open in that browser; the Kiri:Moto, laser, knife and CNC groups start folded each visit.
+- **A setting you change gets a red border** until it matches the profile in use again (or you pick another profile or press Reset).
+- **Before Preview**: with changed settings, Prepare and the Preview step ask to save them to the profile, save them as a new profile, or continue without saving. Needs the Rhino's profiles (Tool Manager 1.8 or later).
+
 ## 1.9.38 - Studio 0.32.0: Job setup puts the model full width, with the panels floating over it
 
 No Klipper macro or machine value changes. Studio only.
