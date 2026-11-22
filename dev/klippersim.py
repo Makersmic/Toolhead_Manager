@@ -349,9 +349,6 @@ class Sim:
             m = re.match(r"\[include\s+(.+?)\]\s*$", line)
             if m:
                 targets = sorted(glob.glob(os.path.join(base, m.group(1))))
-                if not targets and m.group(1).strip() == "mainsail.cfg":
-                    fx = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures", "mainsail.cfg")
-                    targets = [fx] if os.path.exists(fx) else []
                 for t in targets:
                     self._read(t, parts, seen)
                 continue

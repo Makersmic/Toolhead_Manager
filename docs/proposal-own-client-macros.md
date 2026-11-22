@@ -1,5 +1,7 @@
 # Proposal: the Rhino keeps its own PAUSE, RESUME and CANCEL_PRINT
 
+**Superseded in 1.9.44 by `docs/proposal-own-pause-resume.md`**: the pinned copy described here is replaced by the Rhino's own macros. Kept as history.
+
 Nov 9 2026. **Approved by Mike on Nov 9 and applied in 1.9.19** (`dev/proposal_own_client_macros.py --apply`).
 The machine's `mainsail.cfg` had md5 `0b6bf780f4dba4d0ca7294dd0f6b5d40`, the same bytes as `dev/fixtures/mainsail.cfg`
 that the simulator already ran, so the pinned copy is that file rather than a newer upstream one: nothing changes.

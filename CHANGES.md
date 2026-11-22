@@ -1,5 +1,19 @@
 # What changed
 
+## 1.9.44 - Studio 0.36.1: the Rhino's own pause, resume and cancel; Mainsail no longer part of Studio or the Portal
+
+**Klipper macros change** (approved by Mike, Nov 22; `docs/proposal-own-pause-resume.md`). Pause, resume and cancel behave as before: 27 scenarios gave identical G-code, errors and pop-ups on the old and new macros in the simulator. Check OP1-OP7 in `docs/testing.md` on the machine.
+
+- **`pause_resume.cfg` replaces `client_mainsail.cfg`.** The Rhino's own `PAUSE`, `RESUME`, `CANCEL_PRINT`, `SET_PAUSE_AT_LAYER`, `SET_PAUSE_NEXT_LAYER` and `SET_PRINT_STATS_INFO` (same names, because Moonraker and Studio call them), with the same steps, order and numbers, and only what the Rhino uses. It still credits mainsail-config (GPL-3.0, Alex Zellner). `printer.cfg`'s first line is now `[include pause_resume.cfg]`.
+- **Hooks called by name**, not through Mainsail's `_CLIENT_VARIABLE` text variables: `PAUSE` calls `_RHINO_PAUSE_HOOK`, `RESUME` calls `_RHINO_RESUME_HOOK`, `CANCEL_PRINT` calls `_RHINO_CANCEL` (all three unchanged). The park spot is read straight from `myrhino/positions.cfg`; the start-up copy of it is gone.
+- **Left out** (never turned on): delta and polar parking, firmware retraction, the runout check inside RESUME, the idle-timeout override in PAUSE, park-on-cancel, `_CLIENT_LINEAR_MOVE`.
+- **Updating a machine:** the installer takes the old `client_mainsail.cfg` out of the config folder (the install backup keeps it; Undo, `rhino.sh` option 4, brings it back). Your own `positions.cfg` is kept as it is, and its old start-up step still copies the park spot into `_CLIENT_VARIABLE`, so a small compatibility stub with that name stays in `pause_resume.cfg`. Nothing reads it; remove it once `positions.cfg` is brought up to date.
+- **The health check** (`rhino.sh` option 7) checks for `pause_resume.cfg`, still passes the 1.9.19 setup (saying it is older), and fails a `printer.cfg` that includes more than one pause/resume file.
+- **Wording:** nine lines you see in Studio no longer name Mainsail ("The normal Resume button is for print jobs...", "Start the job from Studio...", macro descriptions); the 27 comment lines too.
+- **The Portal's own pages** follow the device's light or dark setting instead of reading Mainsail's UI settings from Moonraker (`/api/theme` is gone). Care's "Mainsail reminder" is the "start-up reminder". Restart advice when Moonraker is down no longer sends you to Mainsail (it couldn't work); `rhino.sh` no longer says to upload a zip in Mainsail.
+- **New documents:** `docs/install-without-mainsail.md` (a host that never has Mainsail: untried, try it on a spare machine first; checks MF1-MF7) and `dev/compare_pause_resume.py` (runs the same scenarios on two config trees and compares).
+- **Studio 0.36.1:** the same wording changes (restart banner, job-start error, zip hint, "start-up reminder", Trust, Cameras, Backup, Network and Software text, README); the dev default host is `rhino.local`.
+
 ## 1.9.43 - Studio 0.36.0: Appearance in four pages, your own fonts, a sturdier link to Moonraker
 
 No Klipper macro or machine value changes. The Portal gains a font store; Studio reorganises Settings > Appearance and hardens its connection to Moonraker.

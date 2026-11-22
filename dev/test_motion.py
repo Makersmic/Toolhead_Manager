@@ -343,7 +343,6 @@ def edited_config(positions=None, printer_cfg=None):
     """A copy of this config with positions.cfg (and optionally printer.cfg) edited the way a person would."""
     d = _tf.mkdtemp(prefix="rhino-pos-")
     _sh.copytree(ROOT, d + "/c", ignore=_sh.ignore_patterns(".git", "__pycache__", "dev", "manual", "docs", "node_modules"))
-    _sh.copytree(os.path.join(HERE, "fixtures"), d + "/c/dev/fixtures")
     for f, changes in (("myrhino/positions.cfg", positions), ("printer.cfg", printer_cfg)):
         txt = open(f"{d}/c/{f}").read()
         for key, val in (changes or {}).items():
@@ -367,11 +366,9 @@ s = esim(E, 1, x=200, y=150, z=0.3, job="printing"); s.run_script("CANCEL_PRINT"
 ok(pos(s) == (500.0, 350.0, 160.0), f"edited park and safe height: cancel ends at X500 Y350 Z160 {pos(s)}")
 s = esim(E, 1, z=20.0); s.run_script("SWAP_TOOL TOOL=3")
 ok(pos(s) == (120.0, 90.0, 160.0), f"edited swap spot: the swap goes to X120 Y90, bed at Z160 {pos(s)}")
-s = esim(E, 1); s.fire_delayed("_RHINO_POSITIONS_APPLY")
-cv = s.macro_vars["_CLIENT_VARIABLE"]
-ok((cv["custom_park_x"], cv["custom_park_y"]) == (500.0, 350.0), "at start-up the park spot is copied to Mainsail's _CLIENT_VARIABLE")
+s = esim(E, 1)
 s.objects["print_stats"]["state"] = "printing"; s.run_script("PAUSE")
-ok(pos(s)[:2] == (500.0, 350.0), f"...so Mainsail's own pause parks there too {pos(s)}")
+ok(pos(s)[:2] == (500.0, 350.0), f"pause parks at the edited park spot, read straight from positions.cfg {pos(s)}")
 s = esim(E, 4, z=272.0); s.run_script("SET_Z_ZERO"); s.press("Bed down 10")
 ok(pos(s)[2] == 280.0, f"edited Set Z zero limit: Bed down stops at Z280 ({pos(s)[2]})")
 s = esim(E, 1, rhino_zcal_blockone=-1.3, set_material_extruder_temp=210.0); s.run_script("PRIME_LINE")

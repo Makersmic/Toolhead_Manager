@@ -85,8 +85,6 @@ try:
         q = f"filename={j['filename']}&status={j['status']}&total_duration={j['total_duration']:.0f}&end_time={j['end_time']:.0f}"
         urllib.request.urlopen(urllib.request.Request(f"{fake}/__job?{q}", method="POST"), timeout=5)
 
-    fake_set(ui_mode="light", ui_primary="%23e91e63")
-
     with sync_playwright() as p:
         browser = p.chromium.launch()
         problems = []
@@ -109,13 +107,13 @@ try:
             return page.evaluate("[...document.querySelectorAll('.view')].filter(v => !v.classList.contains('hidden')).map(v => v.id)")
 
         # ---------------------------------------------------------------- desktop, dark theme
-        page = browser.new_page(viewport={"width": 1400, "height": 900})
+        page = browser.new_page(viewport={"width": 1400, "height": 900}, color_scheme="light")
         watch(page, "desktop")
         page.goto(portal)
         settle(page, 1500)
         bg = page.evaluate("getComputedStyle(document.body).backgroundColor")
         ok(page.evaluate("document.documentElement.dataset.theme") == "light" and sum(int(v) for v in re.findall(r"\d+", bg)[:3]) > 600,
-           f"follows Mainsail's light theme (body {bg})")
+           f"follows the device's light setting (body {bg})")
         # an added tool, so the editor can be opened (built-in tools are edited in variables.cfg)
         added = page.evaluate("""async () => {
             const t = document.querySelector('meta[name="rhino-token"]').content;

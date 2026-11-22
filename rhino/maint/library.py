@@ -75,7 +75,7 @@ MACHINE = [
      "parts": ["Spare connector pins / housing"], "minutes": 15},
     {"id": "estop", "area": "other", "title": "Inspect the machine after an emergency stop or shutdown", "type": "inspect",
      "priority": "high", "rules": [_e("shutdowns")],
-     "steps": ["Find out why it stopped (Mainsail console, klippy.log)", "Check nothing crashed into the bed or a clamp",
+     "steps": ["Find out why it stopped (the console, klippy.log)", "Check nothing crashed into the bed or a clamp",
                "Home and check the axes move freely before the next job"], "minutes": 10},
 ]
 

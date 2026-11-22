@@ -156,23 +156,6 @@ class Moonraker:
             raise Fail("Moonraker could not restore its database")
         return r.get("result") or {}
 
-    def ui_theme(self):
-        """Mainsail's appearance settings (Moonraker database, namespace "mainsail", key uiSettings):
-        {"mode": "dark"|"light", "primary": "#rrggbb"}. Defaults to Mainsail's own defaults when the
-        database or the key is missing; never raises."""
-        out = {"mode": "dark", "primary": "#2196f3", "source": "default"}
-        try:
-            r = self._call("GET", "/server/database/item", {"namespace": "mainsail", "key": "uiSettings"})
-            v = (r.get("result") or {}).get("value") or {}
-        except Fail:
-            return out
-        if v.get("mode") in ("dark", "light"):
-            out["mode"], out["source"] = v["mode"], "mainsail"
-        p = str(v.get("primary") or "")
-        if re.fullmatch(r"#?[0-9a-fA-F]{6}", p):
-            out["primary"], out["source"] = "#" + p.lstrip("#").lower(), "mainsail"
-        return out
-
     # ------------------------------------------------------------------ portal status
     def status(self):
         """-> {online, klippy, print_state, mounted_slot, restart_blocked, job}; never raises.
@@ -206,7 +189,7 @@ class Moonraker:
         """FIRMWARE_RESTART so brand-new output pins are configured. Never while a job is running."""
         st = self.status()
         if not st["online"]:
-            raise Fail("Cannot reach Moonraker - restart Klipper from Mainsail instead.")
+            raise Fail("Cannot reach Moonraker - restart Moonraker on the Rhino's host, or restart the host.")
         if st["restart_blocked"]:
             raise Fail(f"A job is {st['print_state']}. Restarting now would kill it - wait until it is finished.")
         self._call("POST", "/printer/firmware_restart")

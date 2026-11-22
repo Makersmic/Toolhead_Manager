@@ -80,7 +80,7 @@ function renderBanner() {
   const blocked = !!pr.restart_blocked, btn = $("restartBtn");
   btn.disabled = blocked || !pr.online;
   btn.title = blocked ? "Restarting Klipper now would stop the job." : "";
-  if (!pr.online) $("bannerWhy").textContent = "Moonraker is offline, so the portal cannot restart Klipper. Restart it from Mainsail.";
+  if (!pr.online) $("bannerWhy").textContent = "Moonraker is offline, so the portal cannot restart Klipper. Restart Moonraker on the Rhino's host (or restart the host), then try again.";
   else if (blocked) $("bannerWhy").textContent = `Klipper loads them at its next restart, which waits until the job ${pr.print_state === "paused" ? "is finished (it is paused now)" : "finishes"} - restarting now would stop it.`;
   else if (p.restart_at) $("bannerWhy").textContent = "The job has finished. Klipper restarts by itself in a moment.";
   else $("bannerWhy").textContent = "Klipper has to restart to load them. The machine is idle, so it is safe now.";
@@ -693,7 +693,7 @@ function drawMacroForm(b) {
     field("Macro name", textInput(m, "name", { maxlength: 40, placeholder: "NEEDLE_PURGE", class: "mono", onchange: onEdit }),
       "Letters, digits and _. Klipper ignores case, so it is saved in capitals. Must not clash with any other macro or command."),
     field("Purpose", textInput(m, "purpose", { maxlength: 120, placeholder: "Purge the needle before a cut", onchange: onEdit }),
-      "One line. Shown in Mainsail's macro list and console autocomplete.")));
+      "One line. Shown in the macro list and console autocomplete.")));
   b.append(h("label", { class: "check" }, h("input", { type: "checkbox", checked: !!m.mounted_only,
     onchange: (e) => { m.mounted_only = e.target.checked; onEdit(); } }), "Only run when this tool is mounted (refused with a message otherwise)"));
   b.append(field("Macro", h("textarea", { class: "code", spellcheck: "false", rows: 12, placeholder: "G91\nG1 Z5 F600\nG90",
@@ -808,7 +808,7 @@ function drawControlForm(b) {
       h("div", { class: "lbl", text: "If Klipper shuts down or loses the board" }),
       radio("on_shutdown", "off", "Switch it off (recommended)", ""),
       radio("on_shutdown", "on", "Leave it on", "Only for things that are safe left running, such as cooling."),
-      tick("make_macros", "Make macros for it: " + names.join(", "), X.opt.hardware ? "Use them in job files, Mainsail's macro panel or the console." : "Shown on the Macros tab; use them in job files or the console."),
+      tick("make_macros", "Make macros for it: " + names.join(", "), X.opt.hardware ? "Use them in job files, Studio's macro list or the console." : "Shown on the Macros tab; use them in job files or the console."),
       c.make_macros && !X.opt.hardware ? tick("mounted_only", "Those macros only switch it on while this tool is mounted", "Switching it off always works.") : null));
   }
 }
@@ -981,7 +981,8 @@ async function restartKlipper() {
   finally { renderBanner(); }
 }
 
-/* ---- follow Mainsail's appearance: dark/light mode and primary colour (Settings > UI-Settings in Mainsail) ---- */
+/* ---- light or dark follows the device (its colour-scheme setting); the accent is fixed ---- */
+const ACCENT = "#2196f3";
 function onAccent(hex) {                       // white or black text on the accent, whichever reads better
   const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex || "");
   if (!m) return "#fff";
@@ -989,14 +990,12 @@ function onAccent(hex) {                       // white or black text on the acc
   const L = 0.2126 * lin(m[1]) + 0.7152 * lin(m[2]) + 0.0722 * lin(m[3]);
   return (1.05) / (L + 0.05) >= (L + 0.05) / 0.05 ? "#fff" : "#000";
 }
-async function applyTheme() {
-  try {
-    const t = await api("GET", "/api/theme"), root = document.documentElement;
-    root.dataset.theme = t.mode === "light" ? "light" : "dark";
-    root.style.setProperty("--accent", t.primary);
-    root.style.setProperty("--on-accent", onAccent(t.primary));
-    document.dispatchEvent(new CustomEvent("rhino:theme", { detail: t }));
-  } catch (e) { /* keep the built-in dark theme */ }
+function applyTheme() {
+  const light = !!(window.matchMedia && matchMedia("(prefers-color-scheme: light)").matches), root = document.documentElement;
+  root.dataset.theme = light ? "light" : "dark";
+  root.style.setProperty("--accent", ACCENT);
+  root.style.setProperty("--on-accent", onAccent(ACCENT));
+  document.dispatchEvent(new CustomEvent("rhino:theme", { detail: { mode: root.dataset.theme, primary: ACCENT } }));
 }
 
 function init() {
@@ -1037,8 +1036,8 @@ function init() {
       if (o && document.contains(o) && o.offsetParent !== null) o.focus();
     }
   }).observe(m, { attributes: true, attributeFilter: ["class"] }));
-  applyTheme(); setInterval(applyTheme, 15000);   // follow Mainsail's light/dark switch within seconds
-  document.addEventListener("visibilitychange", () => { if (!document.hidden) applyTheme(); });   // and at once when you come back to this tab
+  applyTheme();
+  if (window.matchMedia) matchMedia("(prefers-color-scheme: light)").addEventListener("change", applyTheme);   // the device switches between light and dark
   refresh().catch((e) => toast(e.message, true));
   setInterval(() => { if (!document.querySelector(".modal:not(.hidden)")) refresh().catch(() => {}); }, 10000);
 }

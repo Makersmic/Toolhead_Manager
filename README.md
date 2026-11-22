@@ -160,6 +160,6 @@ from a network you don't trust.
 
 ## Licence
 
-GPL-3.0-or-later, the same as Rhino Studio: see [LICENSE](LICENSE). `client_mainsail.cfg` is a copy of
-mainsail-config's `client.cfg` (GPL-3.0) with the Rhino's additions marked; the Klipper extras in `klipper_extras/`
+GPL-3.0-or-later, the same as Rhino Studio: see [LICENSE](LICENSE). `pause_resume.cfg` is the Rhino's rewrite of
+mainsail-config's `client.cfg` (GPL-3.0, credited at its top); the Klipper extras in `klipper_extras/`
 are GPL-3.0 like Klipper.

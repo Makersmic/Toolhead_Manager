@@ -238,9 +238,9 @@ def package(dest):
 os.makedirs(CFG)
 KLIPPY_EXTRAS = os.path.join(HOME, "klipper", "klippy", "extras")
 os.makedirs(KLIPPY_EXTRAS)   # a Klipper checkout where KIAUH puts it
-open(os.path.join(CFG, "printer.cfg"), "w").write("[include mainsail.cfg]\n[printer]\nkinematics: cartesian\n\n"
+open(os.path.join(CFG, "printer.cfg"), "w").write("[include client_mainsail.cfg]\n[printer]\nkinematics: cartesian\n\n"
                                                   f"{MARK}\n#*# [probe]\n#*# z_offset = 1.234\n")
-shutil.copy(os.path.join(HERE, "fixtures", "mainsail.cfg"), os.path.join(CFG, "mainsail.cfg"))  # Mainsail's, as on the machine
+open(os.path.join(CFG, "client_mainsail.cfg"), "w").write("# the pinned copy of Mainsail's macros, as on a machine before 1.9.44\n")
 open(os.path.join(CFG, "moonraker.conf"), "w").write("[server]\nhost: 0.0.0.0\nport: 7130\n\n[authorization]\nport: 9\n")
 open(os.path.join(CFG, "variables.cfg"), "w").write("[gcode_macro VARIABLES]\nvariable_tool_swap_park_x: 100.0\nvariable_tool_swap_park_y: 100.0\ngcode:\n")
 os.makedirs(os.path.join(CFG, ".git", "refs", "heads"))
@@ -299,9 +299,10 @@ try:
        f"the Klipper extras are linked into ~/klipper/klippy/extras ({sorted(links)})")
     ok(f"{sorted(links)[0]} linked into" in out, "...and the install says so")
     ok("no USB camera with a microphone found - skipped" in out, "no camera microphone: the sound step says so and is skipped")
-    ok(open(os.path.join(CFG, "printer.cfg")).readline() == "[include client_mainsail.cfg]\n", "printer.cfg now includes the Rhino's client_mainsail.cfg")
-    ok("same macros as your mainsail.cfg" in out and now["mainsail.cfg"] == original["mainsail.cfg"],
-       "the installer says the pinned copy matches mainsail.cfg, and leaves mainsail.cfg as it was")
+    ok(open(os.path.join(CFG, "printer.cfg")).readline() == "[include pause_resume.cfg]\n" and "pause_resume.cfg" in now, "printer.cfg now includes the Rhino's own pause_resume.cfg")
+    ok("client_mainsail.cfg" not in now and "pause_resume.cfg (the old client_mainsail.cfg is in your backup)" in out
+       and os.path.isfile(os.path.join(HOME, bks[0], "client_mainsail.cfg")),
+       "the old client_mainsail.cfg is taken out of the config folder, the installer says so, and the backup keeps it")
     ok(not any(k.startswith(("dev/", "install.sh", "uninstall.sh", "rhino.sh", "VERSION")) for k in now), "dev/, the installers and VERSION are not copied")
     ok(now[".git/HEAD"] == original[".git/HEAD"] and now[".git/refs/heads/main"] == original[".git/refs/heads/main"],
        "your own .git (GitHub backup) is left alone")

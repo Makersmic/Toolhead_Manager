@@ -128,7 +128,7 @@ function renderMaint() {
       saveBtn("Save kinds of work", async () => { await api("POST", "/api/maint/lists", { types }); toast("Kinds of work saved."); await reloadMaint(); }))));
   const pr = { ...L.priorities };
   box.append(h("div", { class: "card" }, h("h2", { text: "Priorities" }),
-    h("p", { class: "muted small", text: "Four levels, most urgent last. They order the Mainsail reminder; rename them to suit you." }),
+    h("p", { class: "muted small", text: "Four levels, most urgent last. They order the start-up reminder; rename them to suit you." }),
     h("div", { class: "row" }, Object.keys(pr).map((k) => field(k[0].toUpperCase() + k.slice(1), textInput(pr, k, { maxlength: 20 })))),
     h("div", { class: "card-actions" }, saveBtn("Save priorities", async () => { await api("POST", "/api/maint/lists", { priorities: pr }); toast("Priorities saved."); await reloadMaint(); }))));
 }
@@ -173,7 +173,7 @@ function renderStatus() {
           h("div", { class: "hint", text: "When it ends, the task goes back to its built-in status. Logging the task done also ends it." }))),
       h("div", { class: "lbl", text: "4. Also" }),
       h("div", { class: "row" },
-        tick("boot_prompt", "Keep it in the Mainsail reminder", "The task still shows after a Klipper start when it is due."),
+        tick("boot_prompt", "Keep it in the start-up reminder", "The task still shows after a Klipper start when it is due."),
         tick("note_required", "A note is required", "Whoever sets it has to say why (which parts, who, when)."),
         tick("log_option", "Offer it in the Log work list", "Next to Done and Skipped.")),
       h("div", { class: "admin-row-foot" }, h("span", { class: "hint", text: inUse ? `Set on ${inUse} task(s) now` : "" }),

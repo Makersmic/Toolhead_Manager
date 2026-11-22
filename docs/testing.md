@@ -743,3 +743,26 @@ Needs PrusaSlicer installed on the Rhino and a model with at least two through h
 2. Go back, place three marks away from the holes, open Preview. **Pass:** every hole is open in Preview and the filament figure is the unmarked figure plus only the support under the marks.
 3. Switch to **Automatic** with the same marks. **Pass:** the same, holes open.
 4. **Stop if** any hole is filled or narrowed: write down the Portal version (should be 1.9.37), the PrusaSlicer version (Settings > Software), and send the STL. 2.9.x is the version in use; 2.8.1 is the one this was checked on.
+
+## A host built without Mainsail (`docs/install-without-mainsail.md`; try it on a spare host, not the working machine)
+
+- [ ] **MF1 No Mainsail anywhere.** `systemctl is-active klipper moonraker nginx` prints `active` three times; `ls -d ~/mainsail ~/mainsail-config` says "No such file". *Stop if* Mainsail is installed.
+- [ ] **MF2 Studio is the front door.** `curl -s http://rhino.local | grep -c "Rhino Studio"` prints 1 or more. *Stop if* it shows nginx's welcome page, a 403 or nothing.
+- [ ] **MF3 Studio works.** Connected, the mounted tool, cameras (with Crowsnest); Settings > Software has no Mainsail row and nothing marked broken.
+- [ ] **MF4 A job's moves.** Pause and resume a short print, then cancel one (OP2, OP3 once they exist). *Stop if* anything moves where it didn't before.
+- [ ] **MF5 Install twice.** Run option 3 again with the same zip. *Pass:* the same "opens Rhino Studio" line, no errors, Studio still opens. *Stop if* it errors or nginx refuses.
+- [ ] **MF6 Power cut.** `sudo reboot`. *Pass:* after about two minutes Studio is Connected and Klipper Ready with nothing done by hand.
+- [ ] **MF7 Doctor.** `rhino.sh` option 7: nothing marked to fix.
+
+## Pause, resume and cancel are the Rhino's own (1.9.44; `docs/proposal-own-pause-resume.md`)
+
+Hand near Stop for every one. Undo is `rhino.sh` option 4.
+
+- [ ] **OP1 Starts clean.** After installing, `head -1 ~/printer_data/config/printer.cfg` prints `[include pause_resume.cfg]`, `ls ~/printer_data/config/client_mainsail.cfg` says "No such file", and Klipper is Ready after a restart with no error in the console (an old `positions.cfg` still copies the park spot, which the stub absorbs). `CHECK_TOOLHEADS` says OK; `rhino.sh` option 7 has nothing to fix. *Stop if* Klipper won't start: Undo.
+- [ ] **OP2 Pause and resume a print** from Studio. *Pass:* it pulls back about 1 mm, lifts 2 mm, parks at X551 Y381, then returns and carries on. *Stop if* it parks anywhere else: press Stop.
+- [ ] **OP3 Cancel a print.** *Pass:* heaters off, bed down, X and Y home, the head parks, History shows it cancelled.
+- [ ] **OP4 Laser pause.** Pause a laser job, press Resume by mistake, then `TOOL_RESUME`. *Pass:* Resume is refused with its pop-up ("The normal Resume button is for print jobs..."); `TOOL_RESUME` carries on. *Stop if* the laser fires before `TOOL_RESUME`.
+- [ ] **OP5 Resume after a timeout.** Pause a hot print and leave it past the idle timeout (or `SET_IDLE_TIMEOUT TIMEOUT=60` first), then Resume. *Pass:* it heats back to the paused temperature first, then carries on.
+- [ ] **OP6 Pause at a layer.** `SET_PAUSE_AT_LAYER LAYER=3` on a short print. *Pass:* it pauses at layer 3.
+- [ ] **OP7 Edited park spot.** Change `variable_park_x/y` in `myrhino/positions.cfg`, `FIRMWARE_RESTART`, then pause straight away. *Pass:* it parks at the new spot.
+

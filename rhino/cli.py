@@ -3,7 +3,7 @@
     python3 -m rhino [--config-dir DIR] add|edit|remove|rename|list|check|pins KEY=VALUE ...
 
 Keys are case-insensitive. Output lines start with "rhino:" so they are easy to spot in the
-Mainsail console; exit status is 0 on success and 1 on any refusal (nothing is changed on refusal).
+console; exit status is 0 on success and 1 on any refusal (nothing is changed on refusal).
 """
 import sys
 

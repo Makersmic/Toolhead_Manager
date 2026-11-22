@@ -18,8 +18,6 @@ class H(http.server.BaseHTTPRequestHandler):
         if self.path.startswith("/server/info"): self._send(200, {"result": {"klippy_state": STATE["klippy"]}})
         elif self.path.startswith("/printer/objects/query"):
             self._send(200, {"result": {"status": {"print_stats": {"state": STATE["print_state"]}, "gcode_macro SWAP_TOOL": {"current_tool": 3}}}})
-        elif self.path.startswith("/server/database/item") and STATE.get("ui"):
-            self._send(200, {"result": {"namespace": "mainsail", "key": "uiSettings", "value": STATE["ui"]}})
         elif self.path.startswith("/server/history/list"):
             import time as _t
             self._send(200, {"result": {"jobs": [{"status": "completed", "start_time": _t.time() - 3600, "print_duration": 3600},
@@ -51,13 +49,7 @@ o = J(c.get("/api/options"))
 ok(o["free_pins"] == ["PB1", "PC0", "PC1", "PC5"] and o["next_slot"] == 6 and "BlockOne" in o["print_bases"], "options: free pins / next slot / bases")
 
 # ---- theme + dashboard
-from rhino.portal import routes as _routes
-t = J(c.get("/api/theme")); ok(t["mode"] == "dark" and t["primary"] == "#2196f3" and t["source"] == "default", "theme: Mainsail defaults when its settings are not saved")
-STATE["ui"] = {"mode": "light", "primary": "#FA6831", "theme": "prusa"}; _routes._theme_cache["value"] = None
-t = J(c.get("/api/theme")); ok(t["mode"] == "light" and t["primary"] == "#fa6831", "theme: follows Mainsail's mode and primary colour")
-STATE["ui"] = {"mode": "pink", "primary": "red;}body{x"}; _routes._theme_cache["value"] = None
-t = J(c.get("/api/theme")); ok(t["mode"] == "dark" and t["primary"] == "#2196f3", "theme: odd values ignored")
-STATE.pop("ui"); _routes._theme_cache["value"] = None
+ok(c.get("/api/theme").status_code == 404, "the Portal no longer reads Mainsail's settings (no /api/theme)")
 w = J(c.get("/api/dash/jobs")); ok(len(w["weeks"]) == 12 and sum(x["completed"] for x in w["weeks"]) == 1 and sum(x["cancelled"] for x in w["weeks"]) == 1,
                                "dashboard: jobs per week for the last 12 weeks (older jobs left out)")
 ok(c.get("/static/dash.js").status_code == 200 and b'id="view-dash"' in c.get("/").data, "dashboard view and script served")

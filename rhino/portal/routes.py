@@ -170,18 +170,6 @@ def state():
                     "server_time": time.time()})
 
 
-_theme_cache = {"at": 0.0, "value": None}
-
-
-@bp.get("/api/theme")
-def theme():
-    """Mainsail's dark/light mode and primary colour, so the portal can match it (cached for 5 s)."""
-    now = time.time()
-    if _theme_cache["value"] is None or now - _theme_cache["at"] > 5:
-        _theme_cache.update(at=now, value=current_app.config["MOONRAKER"].ui_theme())
-    return jsonify({"ok": True, **_theme_cache["value"]})
-
-
 @bp.get("/api/dash/jobs")
 def dash_jobs():
     """Jobs per week for the dashboard, from Moonraker's job history: the last 12 weeks (Monday-based),

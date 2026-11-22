@@ -16,10 +16,9 @@ import jinja2
 ROOT = sys.argv[1] if len(sys.argv) > 1 else os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MAIN = os.path.join(ROOT, "printer.cfg")
 
-# What mainsail.cfg (mainsail-crew/mainsail-config) provides, plus Klipper core.
-STUB_MACROS = {"PAUSE", "RESUME", "CANCEL_PRINT", "PAUSE_BASE", "RESUME_BASE",
-               "CANCEL_PRINT_BASE", "CLEAR_PAUSE", "SET_PAUSE_NEXT_LAYER",
-               "SET_PAUSE_AT_LAYER", "SDCARD_PRINT_FILE", "TURN_OFF_HEATERS"}
+# Klipper's own commands that the macros rename (rename_existing) or call: PAUSE, RESUME and CANCEL_PRINT themselves are
+# defined in pause_resume.cfg and linted like everything else.
+STUB_MACROS = {"PAUSE_BASE", "RESUME_BASE", "CANCEL_PRINT_BASE", "CLEAR_PAUSE", "SDCARD_PRINT_FILE", "TURN_OFF_HEATERS"}
 KLIPPER_CMDS = set("""
 G0 G1 G2 G3 G4 G20 G21 G28 G90 G91 G92 M82 M83 M84 M104 M105 M106 M107 M109 M112 M114
 M115 M117 M118 M140 M141 M190 M220 M221 M204 M400 SET_GCODE_OFFSET SET_KINEMATIC_POSITION SET_VELOCITY_LIMIT
@@ -47,10 +46,6 @@ def read_with_includes(path, seen=None, out=None, origin=None):
             if not targets and "mainsail" not in inc and "klipper-toolchanger" not in inc:
                 out.append(("MISSING_INCLUDE", inc, path))
             for t in targets:
-                # Mainsail's own macros (pinned upstream copy): not linted here, STUB_MACROS stands for them and
-                # the simulator runs them in test_macros / test_motion.
-                if os.path.basename(t) == "client_mainsail.cfg":
-                    continue
                 read_with_includes(t, seen, out)
             continue
         cur.append(line)

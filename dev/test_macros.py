@@ -102,36 +102,80 @@ ok(s.pins["FoamWire_PWR"] == 0, "tick also cuts power during a pause even if the
 s.objects["print_stats"]["state"] = "printing"; s.fire_delayed("TOOL_POWER_WATCHDOG")
 ok(s.pins["FoamWire_PWR"] > 0, "tick restores power after resume if the hook did not fire")
 
-# Mainsail integration: the pinned client_mainsail.cfg is loaded, our hooks go through _CLIENT_VARIABLE
+# The Rhino's own PAUSE / RESUME / CANCEL_PRINT (docs/proposal-own-pause-resume.md; 1.9.44)
 s = cs(6)
-ok("PAUSE_BASE" in s.macros and "rename_existing" in s.macros["PAUSE"], "real Mainsail PAUSE/RESUME/CANCEL_PRINT loaded")
-cv = s.macro_vars["_CLIENT_VARIABLE"]
-ok(cv["user_pause_macro"] == "_RHINO_PAUSE_HOOK" and cv["user_resume_macro"] == "_RHINO_RESUME_HOOK"
-   and cv["user_cancel_macro"] == "_RHINO_CANCEL", "Rhino hooks wired into Mainsail's _CLIENT_VARIABLE")
+ok("PAUSE_BASE" in s.macros and "rename_existing" in s.macros["PAUSE"], "the Rhino's PAUSE/RESUME/CANCEL_PRINT are loaded")
+ok(sorted(n for n in s.macros if n.startswith("_CLIENT_")) == ["_CLIENT_VARIABLE"] and not [k for k in s.macro_vars["_CLIENT_VARIABLE"] if k.startswith("user_")],
+   "no Mainsail helpers are left: _CLIENT_VARIABLE is only the compatibility stub, with no hooks")
+_inc = [l.strip() for l in open(os.path.join(FIXED, "printer.cfg"), encoding="utf-8")]
+ok(_inc[0] == "[include pause_resume.cfg]" and _inc.count("[include pause_resume.cfg]") == 1
+   and "[include mainsail.cfg]" not in _inc and "[include client_mainsail.cfg]" not in _inc, "printer.cfg includes pause_resume.cfg once, and no Mainsail file")
 import glob as _g
 _dups = [f for f in _g.glob(os.path.join(FIXED, "**", "*.cfg"), recursive=True)
-         if "fixtures" not in f and os.path.basename(f) != "client_mainsail.cfg" and any(l.strip().upper() in ("[GCODE_MACRO CANCEL_PRINT]", "[GCODE_MACRO PAUSE]", "[GCODE_MACRO RESUME]")
+         if os.path.basename(f) != "pause_resume.cfg" and any(l.strip().upper() in ("[GCODE_MACRO CANCEL_PRINT]", "[GCODE_MACRO PAUSE]", "[GCODE_MACRO RESUME]")
                                         for l in open(f, encoding="utf-8"))]
-ok(not _dups, f"no config file re-defines Mainsail's PAUSE/RESUME/CANCEL_PRINT ({_dups})")
-
-# Own client macros (docs/proposal-own-client-macros.md): one include, the pinned copy unchanged, the script's guards.
-import hashlib, importlib.util as _iu
-_inc = [l.strip() for l in open(os.path.join(FIXED, "printer.cfg"), encoding="utf-8")]
-ok(_inc[0] == "[include client_mainsail.cfg]" and "[include mainsail.cfg]" not in _inc
-   and _inc.count("[include client_mainsail.cfg]") == 1, "printer.cfg includes client_mainsail.cfg once and mainsail.cfg never")
-_pin = open(os.path.join(FIXED, "client_mainsail.cfg"), "rb").read()
-_mark = b"# ---- mainsail-config client.cfg below, unchanged ----\n"
-ok(_pin.count(_mark) == 1 and hashlib.md5(_pin.split(_mark, 1)[1]).hexdigest() == "0b6bf780f4dba4d0ca7294dd0f6b5d40",
-   "client_mainsail.cfg is the machine's mainsail.cfg byte for byte below its Rhino header")
-ok(b"Alex Zellner" in _pin and b"GPL" in _pin.split(_mark, 1)[0], "client_mainsail.cfg credits mainsail-config and its licence")
-_sp = _iu.spec_from_file_location("pocm", os.path.join(os.path.dirname(os.path.abspath(__file__)), "proposal_own_client_macros.py"))
+ok(not _dups, f"no other config file defines PAUSE/RESUME/CANCEL_PRINT ({_dups})")
+ok(not os.path.exists(os.path.join(FIXED, "client_mainsail.cfg")), "client_mainsail.cfg is gone from the package")
+_pr = open(os.path.join(FIXED, "pause_resume.cfg"), "rb").read()
+ok(b"Alex Zellner" in _pr and b"GPL" in _pr, "pause_resume.cfg credits mainsail-config and its licence")
+import importlib.util as _iu
+_sp = _iu.spec_from_file_location("popr", os.path.join(os.path.dirname(os.path.abspath(__file__)), "proposal_own_pause_resume.py"))
 _pm = _iu.module_from_spec(_sp); _sp.loader.exec_module(_pm)
 try:
     _pm.plan(); _again = False
 except SystemExit as e:
     _again = "already there" in str(e)
 ok(_again, "the --apply script refuses to run a second time")
-ok(_pm.HEADER.encode() + open(_pm.SOURCE, "rb").read() == open(_pm.PINNED, "rb").read(), "the script's output is the shipped file")
+
+def _cmds(sim, n=0): return [str(x[1]) for x in sim.log[n:] if x[0] == "cmd"]
+def _before(c, *items):
+    at = [c.index(i) if i in c else -1 for i in items]
+    return all(a >= 0 for a in at) and at == sorted(at)
+def pr(slot=1, hot=True, homed="xyz"):
+    sim = fresh(slot); sim.place(200, 150, 20, homed=homed)
+    sim.objects["print_stats"]["state"] = "printing"; sim.objects["extruder"]["can_extrude"] = hot
+    return sim
+s = pr(); s.run_script("PAUSE"); c = _cmds(s)
+ok(_before(c, "PAUSE_BASE", "_RHINO_PAUSE_HOOK", "_RHINO_PAUSE_PARK"), "PAUSE: Klipper's pause, then the Rhino's hook, then the park")
+ok(_before(c, "G1 E-1.0 F2100.0", "G1 Z2.0 F900", "G1 X551.0 Y381.0 F3000.0"), "PAUSE parks: retract 1 mm, lift 2 mm, then to the park spot")
+s = pr(); s.run_script("PAUSE X=10 Y=20 Z_MIN=50"); c = _cmds(s)
+ok("G1 Z50.0 F900" in c and "G1 X10 Y20 F3000.0" in c, "PAUSE X= Y= Z_MIN= still parks where it is told")
+s = pr(homed=""); s.run_script("PAUSE"); c = _cmds(s)
+ok("RESPOND TYPE=echo MSG='Printer not homed'" in c and not any(x.startswith("G1 X") for x in c), "PAUSE unhomed: says so and does not move")
+s = pr(); s.run_script("PAUSE"); n = len(s.log); s.run_script("RESUME"); c = _cmds(s, n)
+ok(_before(c, "_RHINO_RESUME_HOOK", "_RHINO_EXTRUDE", "RESUME_BASE VELOCITY=50.0") and "G1 E1.0 F2100.0" in c, "RESUME: hook, unretract 1 mm, then back at the recover speed")
+s = pr(); s.run_script("PAUSE"); s.objects["extruder"]["can_extrude"] = False; n = len(s.log); s.run_script("RESUME"); c = _cmds(s, n)
+ok(not any(x.startswith("RESUME_BASE") for x in c) and s.prompt and "aborted" in s.prompt["title"].lower(), "RESUME with a cold extruder: refused with a pop-up, nothing moves")
+s = pr(); s.objects["extruder"]["target"] = 210.0; s.run_script("PAUSE")
+s.objects["idle_timeout"]["state"] = "Idle"; s.objects["extruder"]["can_extrude"] = False; n = len(s.log); s.run_script("RESUME"); c = _cmds(s, n)
+ok(_before(c, "M109 S210.0", "RESUME_BASE VELOCITY=50.0"), "RESUME after an idle timeout: heats back to the paused temperature first")
+s = pr(); n = len(s.log); s.run_script("CANCEL_PRINT"); c = _cmds(s, n)
+ok(_before(c, "_RHINO_RETRACT LENGTH=5.0", "TURN_OFF_HEATERS", "M106 S0", "_RHINO_CANCEL", "SET_PAUSE_AT_LAYER ENABLE=0 LAYER=0", "CANCEL_PRINT_BASE") and "G1 E-5.0 F2100.0" in c,
+   "CANCEL_PRINT: retract 5 mm, heaters and fan off, the Rhino's cancel, forget layer pauses, then Klipper's cancel")
+s = pr(); s.run_script("SET_PAUSE_AT_LAYER LAYER=3"); n = len(s.log)
+s.run_script("SET_PRINT_STATS_INFO CURRENT_LAYER=2 TOTAL_LAYER=10")
+ok(not any(x.startswith("PAUSE_BASE") for x in _cmds(s, n)), "pause at layer 3: layer 2 does not pause")
+n = len(s.log); s.run_script("SET_PRINT_STATS_INFO CURRENT_LAYER=3 TOTAL_LAYER=10"); c = _cmds(s, n)
+ok(_before(c, "PAUSE", "SET_PAUSE_AT_LAYER ENABLE=0") or _before(c, "PAUSE_BASE", "SET_PAUSE_AT_LAYER ENABLE=0"), "...layer 3 pauses, once")
+s = pr(); s.run_script("SET_PAUSE_NEXT_LAYER"); n = len(s.log); s.run_script("SET_PRINT_STATS_INFO CURRENT_LAYER=1"); c = _cmds(s, n)
+ok("PAUSE_BASE" in c and "SET_PAUSE_NEXT_LAYER ENABLE=0" in c, "pause at the next layer: pauses and switches itself off")
+
+# a positions.cfg from before 1.9.44 (the installer keeps yours) still copies the park spot into _CLIENT_VARIABLE at start-up
+import tempfile as _tf, shutil as _sh
+_d = _tf.mkdtemp(prefix="rhino-oldpos-")
+_sh.copytree(FIXED, _d + "/c", ignore=_sh.ignore_patterns(".git", "__pycache__", "dev", "manual", "docs", "node_modules"))
+_pp = _d + "/c/myrhino/positions.cfg"; _t = open(_pp).read()
+_cur = "gcode:\n  RHINO_POSITIONS QUIET=1\n"
+assert _cur in _t
+open(_pp, "w").write(_t.replace(_cur, 'gcode:\n  {% set p = printer["gcode_macro RHINO_POSITIONS"] %}\n  SET_GCODE_VARIABLE MACRO=_CLIENT_VARIABLE VARIABLE=custom_park_x VALUE={p.park_x}\n'
+                                       '  SET_GCODE_VARIABLE MACRO=_CLIENT_VARIABLE VARIABLE=custom_park_y VALUE={p.park_y}\n  RHINO_POSITIONS QUIET=1\n'))
+_o = Sim(_d + "/c").load()
+try:
+    _o.fire_delayed("_RHINO_POSITIONS_APPLY"); _clean = "RHINO_POSITIONS QUIET=1" in _cmds(_o)
+except KlipperError:
+    _clean = False
+_sh.rmtree(_d, ignore_errors=True)
+ok(_clean, "a positions.cfg from before 1.9.44 still starts cleanly: its park-spot copy is absorbed and the position check still runs")
 
 def idx(sim, text, start=0):
     for i, e in enumerate(sim.log[start:], start):

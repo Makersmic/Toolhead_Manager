@@ -52,7 +52,7 @@ SKIP_REDERIVABLE = re.compile(r"(\.zip$|^manual/[^/]+\.pdf$)", re.I)
 # id -> what it is. Mirrors docs/phase0-spine.md § Backup inventory (rows marked ✅ under "Should be").
 INVENTORY = {
     "config": "Klipper config, macros, materials, tool registry, lists, umbilical, maintenance, meshes, variables.save",
-    "moonraker_db": "Moonraker database: job history and totals, Studio settings, mesh_seen, Mainsail settings",
+    "moonraker_db": "Moonraker database: job history and totals, Studio settings, mesh_seen, other front ends' settings",
     "history": "job history as readable JSON",
     "namespaces": "every Moonraker database namespace as readable JSON",
     "images": "toolhead photos (rhino_data/images)",
@@ -537,7 +537,7 @@ class BackupService:
         with open(os.path.join(dbdir, dbname), "wb") as f:
             f.write(db)
         self.mr.db_restore(dbname)
-        notes.append("Moonraker restored its database (history, Studio and Mainsail settings) and is restarting.")
+        notes.append("Moonraker restored its database (history and settings) and is restarting.")
         return {"ok": True, "item": "all", "restored": len(written), "kept": keep, "before": before["name"],
                 "note": " ".join(notes)}
 

@@ -197,15 +197,11 @@ do_ rsync -a "${EXCL[@]}" "$SRC/" "$CFG/" || fail "Copy failed." "Your backup is
 for f in myrhino/custom_tools.cfg myrhino/job_hooks.cfg myrhino/maintenance_status.cfg myrhino/positions.cfg; do
   [ -f "$CFG/$f" ] || do_ cp "$SRC/$f" "$CFG/$f"
 done
-# Pause, resume and cancel come from the Rhino's pinned copy of Mainsail's client macros (1.9.19). Compare it with
-# Mainsail's own mainsail.cfg, if there is one, and only say so: neither file is edited.
-if [ -f "$SRC/client_mainsail.cfg" ] && [ -e "$CFG/mainsail.cfg" ]; then
-  if sed '1,/^# ---- mainsail-config client.cfg below, unchanged ----$/d' "$SRC/client_mainsail.cfg" | cmp -s - "$CFG/mainsail.cfg"; then
-    ok "pause, resume and cancel now come from client_mainsail.cfg, the same macros as your mainsail.cfg"
-  else
-    note "your mainsail.cfg differs from the Rhino's copy (client_mainsail.cfg). Klipper now uses the Rhino's copy;"
-    note "check Pause, Resume and Cancel once (docs/testing.md MC2-MC3). mainsail.cfg isn't changed or used."
-  fi
+# Pause, resume and cancel are the Rhino's own (pause_resume.cfg, 1.9.44). The pinned copy of Mainsail's macros that
+# came before it (client_mainsail.cfg) is no longer included; take it out of the config folder. The backup above keeps it.
+if [ -f "$SRC/pause_resume.cfg" ] && [ -f "$CFG/client_mainsail.cfg" ]; then
+  do_ rm -f "$CFG/client_mainsail.cfg"
+  ok "pause, resume and cancel now come from pause_resume.cfg (the old client_mainsail.cfg is in your backup)"
 fi
 if [ $DRY = 0 ]; then
   [ -f "$CFG/scripts/rhino_portal.py" ] || fail "The copy did not arrive (scripts/rhino_portal.py missing)."

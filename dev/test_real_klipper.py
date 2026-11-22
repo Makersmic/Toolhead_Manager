@@ -17,8 +17,8 @@ each macro, so this complements test_macros.py rather than replacing it.
 
 Needs: a Klipper checkout (KLIPPER_DIR, default ~/klipper or ../klipper), arm-none-eabi-gcc and make (to build an
 STM32F446 data dictionary in a temp folder; your Klipper build is not touched), Python with cffi, greenlet, jinja2,
-markupsafe and pyserial, and flask for part B. Mainsail's client.cfg is used from MAINSAIL_CFG or
-~/mainsail-config/client.cfg when present, otherwise a small stand-in. gcode_shell_command (a KIAUH extra, not in
+markupsafe and pyserial, and flask for part B. The shipped pause_resume.cfg is read as it is (no Mainsail
+needed, no stand-in). gcode_shell_command (a KIAUH extra, not in
 Klipper) is used from the checkout when installed there, otherwise a stand-in that does nothing.
 """
 import glob
@@ -112,29 +112,6 @@ if not os.path.isfile(extra):
         f.write(SHELL_STUB)
     print("     gcode_shell_command: stand-in (not installed in this Klipper)")
 
-MAINSAIL_STUB = """# Stand-in for Mainsail's client.cfg: the sections it adds that our config relies on.
-[virtual_sdcard]
-path: ~/printer_data/gcodes
-on_error_gcode: CANCEL_PRINT
-[pause_resume]
-[display_status]
-[respond]
-[gcode_macro CANCEL_PRINT]
-rename_existing: CANCEL_PRINT_BASE
-gcode:
-  CANCEL_PRINT_BASE
-[gcode_macro PAUSE]
-rename_existing: PAUSE_BASE
-gcode:
-  PAUSE_BASE
-[gcode_macro RESUME]
-rename_existing: RESUME_BASE
-gcode:
-  RESUME_BASE
-"""
-mainsail = next((p for p in (os.environ.get("MAINSAIL_CFG"), os.path.expanduser("~/mainsail-config/client.cfg"))
-                 if p and os.path.isfile(p)), None)
-
 # Never run these: they stop Klipper on purpose, restart it, or only exist to drive real hardware for a long time.
 NEVER = {"M112", "EMERGENCY_STOP", "FIRMWARE_RESTART", "RESTART", "SAVE_CONFIG", "SHUTDOWN", "RESTART_FOR_TOOLS"}
 # A macro refusing on purpose (action_raise_error, "Must home axis first") is a gcode.CommandError: fine.
@@ -178,10 +155,6 @@ def stage(cfg_src, home):
     with open(os.path.join(cfg, "printer.cfg"), "a") as f:
         f.write("\n[include _realk_mark.cfg]\n")
     open(os.path.join(cfg, "_realk_mark.cfg"), "w").write(MARK_CFG)
-    if mainsail:
-        shutil.copy(mainsail, os.path.join(cfg, "mainsail.cfg"))
-    else:
-        open(os.path.join(cfg, "mainsail.cfg"), "w").write(MAINSAIL_STUB)
     return cfg
 
 

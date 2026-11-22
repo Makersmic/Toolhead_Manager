@@ -132,7 +132,7 @@ function renderDue() {
   for (const [id, items] of Object.entries(own)) group(sdef(id).label, items, sdef(id).help, sdef(id).hex);
   group(sdef("snoozed").label, snoozed);
   group("Coming up", later, "The next tasks by how close they are to due.");
-  if (d.settings.boot_reminder) box.append(h("p", { class: "muted small", text: "Overdue and due-soon tasks are also shown in Mainsail once after each Klipper start (Usage meters > Reminders)." }));
+  if (d.settings.boot_reminder) box.append(h("p", { class: "muted small", text: "Overdue and due-soon tasks are also shown once after each Klipper start (Usage meters > Reminders)." }));
 }
 const sumTile = (n, label, cls) => h("div", { class: "sum-tile " + cls }, h("div", { class: "sum-n", text: String(n) }), h("div", { class: "sum-l", text: label }));
 
@@ -219,7 +219,7 @@ function renderMeters() {
   const st = d.settings;
   box.append(h("div", { class: "card" }, h("h2", { text: "Reminders" }),
     h("label", { class: "check" }, h("input", { type: "checkbox", checked: !!st.boot_reminder, onchange: (e) => saveSettings({ boot_reminder: e.target.checked }) }),
-      h("span", {}, "Show overdue and due-soon tasks in Mainsail after Klipper starts",
+      h("span", {}, "Show overdue and due-soon tasks after Klipper starts",
         h("div", { class: "hint", text: "Once per start, after the 'which tool is mounted?' question. It never blocks a job. PM_STATUS in the console lists them any time. A status code can leave its tasks out (Admin > Status codes)." })))),
     h("p", { class: "muted small", text: "Machine areas, kinds of work and priorities are edited under Admin > Maintenance lists." }));
 }
@@ -319,7 +319,7 @@ function drawTask() {
   if (tmpl && TE.uses && TE.uses.length) b.append(h("div", { class: "linkbox" }, h("strong", { text: `Used by ${TE.uses.length} task${TE.uses.length > 1 ? "s" : ""}` }),
     h("div", { class: "hint", text: "Saving updates every one of them: " + TE.uses.join(", ") + ". Their schedules carry on from where they are." })));
   b.append(h("div", { class: "row" },
-    field("Task", textInput(f, "title", { maxlength: 80, placeholder: "Tension the X/Y belts" }), "Short - it is also shown in the Mainsail reminder."),
+    field("Task", textInput(f, "title", { maxlength: 80, placeholder: "Tension the X/Y belts" }), "Short - it is also shown in the start-up reminder."),
     tmpl ? field("Area when the book goes on the whole machine", selectInput(f, "area", [["", "Choose when assigned..."], ...d.areas.map((a) => [a.id, a.label])]),
       "Ignored on a toolhead or system hardware.")
       : field("For", selectInput(f, "asset", assetChoices(), { onchange: () => { f.rules = f.rules.map((r) => (r.kind === "meter" || r.kind === "event") && r.scope === "tool" && !isTool(f.asset) ? blankRule(r.kind, f.asset) : r); redraw(); } }))));
@@ -370,7 +370,7 @@ function drawTask() {
     field("Links (manuals, videos - one per line)", h("textarea", { class: "short", oninput: (e) => { f.links = e.target.value; }, text: f.links }))));
   const rem = h("fieldset", {}, h("legend", { text: "Reminders" }),
     h("label", { class: "check" }, h("input", { type: "checkbox", checked: !!f.remind_boot, onchange: (e) => { f.remind_boot = e.target.checked; } }),
-      h("span", {}, "Remind me in Mainsail when Klipper starts and this is due")));
+      h("span", {}, "Remind me when Klipper starts and this is due")));
   if (!tmpl) rem.append(h("label", { class: "check" }, h("input", { type: "checkbox", checked: !f.enabled, onchange: (e) => { f.enabled = !e.target.checked; } }),
       h("span", {}, "Paused (keeps the task but stops tracking it)")));
   b.append(rem);
@@ -498,7 +498,7 @@ function drawStatus() {
   b.append(field("Status", selectInput(f, "status", choices, { onchange: () => drawStatus() }), f.status ? actionHelp(f.status) : "Back to the schedule's own status."),
     field(f.status && s.note_required ? "Note (required)" : "Note (optional)", textInput(f, "note", { maxlength: 300, placeholder: "GT2 belt ordered, arrives Friday" })));
   if (f.status) b.append(h("div", { class: "hint", text: ({ due: "Shown with the due tasks.", upcoming: "Shown with the upcoming tasks.", own: "Shown in its own group on Due & upcoming." })[s.list] +
-    (s.boot_prompt ? " Still in the Mainsail reminder when due." : " Left out of the Mainsail reminder.") }));
+    (s.boot_prompt ? " Still in the start-up reminder when due." : " Left out of the start-up reminder.") }));
   $("statusSave").textContent = f.status ? "Set status" : "Clear status";
 }
 async function saveStatus() {

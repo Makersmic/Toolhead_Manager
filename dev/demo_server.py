@@ -7,7 +7,7 @@ screens (and taking the guide's screenshots) without a printer.
 The fake Moonraker listens on a random port; change what it reports with
     curl -X POST 'http://127.0.0.1:<port>/__set?print_state=printing&progress=0.47'
 Keys: print_state, progress, filename, print_duration, total_duration, estimated_time,
-current_tool, klippy, extruder_target, laser, spindle, ui_mode (dark/light/none), ui_primary.
+current_tool, klippy, extruder_target, laser, spindle, (no UI settings: the Portal follows the browser's light/dark setting).
 POST /__job?filename=..&status=completed&total_duration=..&start_time=.. adds a finished job.
 """
 import argparse
@@ -24,8 +24,7 @@ import urllib.parse
 HERE = os.path.dirname(os.path.abspath(__file__))
 STATE = {"klippy": "ready", "print_state": "standby", "progress": 0.0, "filename": "", "print_duration": 0.0,
          "total_duration": 0.0, "estimated_time": 0.0, "current_tool": 1, "extruder_target": 0.0,
-         "laser": 0.0, "spindle": 0.0, "restarts": 0, "jobs": [],
-         "ui_mode": "dark", "ui_primary": "#2196f3"}
+         "laser": 0.0, "spindle": 0.0, "restarts": 0, "jobs": []}
 
 
 class Fake(http.server.BaseHTTPRequestHandler):
@@ -59,12 +58,6 @@ class Fake(http.server.BaseHTTPRequestHandler):
             return self._send(200, {"result": {"status": {k: v for k, v in st.items() if k in q}}})
         if u.path == "/server/files/metadata":
             return self._send(200, {"result": {"estimated_time": STATE["estimated_time"] or None}})
-        if u.path == "/server/database/item":
-            if STATE.get("ui_mode") == "none":
-                return self._send(404, {})
-            return self._send(200, {"result": {"namespace": "mainsail", "key": "uiSettings",
-                                               "value": {"mode": STATE["ui_mode"], "primary": STATE["ui_primary"],
-                                                         "theme": "mainsail", "logo": "#D41216"}}})
         if u.path == "/server/history/list":
             return self._send(200, {"result": {"jobs": list(reversed(STATE["jobs"]))}})
         self._send(404, {})

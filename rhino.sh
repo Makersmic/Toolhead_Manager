@@ -83,10 +83,10 @@ do_install() {
 }
 
 do_new_zip() {
-  echo; echo "${B}Zips in your config folder${N} (upload one in Mainsail: Machine > Upload)"
+  echo; echo "${B}Zips in your config folder${N} (copy one into the config folder, for example with scp)"
   local zips=() i=1 z
   for z in "$CFG"/rhino-config-*.zip; do [ -f "$z" ] && zips+=("$z"); done
-  [ ${#zips[@]} = 0 ] && { echo "${Y}None found.${N} Upload rhino-config-<version>.zip in Mainsail first."; pause; return; }
+  [ ${#zips[@]} = 0 ] && { echo "${Y}None found.${N} Copy rhino-config-<version>.zip into the config folder first (for example with scp)."; pause; return; }
   for z in "${zips[@]}"; do echo "  $i) $(basename "$z")"; i=$((i+1)); done
   local n; read -r -p "Which one (number, Enter to go back)? " n
   [[ "$n" =~ ^[0-9]+$ ]] && [ "$n" -ge 1 ] && [ "$n" -le ${#zips[@]} ] || return
