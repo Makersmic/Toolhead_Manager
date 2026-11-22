@@ -1,5 +1,14 @@
 # What changed
 
+## 1.9.40 - Studio 0.34.0: set the part fan from Control, and the lane keys (style guide only)
+
+No Klipper macro or machine value changes. Studio only.
+
+- **Part fan**: with a print head confirmed, click the Part fan reading in Control's status box, type 0 to 100 and press Enter (0 is off). It sends `M106` or `M107` through the normal
+  command check, with no confirmation, like the heat commands. Esc or clicking away changes nothing. Laser, spindle and knife tools show no part fan. The fan's pin and cycle time are untouched.
+- **Lane keys** (Style guide, `#/style`): a piano-key control for two to eight filament lanes, with black keys for "carry on with the next lane when this one runs out". A preview of work
+  toward two filaments in one job: it is not in Job setup yet and nothing in Studio uses it.
+
 ## 1.9.39 - Studio 0.33.0: one supports control, folded settings, red borders on changed settings, save before Preview
 
 No Klipper macro or machine value changes. Studio only.
