@@ -24,6 +24,7 @@ sys.dont_write_bytecode = True
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(HERE)
 fails = []
+HANG_S = 7
 
 
 def ok(cond, msg):
@@ -60,6 +61,8 @@ def upstream(name, port):
             pass
 
         def _answer(self):
+            if "/hang" in self.path:       # a server that is running but stuck: never answers within the test's waits
+                time.sleep(HANG_S)
             n = int(self.headers.get("Content-Length") or 0)
             got = 0
             while got < n:
@@ -69,11 +72,14 @@ def upstream(name, port):
                 got += len(chunk)
             SEEN[name] = {"path": self.path, "headers": {k.lower(): v for k, v in self.headers.items()}, "body": got, "method": self.command}
             b = json.dumps({"from": name, "path": self.path}).encode()
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json")
-            self.send_header("Content-Length", str(len(b)))
-            self.end_headers()
-            self.wfile.write(b)
+            try:
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(b)))
+                self.end_headers()
+                self.wfile.write(b)
+            except (BrokenPipeError, ConnectionResetError):
+                pass                       # nginx gave up on a stuck-Portal test before this answered: expected
 
         do_GET = do_POST = _answer
 
@@ -99,8 +105,14 @@ PORT80 = free_port()   # stands in for port 80, shared with "Mainsail"
 servers = [upstream("moonraker", MOON), upstream("portal", 5000), upstream("webcam", 8080), upstream("go2rtc", 1984)]
 site = open(os.path.join(REPO, "service", "rhino-studio.nginx")).read()
 tpl = site
+import re
+_p = re.search(r"location /portal/ \{.*?\n    \}", tpl, re.S).group(0)
+_u = re.search(r"location ~ \^/portal/api/\(update\|backup\|restore\)\(/\|\$\) \{.*?\n    \}", tpl, re.S)
+ok("proxy_read_timeout 65;" in _p, "everyday Portal requests wait 65 s at most (a stuck Portal doesn't hold a screen for 5 minutes)")
+ok(_u is not None and "proxy_read_timeout 300;" in _u.group(0), "update, backup and restore keep the 5 minute wait")
 site = tpl.replace("@PORT@", str(PORT)).replace("@NAME@", "_").replace("@ROOT@", WWW).replace("@MOONRAKER@", str(MOON))
 site = site.replace("/var/log/nginx/rhino-studio-error.log", os.path.join(ROOT, "error.log"))
+site = site.replace("proxy_read_timeout 65;", "proxy_read_timeout 2;").replace("proxy_read_timeout 300;", "proxy_read_timeout 12;")   # the same, scaled down
 open(os.path.join(ROOT, "rhino-studio.conf"), "w").write(site)
 # 1.5.3, filled in as install.sh does it: port 80's stand-in, only for rhinostudio.local
 named = tpl.replace("@PORT@", str(PORT80)).replace("@NAME@", "rhinostudio.local").replace("@ROOT@", WWW).replace("@MOONRAKER@", str(MOON))
@@ -196,6 +208,16 @@ try:
     from urllib.parse import urlparse
     ok(s["headers"].get("host") == host and urlparse(s["headers"].get("origin", "")).netloc == s["headers"].get("host"),
        "the Portal sees Origin and Host agree, so its cross-site check lets Studio's changes through")
+    for path, m in (("/portal/api/update/github?x=1", "POST"), ("/portal/api/backup/file/a.zip", "GET"), ("/portal/api/restore/plan", "POST"),
+                    ("/portal/api/backup", "GET")):
+        st, h, b = req(m, path, body=b"{}" if m == "POST" else None)
+        ok(st == 200 and SEEN["portal"]["path"] == path.replace("/portal", "", 1), f"{m} {path} reaches the Portal as it did before (query kept)")
+    t0 = time.time()
+    st, h, b = req("GET", "/portal/api/hang")
+    ok(st == 504 and time.time() - t0 < 5, f"a stuck Portal is cut off at the everyday limit (got {st} after {time.time() - t0:.1f} s)")
+    t0 = time.time()
+    st, h, b = req("POST", "/portal/api/update/hang", body=b"{}")
+    ok(st == 200 and time.time() - t0 >= HANG_S - 0.5, f"a slow update/backup/restore still waits for the Portal (got {st} after {time.time() - t0:.1f} s)")
     st, h, b = req("POST", "/portal/api/slicer/slice", body=b"x" * (60 * 1024 * 1024), headers={"Content-Type": "application/octet-stream"})
     ok(st == 200 and SEEN["portal"]["body"] == 60 * 1024 * 1024, "a 60 MB part reaches the slicer")
     c = http.client.HTTPConnection("127.0.0.1", PORT, timeout=30)

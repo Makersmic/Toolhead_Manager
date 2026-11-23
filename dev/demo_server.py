@@ -11,6 +11,7 @@ current_tool, klippy, extruder_target, laser, spindle, (no UI settings: the Port
 POST /__job?filename=..&status=completed&total_duration=..&start_time=.. adds a finished job.
 """
 import argparse
+import atexit
 import http.server
 import json
 import os
@@ -91,7 +92,9 @@ def start_fake():
 
 
 def make_config(root=None):
-    root = root or tempfile.mkdtemp(prefix="rhino-demo-")
+    if root is None:
+        root = tempfile.mkdtemp(prefix="rhino-demo-")
+        atexit.register(shutil.rmtree, root, True)      # a test run by hand leaves nothing behind either
     cfg = os.path.join(root, "printer_data", "config")
     shutil.copytree(os.path.dirname(HERE), cfg, ignore=shutil.ignore_patterns("__pycache__", "registry_backups", ".git",
                                                                              "custom_tools.json", "maintenance"))

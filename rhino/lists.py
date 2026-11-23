@@ -12,6 +12,7 @@ import json
 import os
 import re
 
+from . import atomic
 from .errors import Fail
 from .presets import (BEHAVIOUR_TYPE, BEHAVIOURS, CATEGORIES, CATEGORY_BEHAVIOURS, KIND_ID_RE, LIMITS, MAT_RE,
                       MAX_CHECKLIST_ITEMS, MAX_CHECKLIST_LEN, PASSIVE_PRESET, POWER_PRESETS, SAFE_TEXT, SAFE_TEXT_HELP)
@@ -259,8 +260,5 @@ def save(paths, body, in_use):
             raise Fail("Keep at least one category")
         out["hw_categories"] = cats
     os.makedirs(os.path.dirname(paths.lists_json), exist_ok=True)
-    tmp = paths.lists_json + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        json.dump({k: out[k] for k in ("version", "kinds", "materials", "nozzles", "hw_categories", "bits")}, f, indent=1)
-    os.replace(tmp, paths.lists_json)
+    atomic.write_text(paths.lists_json, json.dumps({k: out[k] for k in ("version", "kinds", "materials", "nozzles", "hw_categories", "bits")}, indent=1))
     return out

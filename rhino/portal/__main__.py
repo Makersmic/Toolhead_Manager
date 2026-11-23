@@ -5,6 +5,7 @@ import signal
 import sys
 
 from . import create_app
+from .watchdog import Watchdog
 
 
 def main():
@@ -18,13 +19,17 @@ def main():
     app = create_app(a.config_dir, a.moonraker, start_monitor=True)
     print(f"Rhino portal on http://{a.host}:{a.port}  (config: {app.config['PATHS'].cfg})")
 
+    dog = Watchdog(f"http://127.0.0.1:{a.port}/api/ping")
+
     def stop(*_):                       # systemctl stop / restart: save the meters first
+        dog.stop()
         app.config["MONITOR"].stop()
         sys.exit(0)
     signal.signal(signal.SIGTERM, stop)
+    dog.start()                         # only when systemd started us with a watchdog (see watchdog.py)
     try:
         from waitress import serve        # preferred if installed
-        serve(app, host=a.host, port=a.port, threads=4)
+        serve(app, host=a.host, port=a.port, threads=8)
     except ImportError:
         app.run(host=a.host, port=a.port, debug=False, threaded=True)
     finally:

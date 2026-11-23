@@ -157,6 +157,12 @@ def photo(tool, filename):
     return send_file(p)
 
 
+@bp.get("/api/ping")
+def ping():
+    """The Portal's own watchdog asks this (rhino/portal/watchdog.py). Touches nothing: no Moonraker, no files."""
+    return jsonify({"ok": True})
+
+
 # ----------------------------------------------------------------------------- reads
 @bp.get("/api/state")
 def state():

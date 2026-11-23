@@ -2,7 +2,7 @@
 Run: python3 dev/test_hw_boards.py   (needs flask)
 
 Design: docs/hardware-coverage.md section 2 and build step 2; answers in docs/decisions.md (2026-10-26)."""
-import os, sys, tempfile
+import atexit, os, shutil, sys, tempfile
 sys.dont_write_bytecode = True
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
@@ -64,6 +64,7 @@ fake = demo.start_fake()
 app = create_app(CFG, f"http://127.0.0.1:{fake.server_port}")
 svc = app.config["SERVICE"]
 ports = tempfile.mkdtemp(prefix="rhino-serial-")
+atexit.register(shutil.rmtree, ports, True)
 svc.SERIAL_DIR = ports
 open(os.path.join(ports, "usb-Klipper_stm32g0b1xx_EBB-if00"), "w").close()
 c = app.test_client()

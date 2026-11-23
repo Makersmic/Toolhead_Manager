@@ -10,7 +10,7 @@ import os
 import re
 import shutil
 
-from . import builders, extras, hw_boards, hw_catalog, hw_devices, job_hooks, lists, pin_labels, registry, sections, tooldocs
+from . import atomic, builders, extras, hw_boards, hw_catalog, hw_devices, job_hooks, lists, pin_labels, registry, sections, tooldocs
 from .errors import Fail
 from .klipper_cfg import ConfigTree
 from .paths import Paths
@@ -490,10 +490,7 @@ class ToolService:
         backup = pin_labels.backup_file(self.paths, rel)
         if made:
             self._save(reg)
-        tmp = full + ".tmp"
-        with open(tmp, "w", encoding="utf-8") as f:
-            f.write(new_text)
-        os.replace(tmp, full)
+        atomic.write_text(full, new_text)
         # read it back the way Klipper will: the section must still claim the same pin
         check = ConfigTree(self.paths, extra_aliases=reg["labels"])
         again = next((u for u in check.pin_uses if u["file"] == rel and u["section"] == section and u["key"] == key), None)
@@ -821,10 +818,7 @@ class ToolService:
                     return False
         except OSError:
             pass
-        tmp = path + ".tmp"
-        with open(tmp, "w", encoding="utf-8") as f:
-            f.write(text)
-        os.replace(tmp, path)
+        atomic.write_text(path, text)
         return True
 
     def _save(self, reg):

@@ -64,7 +64,7 @@ sudo nginx -t
 chmod o+x ~
 ```
 
-- Ubuntu's nginx starts with a welcome page on port 80. The Rhino's Studio site takes port 80 itself, and two sites can't both be the default one, so the welcome page has to go first (`rm` above). **This step is the most likely to need correcting when you first try this.** If the installer later says nginx refused the change and mentions a duplicate `default_server`, look in `/etc/nginx/sites-enabled/` for what else listens on port 80.
+- Ubuntu's nginx starts with a welcome page on port 80. The Rhino's Studio site takes port 80 itself, and two sites can't both be the default one, so the welcome page has to go. Since 1.9.45 the installer switches it off itself, but only when it is nginx's own welcome site (a link `sites-enabled/default` with `root /var/www/html;`); it leaves the file in `sites-available`, and Undo (`rhino.sh` option 4) switches it back on. The `rm` above does the same by hand and is harmless if you have done it. If the installer later says nginx refused the change and mentions a duplicate `default_server`, look in `/etc/nginx/sites-enabled/` for what else listens on port 80 (a site that isn't nginx's own welcome page is never touched).
 - `chmod o+x ~` lets nginx pass through your home folder to `~/rhino-studio` (it doesn't let anyone list it). Without it
   Studio shows "403 Forbidden".
 
@@ -124,13 +124,13 @@ Do these in order. Hand near Stop for anything that moves.
 - **MF4 A job's moves.** Home, pause and resume a short print, then cancel one (checks OP2 and OP3). *Stop if* anything moves where it didn't before.
 - **MF5 Install twice.** Run option 3 with the same zip again. *Pass:* it finishes with the same "http://rhino.local opens Rhino Studio" line and no errors; Studio still opens. *Stop if* it errors or nginx refuses.
 - **MF6 Power cut.** `sudo reboot`. After about two minutes Studio is Connected and Klipper is Ready, with nothing done by hand.
-- **MF7 Doctor.** Option 7 of `rhino.sh`: nothing marked to fix.
+- **MF7 Health check.** Option 7 of `rhino.sh`: nothing marked to fix.
 
 ## If something's wrong
 
 | What you see | Do this |
 |---|---|
-| `http://rhino.local` shows nginx's welcome page | Step 3: `sudo rm -f /etc/nginx/sites-enabled/default`, `sudo nginx -t`, `sudo systemctl reload nginx` |
+| `http://rhino.local` shows nginx's welcome page | `sudo rm -f /etc/nginx/sites-enabled/default`, `sudo nginx -t`, `sudo systemctl reload nginx` (the installer does this itself from 1.9.45; this is for a host installed with an older release) |
 | Studio shows 403 Forbidden | `chmod o+x ~`, reload the page |
 | The installer says nginx refused the change | `sudo nginx -t` shows why; usually a second site on port 80. Fix that, then run option 3 again: it is safe to repeat |
 | `rhino.local` doesn't open at all | `systemctl status avahi-daemon`; use the host's IP address instead. Some Android phones never resolve `.local` |

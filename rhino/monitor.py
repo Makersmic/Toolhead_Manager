@@ -46,7 +46,8 @@ class Monitor:
         self.job = {"active": False, "filename": "", "paused_s": 0.0, "paused_since": None}
         self._restart_at = None
         self._down_since = None      # first poll that saw Klipper not ready
-        self._lock = threading.Lock()
+        self._lock = threading.Lock()      # held for a whole poll, which includes calls to Moonraker (up to 3 s each)
+        self._job_lock = threading.Lock()  # held only for an instant: what a web request waits on (job_info)
         self._stop = threading.Event()
         self._thread = None
 
@@ -97,6 +98,10 @@ class Monitor:
             return snap
 
     def _track_job(self, s):
+        with self._job_lock:
+            self._track_job_locked(s)
+
+    def _track_job_locked(self, s):
         j = self.job
         if s.busy and not j["active"]:
             j.update(active=True, filename=s.filename, paused_s=0.0, paused_since=None)
@@ -127,7 +132,8 @@ class Monitor:
             self._down_since = None
 
     def job_info(self):
-        with self._lock:
+        # Not self._lock: that is held while the poll waits on Moonraker, and a web request must not wait with it.
+        with self._job_lock:
             return dict(self.job)
 
     # ------------------------------------------------------------------ auto restart

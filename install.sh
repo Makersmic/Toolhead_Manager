@@ -527,6 +527,7 @@ default_out() {
   [ -f "$BACKUP/_rhino_install/old-rhino-studio-default.nginx" ] && sudo install -m 644 "$BACKUP/_rhino_install/old-rhino-studio-default.nginx" "$DSITE" \
     && sudo ln -sfn "$DSITE" "$DLINK"
   if [ -n "$msite" ] && [ -f "$BACKUP/_rhino_install/old-mainsail.nginx" ]; then sudo install -m 644 "$BACKUP/_rhino_install/old-mainsail.nginx" "$msite"; fi
+  if [ -s "$BACKUP/_rhino_install/old-nginx-default.link" ]; then sudo ln -sfn "$(cat "$BACKUP/_rhino_install/old-nginx-default.link")" "$NGX/sites-enabled/default"; fi
   return 0
 }
 studio_at() { py "import urllib.request as u;assert b'Rhino Studio' in u.urlopen(u.Request('http://127.0.0.1:$NAME_PORT/',headers={'Host':'$1'}),timeout=3).read()"; }
@@ -554,6 +555,16 @@ else
     rm -f "$tmp"
   else
     note "no Mainsail site in $NGX/sites-enabled - Studio takes the bare address on its own"
+    # A stock Ubuntu nginx has its own welcome page as the default site on port 80, and two default sites can't share a
+    # port ("nginx -t" refuses). Switch off only that link, and only when it is nginx's own welcome site: the file stays
+    # in sites-available, the link is written down for Undo, and default_out puts it back if nginx refuses what follows.
+    stock="$NGX/sites-enabled/default"
+    if [ -L "$stock" ] && grep -Eqs "^[[:space:]]*listen[[:space:]]+(\[::\]:)?$NAME_PORT[[:space:]]+default_server" "$stock" \
+       && grep -Eqs '^[[:space:]]*root[[:space:]]+/var/www/html;' "$stock"; then
+      [ $DRY = 0 ] && readlink "$stock" > "$BACKUP/_rhino_install/old-nginx-default.link"
+      do_ sudo rm -f "$stock"
+      ok "nginx's own welcome site is switched off (its file is still in $NGX/sites-available; Undo switches it back on)"
+    fi
   fi
   tmp="$(mktemp)"
   sed "s#@PORT@#$NAME_PORT default_server#g; s#@NAME@#_#g; s#@ROOT@#$STUDIO_DIR#g; s#@MOONRAKER@#$mport#g; s#rhino-studio-error.log#rhino-studio-default-error.log#g" \

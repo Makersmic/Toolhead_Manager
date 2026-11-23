@@ -1,6 +1,6 @@
 """Host health (Studio Settings > Host health): rhino/hoststats.py against a pretend /proc and /sys, and GET /api/host/stats.
 Run: python3 dev/test_hoststats.py  (needs flask)"""
-import http.server, json, os, shutil, sys, tempfile, threading
+import atexit, http.server, json, os, shutil, sys, tempfile, threading
 sys.dont_write_bytecode = True
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
@@ -83,7 +83,9 @@ class H(http.server.BaseHTTPRequestHandler):
             return self._send(200, {"result": {"status": {"print_stats": {"state": "printing"}, "gcode_macro SWAP_TOOL": {"current_tool": 1}}}})
         self._send(404, {})
 srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), H); threading.Thread(target=srv.serve_forever, daemon=True).start()
-CFG = tempfile.mkdtemp(prefix="rhino-hoststats-cfg-") + "/printer_data/config"
+_CFG_ROOT = tempfile.mkdtemp(prefix="rhino-hoststats-cfg-")
+atexit.register(shutil.rmtree, _CFG_ROOT, True)
+CFG = _CFG_ROOT + "/printer_data/config"
 shutil.copytree(os.path.dirname(HERE), CFG, ignore=shutil.ignore_patterns("__pycache__", "registry_backups", "node_modules", "manual", ".git"))
 app = create_app(CFG, f"http://127.0.0.1:{srv.server_port}")
 r = app.test_client().get("/api/host/stats", environ_base={"REMOTE_ADDR": "127.0.0.1"})

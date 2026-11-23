@@ -3,6 +3,7 @@
 
     python3 rhino_doctor.py                  print the checks, save a report in your home folder
     python3 rhino_doctor.py --compare A B    what differs between two saved reports (the Pi's and the 7050's)
+    python3 rhino_doctor.py --json           the same checks as one JSON object, no report saved (Studio's Health check page)
 
 Read-only: it changes nothing, needs no sudo, and every check that can't run says so instead of failing the
 rest. Run it on the Pi before the move and on the 7050 after (docs/migrate-7050.md); menu option 7 runs it.
@@ -31,10 +32,11 @@ B, G, Y, R, N = ("\033[1m", "\033[32m", "\033[33m", "\033[31m", "\033[0m") if sy
 COLOUR = {"PASS": G, "WARN": Y, "FAIL": R, "INFO": ""}
 
 results, facts = [], {}
+CURRENT = [""]          # the section being checked, kept with each result (Studio's Health check page groups by it)
 
 
 def say(level, what, detail=""):
-    results.append({"level": level, "what": what, "detail": detail})
+    results.append({"level": level, "what": what, "detail": detail, "section": CURRENT[0]})
     print(f"  {COLOUR[level]}{level:4}{N}  {what}" + (f"  - {detail}" if detail else ""))
 
 
@@ -66,6 +68,7 @@ def sysfs(path):
 
 
 def section(title):
+    CURRENT[0] = title
     print(f"\n{B}{title}{N}")
 
 
@@ -255,6 +258,17 @@ def check_services():
             say("PASS", f"{svc} is running")
         else:
             say(need, f"{svc} is {out.strip() or 'not running'}")
+    # The Portal's watchdog (1.9.45): systemd restarts a Portal that hangs, not only one that crashes.
+    code, out = run("systemctl", "show", "-p", "Type", "-p", "WatchdogUSec", "rhino-portal")
+    if code is not None:
+        props = dict(l.split("=", 1) for l in out.splitlines() if "=" in l)
+        if "Type" not in props:
+            say("INFO", "rhino-portal: couldn't read its service settings", out[:120])
+        elif props.get("Type") == "notify" and props.get("WatchdogUSec", "0") not in ("0", "0us", "infinity", ""):
+            say("PASS", f"The Portal restarts itself if it hangs (systemd watchdog, {props['WatchdogUSec']})")
+        else:
+            say("WARN", "The Portal's service file is from before 1.9.45: it restarts after a crash but not after a hang",
+                "install the current release again (option 3) to bring in the watchdog")
     try:
         info = get_json(MOONRAKER + "/server/info")["result"]
         fact("moonraker", info.get("moonraker_version", "?"))
@@ -306,6 +320,17 @@ def check_rhino():
         else:
             say("FAIL", f"{rel} is {'missing' if not here else 'not included in printer.cfg'}",
                 "the job and swap macros call what it defines; restarting the Portal writes it again")
+    # Your own positions.cfg is kept by every install. Before 1.9.44 its start-up step copied the park spot into Mainsail's
+    # _CLIENT_VARIABLE; a do-nothing stand-in absorbs that now, and can go once those lines are deleted.
+    try:
+        pos = [l for l in open(os.path.join(CFG, "myrhino", "positions.cfg"), errors="replace").read().splitlines()
+               if "_CLIENT_VARIABLE" in l and not l.lstrip().startswith(("#", ";"))]
+    except OSError:
+        pos = []
+    if pos:
+        say("INFO", f"myrhino/positions.cfg still has {len(pos)} line{'s' * (len(pos) != 1)} that set _CLIENT_VARIABLE (harmless)",
+            "delete those SET_GCODE_VARIABLE lines from _RHINO_POSITIONS_APPLY, leaving only RHINO_POSITIONS QUIET=1; "
+            "then the stand-in macro can be removed in a later release")
     # Pause, resume and cancel: the Rhino's own pause_resume.cfg since 1.9.44 (a pinned copy of Mainsail's before, mainsail.cfg before that).
     # Exactly one of them may be included, and the file must be there.
     lines = {l.strip() for l in text.splitlines()}
@@ -346,7 +371,7 @@ def check_backups():
         say("PASS", "klipper-backup is installed and set up")
 
 
-def main():
+def main(save=True):
     print(f"{B}Rhino health check{N}  {time.strftime('%Y-%m-%d %H:%M')}  (changes nothing)")
     for chk in (check_host, check_left_alone, check_board_and_camera, check_services, check_rhino, check_backups):
         try:
@@ -358,6 +383,8 @@ def main():
     print(f"\n{B}Facts{N} (what --compare lines up)")
     for k, v in facts.items():
         print(f"  {k:16} {', '.join(v) if isinstance(v, list) else v}")
+    if not save:
+        return 1 if counts["FAIL"] else 0
     name = f"rhino-health-{facts.get('host name', 'host')}-{time.strftime('%Y%m%d-%H%M%S')}.json"
     path = os.path.join(HOME, name)
     try:
@@ -388,7 +415,20 @@ def compare(a, b):
     return 0
 
 
+def json_main():
+    """--json: the same checks, nothing printed but one JSON object, no report file. Studio's Health check page runs this."""
+    import contextlib
+    import io
+    with contextlib.redirect_stdout(io.StringIO()):
+        main(save=False)
+    counts = {k: sum(1 for r in results if r["level"] == k) for k in ("PASS", "WARN", "FAIL", "INFO")}
+    print(json.dumps({"made": time.strftime("%Y-%m-%d %H:%M:%S"), "counts": counts, "facts": facts, "results": results}))
+    return 0
+
+
 if __name__ == "__main__":
+    if "--json" in sys.argv[1:]:
+        sys.exit(json_main())
     if len(sys.argv) == 4 and sys.argv[1] == "--compare":
         sys.exit(compare(sys.argv[2], sys.argv[3]))
     sys.exit(main())

@@ -446,7 +446,9 @@ try:
             pass
 
         def do_GET(self):
-            if self.headers.get("Host") == "rhinostudio.local" and os.path.lexists(NLINK):
+            if mode.get("nodefault") and self.headers.get("Host") != "rhinostudio.local":
+                b = b"<title>Not Studio</title>"       # the bare address doesn't answer with Studio (1.9.45 test)
+            elif self.headers.get("Host") == "rhinostudio.local" and os.path.lexists(NLINK):
                 b = b"<title>Rhino Studio</title>"
             elif mode["bad"] and os.path.lexists(NLINK):
                 b = b"<title>Rhino Studio</title> took the bare address"
@@ -562,6 +564,39 @@ try:
         run(f"{PKG}/uninstall.sh")
         os.remove(os.path.join(NGX, "sites-enabled", "mainsail"))
         os.remove(ms)
+        # 1.9.45: a stock Ubuntu nginx has its own welcome site as the default on port 80 (Mainsail-free host)
+        stock_av = os.path.join(NGX, "sites-available", "default")
+        stock_en = os.path.join(NGX, "sites-enabled", "default")
+        welcome = f"server {{\n    listen {NAME_PORT} default_server;\n    listen [::]:{NAME_PORT} default_server;\n    root /var/www/html;\n    index index.html index.nginx-debian.html;\n}}\n"
+        open(stock_av, "w").write(welcome)
+        os.symlink(stock_av, stock_en)
+        rc, out = run(f"{PKG}/install.sh")
+        keep = os.path.join(HOME, backups()[-1], "_rhino_install")
+        ok(rc == 0 and "Install finished." in out and "welcome site is switched off" in out and not os.path.lexists(stock_en) and open(stock_av).read() == welcome,
+           "1.9.45: nginx's own welcome site is switched off (the link only: its file stays in sites-available)")
+        ok(open(os.path.join(keep, "old-nginx-default.link")).read().strip() == stock_av, "...and the link is written down in the backup for Undo")
+        ok(os.path.lexists(DLINK) and "opens Rhino Studio" in out, "...and Studio answers the bare address")
+        run(f"{PKG}/uninstall.sh")
+        ok(os.path.islink(stock_en) and os.readlink(stock_en) == stock_av, "undo: the welcome site is switched back on")
+        os.remove(stock_en)
+        # a default site that is somebody's own (a different root) is left alone
+        open(stock_av, "w").write(f"server {{\n    listen {NAME_PORT} default_server;\n    root /srv/mysite;\n}}\n")
+        os.symlink(stock_av, stock_en)
+        rc, out = run(f"{PKG}/install.sh")
+        ok(rc == 0 and os.path.islink(stock_en) and "welcome site is switched off" not in out, "a default site with another root is left alone")
+        run(f"{PKG}/uninstall.sh")
+        os.remove(stock_en)
+        # nginx refusing what follows puts the welcome site back
+        open(stock_av, "w").write(welcome)
+        os.symlink(stock_av, stock_en)
+        mode["nodefault"] = True
+        rc, out = run(f"{PKG}/install.sh")
+        ok(rc == 0 and os.path.islink(stock_en) and os.readlink(stock_en) == stock_av and not os.path.lexists(DLINK),
+           "Studio not answering the bare address: Studio's default site comes out and the welcome site is back as it was")
+        mode["nodefault"] = False
+        run(f"{PKG}/uninstall.sh")
+        os.remove(stock_en)
+        os.remove(stock_av)
     finally:
         srv80.shutdown()
         srv80.server_close()

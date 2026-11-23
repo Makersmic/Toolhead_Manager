@@ -752,7 +752,8 @@ Needs PrusaSlicer installed on the Rhino and a model with at least two through h
 - [ ] **MF4 A job's moves.** Pause and resume a short print, then cancel one (OP2, OP3 once they exist). *Stop if* anything moves where it didn't before.
 - [ ] **MF5 Install twice.** Run option 3 again with the same zip. *Pass:* the same "opens Rhino Studio" line, no errors, Studio still opens. *Stop if* it errors or nginx refuses.
 - [ ] **MF6 Power cut.** `sudo reboot`. *Pass:* after about two minutes Studio is Connected and Klipper Ready with nothing done by hand.
-- [ ] **MF7 Doctor.** `rhino.sh` option 7: nothing marked to fix.
+- [ ] **MF7 Health check.** `rhino.sh` option 7: nothing marked to fix.
+- [ ] **MF8 The welcome site stays off (1.9.45).** After the install, `ls /etc/nginx/sites-enabled/` has no `default`, and `/etc/nginx/sites-available/default` is still there. *Pass:* `http://rhino.local` opens Studio. After Undo (`rhino.sh` option 4) `sites-enabled/default` is back. *Stop if* a site you made yourself on port 80 disappeared: it must never; tell me which file.
 
 ## Pause, resume and cancel are the Rhino's own (1.9.44; `docs/proposal-own-pause-resume.md`)
 
@@ -766,3 +767,14 @@ Hand near Stop for every one. Undo is `rhino.sh` option 4.
 - [ ] **OP6 Pause at a layer.** `SET_PAUSE_AT_LAYER LAYER=3` on a short print. *Pass:* it pauses at layer 3.
 - [ ] **OP7 Edited park spot.** Change `variable_park_x/y` in `myrhino/positions.cfg`, `FIRMWARE_RESTART`, then pause straight away. *Pass:* it parks at the new spot.
 
+
+## A Portal and a machine that survive being left alone (1.9.45)
+
+Nothing here moves the machine. Do HD4 only with the machine idle (no job, nothing heating). Undo is `rhino.sh` option 4.
+
+- [ ] **HD1 The watchdog is on.** After installing, `systemctl show rhino-portal -p Type -p WatchdogUSec` and `systemctl is-active rhino-portal`. *Pass:* `Type=notify`, `WatchdogUSec=1min 30s`, `active`; `curl -s http://rhino.local/portal/api/ping` prints `{"ok":true}`. *Stop if* the Portal restarts over and over (`journalctl -u rhino-portal -n 40`): run Undo.
+- [ ] **HD2 A hung Portal restarts itself.** Note the process number (`systemctl show -p MainPID --value rhino-portal`), then freeze it: `sudo kill -STOP <that number>`. *Pass:* within about 2 minutes the number changes, `journalctl -u rhino-portal` mentions the watchdog, and Studio's Care page loads again. *Stop if* it is still frozen after 3 minutes: `sudo kill -CONT <number>` or `sudo systemctl restart rhino-portal`, and note what the journal said.
+- [ ] **HD3 Studio doesn't wait for a hung Portal.** Freeze the Portal as in HD2, straight away open Settings > Care in Studio. *Pass:* within about 15 seconds it says "The Portal didn't answer in time", not a spinner for minutes; Studio's machine controls and Stop still work (they use Moonraker, not the Portal). Do HD3 before HD2's 2 minutes are up.
+- [ ] **HD4 A hung Moonraker doesn't freeze the Portal.** Machine idle. `sudo kill -STOP $(systemctl show -p MainPID --value moonraker)`. Open Settings > Appearance > Text and Settings > Backups in Studio. *Pass:* they load or say they can't reach Moonraker within a few seconds; the Portal answers `curl -s http://rhino.local/portal/api/ping` at once. Then `sudo kill -CONT <number>`. *Stop if* Studio doesn't reconnect within a minute of that: `sudo systemctl restart moonraker`.
+- [ ] **HD5 Power cut (machine idle).** Note Care's "Machine up hours", then pull the power, start again. *Pass:* Studio is Connected after about two minutes and the up hours are within about 5 minutes of what you noted (not zero). *Stop if* the hours are zero: don't delete anything; look for `*.bad` and `*.prev` beside the meters file (`find ~/printer_data -name "*.bad" -o -name "*.prev"`) and tell me.
+- [ ] **HD6 The long jobs still work behind nginx.** `sudo nginx -t` says `syntax is ok`. In Studio, Back up now, and Settings > Software > check for updates. *Pass:* both finish as before. *Stop if* a backup is cut off with a 504: tell me; the long limit is 5 minutes in `/etc/nginx/sites-available/rhino-studio`.

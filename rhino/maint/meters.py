@@ -18,6 +18,7 @@ import os
 import threading
 import time
 
+from .. import atomic
 from ..errors import Fail
 
 log = logging.getLogger("rhino.maint")
@@ -76,22 +77,34 @@ class MeterStore:
                 "daily": {}, "seen_jobs": [], "imported_jobs": 0, "history_synced": 0.0, "last_klippy": "",
                 "last_tool": 0, "adjustments": [], "new": True}
 
+    @staticmethod
+    def _read(path):
+        with open(path, encoding="utf-8") as f:
+            d = json.load(f)
+        if not isinstance(d, dict) or not isinstance(d.get("machine"), dict):
+            raise ValueError("not a meter file")
+        return d
+
     def _load(self):
         if not os.path.exists(self.path):
             return self._empty()
         try:
-            with open(self.path, encoding="utf-8") as f:
-                d = json.load(f)
-            if not isinstance(d, dict) or not isinstance(d.get("machine"), dict):
-                raise ValueError("not a meter file")
+            d = self._read(self.path)
         except (OSError, ValueError) as e:
-            # never throw usage away: keep the unreadable file next to the fresh one
-            log.error("meters file unreadable (%s) - starting fresh, old file kept as .bad", e)
+            # never throw usage away: keep the unreadable file next to what replaces it. A power cut can leave an empty
+            # file; the copy kept at the last good save (at most 5 minutes old) is better than starting from zero.
+            try:
+                d = self._read(self.path + ".prev")
+                log.error("meters file unreadable (%s) - using the copy from the last good save; the bad file is kept as .bad", e)
+            except (OSError, ValueError):
+                d = None
+                log.error("meters file unreadable (%s) - starting fresh, old file kept as .bad", e)
             try:
                 os.replace(self.path, self.path + ".bad")
             except OSError:
                 pass
-            return self._empty()
+            if d is None:
+                return self._empty()
         base = self._empty()
         base.pop("new")
         for k, v in base.items():
@@ -105,10 +118,13 @@ class MeterStore:
             if not (self.dirty or force):
                 return
             os.makedirs(os.path.dirname(self.path), exist_ok=True)
-            tmp = self.path + ".tmp"
-            with open(tmp, "w", encoding="utf-8") as f:
-                json.dump(self.data, f, indent=1, sort_keys=True)
-            os.replace(tmp, self.path)
+            try:                                  # keep the file as it was at the last good save, only if it was good
+                self._read(self.path)
+                with open(self.path, encoding="utf-8") as f:
+                    atomic.write_text(self.path + ".prev", f.read())
+            except (OSError, ValueError):
+                pass
+            atomic.write_text(self.path, json.dumps(self.data, indent=1, sort_keys=True))
             self.dirty, self.last_save = False, time.time()
 
     def maybe_save(self, now):

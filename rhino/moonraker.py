@@ -4,6 +4,7 @@ maintenance monitor uses it to read what the machine is doing."""
 import json
 import re
 import threading
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -11,6 +12,11 @@ import urllib.request
 from .errors import Fail
 
 BUSY_STATES = ("printing", "paused")
+HUNG_FOR = 5.0   # seconds: once Moonraker has not answered a short call in time, the next ones fail at once for this long
+
+
+def _timed_out(e):
+    return isinstance(e, TimeoutError) or isinstance(getattr(e, "reason", None), TimeoutError)
 
 
 class Moonraker:
@@ -18,8 +24,16 @@ class Moonraker:
         self.url, self.timeout = url.rstrip("/"), timeout
         self._estimates = {}             # filename -> slicer estimated_time (or None); files rarely change
         self._lock = threading.Lock()
+        self._hung_until = 0.0           # time.monotonic() until which short calls fail at once
 
     def _call(self, method, path, query=None, body=None, timeout=None):
+        # A Moonraker that is running but not answering never refuses a connection, so every web request that asks it
+        # would wait the full 3 s, and a few open Studio screens would use up all the Portal's worker threads. After one
+        # missed answer the short calls fail at once for a few seconds. Calls with their own long wait (history,
+        # database backup and restore) are neither stopped by this nor start it.
+        short = timeout is None
+        if short and time.monotonic() < self._hung_until:
+            raise Fail("Cannot reach Moonraker - is it running?")
         full = self.url + path + ("?" + urllib.parse.urlencode(query) if query else "")
         data = json.dumps(body).encode() if body is not None else (b"" if method == "POST" else None)
         req = urllib.request.Request(full, method=method, data=data)
@@ -34,7 +48,9 @@ class Moonraker:
             if e.code == 404:
                 return {"error": "not_found"}
             raise Fail(f"Moonraker returned HTTP {e.code} for {path}")
-        except (urllib.error.URLError, OSError, ValueError):
+        except (urllib.error.URLError, OSError, ValueError) as e:
+            if short and _timed_out(e):
+                self._hung_until = time.monotonic() + HUNG_FOR
             raise Fail("Cannot reach Moonraker - is it running?")
 
     # ------------------------------------------------------------------ raw reads

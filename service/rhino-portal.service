@@ -8,7 +8,12 @@ After=network-online.target moonraker.service
 Wants=network-online.target
 
 [Service]
-Type=simple
+# notify + watchdog (1.9.45): the Portal tells systemd when it is serving and every 20 s or so that it still answers.
+# A Portal that hangs (not crashes) misses three of those in a row and systemd restarts it. See rhino/portal/watchdog.py.
+Type=notify
+NotifyAccess=main
+WatchdogSec=90
+TimeoutStartSec=120
 User=pi
 WorkingDirectory=/home/pi/printer_data/config
 Environment=PYTHONDONTWRITEBYTECODE=1

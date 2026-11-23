@@ -1,7 +1,7 @@
 """Network settings (1.4.8): the root helper, the Portal's rhino.net, and /api/net.
 Run: python3 dev/test_net.py   (needs flask). Nothing here touches this machine's network:
 every nmcli/systemd/hostname call goes to a fake."""
-import json, os, shutil, stat, sys, tempfile
+import atexit, json, os, shutil, stat, sys, tempfile
 sys.dont_write_bytecode = True
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE)); sys.path.insert(0, os.path.join(os.path.dirname(HERE), "scripts"))
@@ -45,7 +45,9 @@ class FakeSys:
         return next((i for i, c in enumerate(self.cmds) if pred(c)), -1)
 
 def setup(root=None):
-    root = root or tempfile.mkdtemp(prefix="rhino-net-")
+    if root is None:
+        root = tempfile.mkdtemp(prefix="rhino-net-")
+        atexit.register(shutil.rmtree, root, True)
     os.makedirs(root + "/etc", exist_ok=True)
     with open(root + "/etc/hosts", "w") as f: f.write("127.0.0.1\tlocalhost\n127.0.1.1\tmainsailos\n")
     return H.Paths(root), FakeSys()

@@ -26,7 +26,7 @@ import threading
 import time
 from urllib.parse import urlparse
 
-from .. import registry
+from .. import atomic, registry
 from ..errors import Fail
 from ..presets import SAFE_TEXT, SAFE_TEXT_HELP
 from . import library, meters, schedule
@@ -170,11 +170,7 @@ class MaintService:
 
     @staticmethod
     def _atomic(path, obj):
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        tmp = path + ".tmp"
-        with open(tmp, "w", encoding="utf-8") as f:
-            json.dump(obj, f, indent=1, sort_keys=True)
-        os.replace(tmp, path)
+        atomic.write_text(path, json.dumps(obj, indent=1, sort_keys=True))
 
     def _save_tasks(self, d):
         self._atomic(self.tasks_path, d)
@@ -1116,10 +1112,7 @@ class MaintService:
                 f"variable_written: {registry.pyrepr(time.strftime('%d %b %Y %H:%M', time.localtime(self.now())))}\n"
                 "variable_shown: 0\n"
                 "gcode:\n  {% if false %}{% endif %}\n")
-        tmp = self.status_cfg + ".tmp"
-        with open(tmp, "w", encoding="utf-8") as f:
-            f.write(text)
-        os.replace(tmp, self.status_cfg)
+        atomic.write_text(self.status_cfg, text)
 
 
 def _due_point(r):

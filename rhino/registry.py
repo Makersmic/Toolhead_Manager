@@ -13,7 +13,7 @@ import os
 import shutil
 import datetime
 
-from . import hw_boards, hw_devices, sections
+from . import atomic, hw_boards, hw_devices, sections
 from .errors import Fail
 from .presets import EPHEMERAL_FIELDS, PORTAL_ONLY_FIELDS, SAFE_TEXT, SCHEMA_VERSION, SECTION_FIELDS
 
@@ -212,11 +212,7 @@ def verify_roundtrip(reg, text):
 
 
 def _atomic(path, text):
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    tmp = path + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        f.write(text)
-    os.replace(tmp, path)
+    atomic.write_text(path, text)
 
 
 def save(paths, reg):

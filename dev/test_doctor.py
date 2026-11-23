@@ -56,10 +56,12 @@ os.makedirs(BIN)
 STATE = os.path.join(T, "systemd.json")
 json.dump({"is-active": {"klipper": "active", "moonraker": "active", "rhino-portal": "active", "nginx": "active",
                          "crowsnest": "inactive", "NetworkManager": "active", "dhcpcd": "inactive"},
-           "is-enabled": {}}, open(STATE, "w"))
+           "is-enabled": {}, "show": {"rhino-portal": "Type=notify\nWatchdogUSec=1min 30s"}}, open(STATE, "w"))
 open(BIN + "/systemctl", "w").write(f"""#!/usr/bin/env python3
 import json, sys
 s = json.load(open({STATE!r}))
+if sys.argv[1] == "show":
+    print(s.get("show", {{}}).get(sys.argv[-1], "")); sys.exit(0)
 v = s.get(sys.argv[1], {{}}).get(sys.argv[2], "inactive" if sys.argv[1] == "is-active" else "enabled")
 print(v); sys.exit(0 if v in ("active", "enabled", "masked") else 3)
 """)
@@ -120,6 +122,7 @@ ok("WARN  This PC can still go to sleep" in out or "INFO  Sleep isn't masked" in
 ok("INFO  USB power saving is on for the board's port" in out, "USB autosuspend on the board's port is noted (the doc's 9.4 fallback)")
 ok("WARN  No Rhino backup on this machine yet" in out and "WARN  klipper-backup isn't installed" in out, "no backups yet is a warning")
 ok(code == 0, f"no FAIL -> exit 0 ({line(out, 'Summary')})")
+ok("PASS  The Portal restarts itself if it hangs (systemd watchdog, 1min 30s)" in out, "1.9.45: a Portal service with the watchdog passes")
 reports = glob.glob(os.path.join(HOME, "rhino-health-*.json"))
 ok(len(reports) == 1 and json.load(open(reports[0]))["facts"]["klipper"] == "v0.13.0-200", "the report is saved with its facts")
 
@@ -205,6 +208,35 @@ code, out = doctor()
 ok("PASS  client_mainsail.cfg is there (an older release's" in out, "a machine still on the 1.9.19 setup passes, and says it is older")
 os.remove(os.path.join(CFG, "client_mainsail.cfg")); os.remove(os.path.join(CFG, "pause_resume.cfg"))
 open(_pc, "w").write(_txt)
+
+# 1.9.45: an older Portal service file (no watchdog), and a positions.cfg from before 1.9.44
+st = json.load(open(STATE))
+st["show"]["rhino-portal"] = "Type=simple\nWatchdogUSec=0"
+json.dump(st, open(STATE, "w"))
+_pos = os.path.join(CFG, "myrhino", "positions.cfg")
+os.makedirs(os.path.dirname(_pos), exist_ok=True)
+_pos_text = open(_pos).read() if os.path.exists(_pos) else ""
+open(_pos, "w").write(_pos_text + "\n[delayed_gcode _OLD]\ngcode:\n  SET_GCODE_VARIABLE MACRO=_CLIENT_VARIABLE VARIABLE=custom_park_x VALUE=1\n"
+                      "  SET_GCODE_VARIABLE MACRO=_CLIENT_VARIABLE VARIABLE=custom_park_y VALUE=2\n  # SET_GCODE_VARIABLE MACRO=_CLIENT_VARIABLE (a comment)\n")
+code, out = doctor()
+ok("WARN  The Portal's service file is from before 1.9.45" in out and "option 3" in out, "an old Portal service file (no watchdog) is a warning, with what to do")
+ok("INFO  myrhino/positions.cfg still has 2 lines that set _CLIENT_VARIABLE (harmless)" in out and "RHINO_POSITIONS QUIET=1" in out,
+   "a positions.cfg from before 1.9.44 is noted (two lines; the comment doesn't count) with the lines to delete")
+open(_pos, "w").write(_pos_text + "\n[delayed_gcode _NEW]\ngcode:\n  RHINO_POSITIONS QUIET=1\n")
+code, out = doctor()
+ok("still has" not in out, "a positions.cfg without those lines says nothing")
+
+# --json (Studio's Health check page): one JSON object, sections kept, no report file
+_before = set(glob.glob(os.path.join(HOME, "rhino-health-*.json")))
+code, out = doctor("--json")
+try:
+    js = json.loads(out)
+except ValueError:
+    js = {}
+ok(js.get("results") and set(js.get("counts", {})) == {"PASS", "WARN", "FAIL", "INFO"} and "facts" in js, "--json prints one JSON object with results, counts and facts")
+ok(all(r.get("section") for r in js.get("results", [])) and {r["level"] for r in js["results"]} <= {"PASS", "WARN", "FAIL", "INFO"},
+   "...each result names its section and has one of the four levels")
+ok(set(glob.glob(os.path.join(HOME, "rhino-health-*.json"))) == _before, "...and saves no report file")
 
 # the menu runs it
 sh = open(os.path.join(REPO, "rhino.sh")).read()

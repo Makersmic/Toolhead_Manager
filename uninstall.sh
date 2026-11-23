@@ -96,13 +96,16 @@ if [ -f "$B/_rhino_install/old-rhino-studio-name.nginx" ] || [ -e "$NSITE" ]; th
 fi
 # 1.9.19+: Studio on the bare address - Mainsail's site and Studio's default site, as they were before that install
 DSITE="$NGX/sites-available/rhino-studio-default"
-if [ -f "$B/_rhino_install/old-mainsail.nginx" ] || [ -f "$B/_rhino_install/old-rhino-studio-default.nginx" ] || [ -e "$DSITE" ]; then
-  echo "Putting Mainsail back on the bare address as it was"
+if [ -f "$B/_rhino_install/old-mainsail.nginx" ] || [ -f "$B/_rhino_install/old-rhino-studio-default.nginx" ] || [ -e "$DSITE" ] || [ -s "$B/_rhino_install/old-nginx-default.link" ]; then
+  echo "Putting nginx's sites back as they were before that install (Mainsail's, Studio's default, nginx's own welcome site)"
   if [ -f "$B/_rhino_install/old-rhino-studio-default.nginx" ]; then
     do_ sudo install -m 644 "$B/_rhino_install/old-rhino-studio-default.nginx" "$DSITE"
     do_ sudo ln -sfn "$DSITE" "$NGX/sites-enabled/rhino-studio-default"
   else
     do_ sudo rm -f "$NGX/sites-enabled/rhino-studio-default" "$DSITE"
+  fi
+  if [ -s "$B/_rhino_install/old-nginx-default.link" ]; then   # nginx's own welcome site, switched off by that install
+    do_ sudo ln -sfn "$(cat "$B/_rhino_install/old-nginx-default.link")" "$NGX/sites-enabled/default"
   fi
   mpath="$(cat "$B/_rhino_install/old-mainsail.path" 2>/dev/null)"
   if [ -f "$B/_rhino_install/old-mainsail.nginx" ] && [ -n "$mpath" ] && [ -f "$mpath" ]; then

@@ -42,6 +42,27 @@ r = c.get("/"); ok(r.status_code == 200 and b"rhino-token" in r.data, "index loa
 ok("script-src 'self'" in r.headers["Content-Security-Policy"] and b"<script>" not in r.data and b"style=" not in r.data, "CSP + no inline script/style in page")
 ok(c.get("/static/portal.js").status_code == 200 and c.get("/static/portal.css").status_code == 200, "static assets served")
 
+# the health check page (1.9.45): GET reads the last result, POST (with the token) starts a run in the background
+h0 = J(c.get("/api/health"))
+ok(h0["ok"] and h0["running"] is False and h0["result"] is None, "health check: nothing run yet, GET says so")
+ok(c.post("/api/health/run").status_code in (400, 403), "health check: a run needs the token")
+r1 = c.post("/api/health/run", headers=HDR)
+ok(r1.status_code == 200 and J(r1)["running"] is True, "health check: a run starts and returns at once")
+ok(J(c.post("/api/health/run", headers=HDR))["running"] is True, "...a second request while it runs doesn't start another")
+import time as _t
+for _ in range(120):
+    hs = J(c.get("/api/health"))
+    if not hs["running"]:
+        break
+    _t.sleep(0.5)
+res = hs["result"] or {}
+ok(not hs["running"] and hs["error"] is None and res.get("results") and set(res["counts"]) == {"PASS", "WARN", "FAIL", "INFO"},
+   f"health check: it finishes with results and counts ({hs['error']})")
+ok(all({"section", "level", "what", "detail"} <= set(x) for x in res.get("results", [])) and any(x["section"] for x in res["results"]),
+   "...every result says which section it belongs to")
+ok(not [f for f in os.listdir(os.path.expanduser("~")) if f.startswith("rhino-health-") and _t.time() - os.path.getmtime(os.path.join(os.path.expanduser("~"), f)) < 120],
+   "...and a run from the page saves no report file in the home folder")
+r = c.get("/api/ping"); ok(r.status_code == 200 and J(r) == {"ok": True}, "/api/ping answers for the watchdog, touching nothing")
 s = J(c.get("/api/state"))
 ok(s["ok"] and [t["name"] for t in s["tools"]][:5] == ["BlockOne", "SwitchFly", "LightSaber", "HotJoe", "DragKnife"], "state lists built-in tools")
 ok(s["printer"]["online"] and s["printer"]["mounted_slot"] == 3 and not s["restart_pending"], "printer status from moonraker")
