@@ -1,5 +1,7 @@
 # Proposal: support for the BIQU Hermit Crab quick-change toolhead interface
 
+> **PARKED Nov 23 2026 (Mike): stays a proposal. Build nothing around it yet; he wants to think more.** Revisit when he says.
+
 Nov 23 2026. **For Mike's review: nothing is built.** Mike asked about "the BIQU Hermit Crab interchangeable toolhead interface" as something to tackle, after the idea of aiming at a community whose toolheads are swappable. Facts below come from BIQU's own wiki page
 (https://global.bttwiki.com/Hermit%20Crab%202%20Series.html, read Nov 23) and retailer listings; **what the page does not say is listed explicitly**, and those gaps decide the design. I have not seen the hardware.
 

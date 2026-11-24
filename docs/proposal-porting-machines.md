@@ -1,5 +1,7 @@
 # Proposal: bringing other machines and users onto the Rhino software
 
+> **PARKED Nov 23 2026 (Mike): stays a proposal. Build nothing around it yet; he wants to think more.** Revisit when he says.
+
 Nov 23 2026. **For Mike's review: nothing is built.** Mike's idea: once the wizards are done, build "aspects for porting other users over easily", such as wizards that
 capture axis lengths and endstop positions, "and we aren't far off". This is my reading of it, what already exists, what is missing, and a build order. It follows
 `docs/wizard-rules.md` (plain sentence plus "What this does", editable text, read before write, nothing changes unless you keep it) and the durability rule.
