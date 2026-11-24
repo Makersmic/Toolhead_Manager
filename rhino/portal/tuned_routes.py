@@ -3,6 +3,7 @@
 GET  /api/tuned        {rev, pid: {"extruder": {kp, ki, kd, at, previous}, ...}, restart_needed}
 POST /api/tuned/pid    (token) {rev, heater, kp, ki, kd}   keep a heater's PID values (writes myrhino/tuned.cfg; marks a restart pending)
 POST /api/tuned/accelerometer (token) {rev, serial, cs_pin, spi_bus, axes_map, probe: {x, y, z}}   the USB accelerometer's board (tuned.cfg)
+POST /api/tuned/accelerometer/clear (token) {rev}   take the accelerometer out of tuned.cfg (do this, restart Klipper, then unplug the board)
 POST /api/tuned/shaper (token) {rev, head, x: {type, freq}, y: {type, freq}, max_accel}   keep an input shaper pick for a print head
 POST /api/tuned/shaper/clear (token) {rev, head}
 GET  /api/resonance-data?axis=x&name=rhino_x   the CSV SHAPER_CALIBRATE wrote (read only; only /tmp/calibration_data_<axis>_<name>.csv, up to 2 MB)
@@ -55,6 +56,12 @@ def clear():
 def accelerometer():
     security.check_write()
     return jsonify(_tuned().set_accelerometer(security.json_body(), _heaters()))
+
+
+@bp.post("/api/tuned/accelerometer/clear")
+def accelerometer_clear():
+    security.check_write()
+    return jsonify(_tuned().clear_accelerometer(security.json_body(), _heaters()))
 
 
 @bp.post("/api/tuned/shaper")

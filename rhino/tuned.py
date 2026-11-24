@@ -56,14 +56,24 @@ def _num(v, name, lo, hi):
 
 
 def clean_accelerometer(raw):
-    """{"serial", "cs_pin", "spi_bus", "axes_map", "probe": {x, y, z}} -> the same, checked."""
+    """{"serial", "mcu", "own_mcu", "cs_pin", "spi_bus", "axes_map", "probe": {x, y, z}} -> the same, checked.
+    The board is a second MCU. By default tuned.cfg writes its [mcu] section too; with own_mcu false the board was already added (Add hardware,
+    Boards), so only [adxl345] and [resonance_tester] are written and cs_pin uses that board's name."""
     if not isinstance(raw, dict):
         raise Fail("Expected the accelerometer's settings")
-    serial, cs, bus, axes = raw.get("serial"), raw.get("cs_pin"), raw.get("spi_bus"), raw.get("axes_map")
-    if not isinstance(serial, str) or not _SERIAL.match(serial):
+    mcu = raw.get("mcu", "adxl")
+    if not isinstance(mcu, str) or not re.match(r"^[a-z][a-z0-9_]{1,15}$", mcu):
+        raise Fail("The board's name must be lower case letters, digits and _ (for example adxl)")
+    own = raw.get("own_mcu", True)
+    if not isinstance(own, bool):
+        raise Fail("own_mcu must be true or false")
+    serial, cs, bus, axes = raw.get("serial", ""), raw.get("cs_pin"), raw.get("spi_bus"), raw.get("axes_map")
+    if own and (not isinstance(serial, str) or not _SERIAL.match(serial)):
         raise Fail("The serial name must look like /dev/serial/by-id/usb-Klipper_rp2040_... (see ls /dev/serial/by-id/)")
-    if not isinstance(cs, str) or not re.match(r"^adxl:gpio\d{1,2}$", cs):
-        raise Fail("The chip-select pin must look like adxl:gpio1")
+    if not own:
+        serial = serial if isinstance(serial, str) and _SERIAL.match(serial) else ""
+    if not isinstance(cs, str) or not re.match(rf"^{mcu}:gpio\d{{1,2}}$", cs):
+        raise Fail(f"The chip-select pin must look like {mcu}:gpio1 (the board's name, a colon, the pin)")
     if not isinstance(bus, str) or not re.match(r"^spi\d[a-z]?$", bus):
         raise Fail("The SPI bus must look like spi0a")
     if not isinstance(axes, str) or not re.match(r"^-?[xyz],-?[xyz],-?[xyz]$", axes):
@@ -71,7 +81,7 @@ def clean_accelerometer(raw):
     pr = raw.get("probe")
     if not isinstance(pr, dict):
         raise Fail("Where to measure (probe_points) is missing")
-    return {"serial": serial, "cs_pin": cs, "spi_bus": bus, "axes_map": axes,
+    return {"serial": serial, "mcu": mcu, "own_mcu": own, "cs_pin": cs, "spi_bus": bus, "axes_map": axes,
             "probe": {"x": _num(pr.get("x"), "X", 0, 2000), "y": _num(pr.get("y"), "Y", 0, 2000), "z": _num(pr.get("z"), "Z", 0, 2000)}}
 
 
@@ -87,7 +97,8 @@ def render(pid, existing, accel=None, shaper=None):
     out = [HEADER]
     if accel:
         p = accel["probe"]
-        out.append(f"[mcu adxl]\nserial: {accel['serial']}\n\n[adxl345]\ncs_pin: {accel['cs_pin']}\nspi_bus: {accel['spi_bus']}\naxes_map: {accel['axes_map']}\n\n"
+        mcu = f"[mcu {accel.get('mcu', 'adxl')}]\nserial: {accel['serial']}\n\n" if accel.get("own_mcu", True) else ""
+        out.append(f"{mcu}[adxl345]\ncs_pin: {accel['cs_pin']}\nspi_bus: {accel['spi_bus']}\naxes_map: {accel['axes_map']}\n\n"
                    f"[resonance_tester]\naccel_chip: adxl345\nprobe_points: {p['x']:g},{p['y']:g},{p['z']:g}\n")
     if shaper:
         out.append(f"[input_shaper]\nshaper_type_x: {shaper['x']['type']}\nshaper_freq_x: {shaper['x']['freq']:g}\n"
@@ -102,8 +113,8 @@ def render(pid, existing, accel=None, shaper=None):
 
 
 class Tuned:
-    def __init__(self, paths, now=time.time):
-        self.paths, self.now = paths, now
+    def __init__(self, paths, now=time.time, exists=os.path.exists):
+        self.paths, self.now, self.exists = paths, now, exists
         my = os.path.join(paths.cfg, "myrhino")
         self.file = os.path.join(my, "tuned.json")
         self.cfg = os.path.join(my, "tuned.cfg")
@@ -117,9 +128,19 @@ class Tuned:
     def state(self, restart_needed=None):
         d = self._load()
         out = {"ok": True, "rev": d["rev"], "updated": d["updated"], "pid": d["pid"], "accelerometer": d.get("accelerometer"),
-               "shaper": d.get("shaper", {}), "shaper_active": d.get("shaper_active")}
+               "shaper": d.get("shaper", {}), "shaper_active": d.get("shaper_active"), "accelerometer_present": self.accelerometer_present(d)}
         out["restart_needed"] = bool(pending.get(self.paths)) if restart_needed is None else restart_needed
         return out
+
+    def accelerometer_present(self, d=None):
+        """Is the accelerometer board plugged in? True/False when it is the Rhino's own entry (its serial path is checked); None when there is none
+        or it was added through Add hardware (then the board's own entry is what Klipper reads). A configured board that is unplugged stops Klipper
+        from starting, so Studio and the health check say so."""
+        d = d if d is not None else self._load()
+        a = d.get("accelerometer")
+        if not a or not a.get("own_mcu", True) or not a.get("serial"):
+            return None
+        return bool(self.exists(a["serial"]))
 
     def _write(self, d, existing):
         active = d.get("shaper_active")
@@ -173,6 +194,19 @@ class Tuned:
             d = {**d, "rev": d["rev"] + 1, "updated": int(self.now()), "accelerometer": clean_accelerometer(raw)}
             self._write(d, existing)
         pending.mark(self.paths, "accelerometer settings (tuned.cfg)")
+        return self.state(True)
+
+    def clear_accelerometer(self, raw, existing):
+        """Take the accelerometer out of tuned.cfg ([mcu], [adxl345], [resonance_tester]) when the measuring is done. Kept input shaper picks stay:
+        [input_shaper] doesn't need the board. Remove it, restart Klipper, THEN unplug it: an unplugged board that is still configured stops Klipper starting."""
+        with _LOCK:
+            d = self._load()
+            self._rev(raw, d)
+            if not d.get("accelerometer"):
+                raise Fail("No accelerometer is set up.")
+            d = {**d, "rev": d["rev"] + 1, "updated": int(self.now()), "accelerometer": None}
+            self._write(d, existing)
+        pending.mark(self.paths, "accelerometer removed (tuned.cfg)")
         return self.state(True)
 
     def set_shaper(self, raw, existing):

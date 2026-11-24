@@ -331,6 +331,17 @@ def check_rhino():
         say("INFO", f"myrhino/positions.cfg still has {len(pos)} line{'s' * (len(pos) != 1)} that set _CLIENT_VARIABLE (harmless)",
             "delete those SET_GCODE_VARIABLE lines from _RHINO_POSITIONS_APPLY, leaving only RHINO_POSITIONS QUIET=1; "
             "then the stand-in macro can be removed in a later release")
+    # The USB accelerometer (Input shaping wizard) is a second board kept in myrhino/tuned.cfg. Klipper won't start while a configured board is unplugged.
+    try:
+        import json as _json
+        acc = _json.load(open(os.path.join(CFG, "myrhino", "tuned.json"))).get("accelerometer")
+    except (OSError, ValueError):
+        acc = None
+    if isinstance(acc, dict) and acc.get("own_mcu", True) and acc.get("serial"):
+        if os.path.exists(acc["serial"]):
+            say("INFO", "the USB accelerometer is set up and plugged in", "when you have finished measuring, remove it in Wizards > Input shaping, restart Klipper, then unplug it")
+        else:
+            say("WARN", "the USB accelerometer is in the config but not plugged in", "Klipper won't start until it is plugged in or removed: plug it in, or remove it in Wizards > Input shaping (the Portal works while Klipper is down), then restart Klipper")
     # Pause, resume and cancel: the Rhino's own pause_resume.cfg since 1.9.44 (a pinned copy of Mainsail's before, mainsail.cfg before that).
     # Exactly one of them may be included, and the file must be there.
     lines = {l.strip() for l in text.splitlines()}
