@@ -1,5 +1,17 @@
 # What changed
 
+## 1.9.47 - Studio 0.38.0: a Wizards section, probe check, motor check, model pictures, Add to library
+
+No Portal, Klipper or machine changes (a release so Studio 0.38.0 reaches users).
+
+- **Wizards have their own section** (the wand in the rail, `#/wizards`): an overview of cards grouped as Set up, Check and tune, Keep it running, with a menu like Care's. Connect, Park and positions, Nozzle cleaning and Update the Rhino moved here from Settings; the old `/settings/...` addresses redirect. The list is one file (`src/wizards/wizards.ts`), so a new wizard is one row. Health check stays in Settings.
+- **Probe check** (Wizards > Probe check): runs `PROBE_ACCURACY` (10 touches) at a spot over the middle of the bed (the probe's offset from the nozzle is read from Klipper), says the result in words (excellent under 0.0125 mm, good under 0.02, fair under 0.05, otherwise don't trust a mesh yet), and optionally measures again with the bed warm to show thermal drift. Writes nothing. G-code shown and editable.
+- **Motor check** (Wizards > Motor check): live end switches (`QUERY_ENDSTOPS` while you press each), driver health from `DUMP_TMC` for every TMC driver Klipper has (too hot, shorts, open load, power dip, each explained in a sentence), then `STEPPER_BUZZ` per motor after the bed is lowered up to 10 mm and the head is centred; you say whether each moved the right way. Writes nothing.
+- Studio: `runCapture` in the control store (runs a command and returns what Klipper said), `configSection` (a read of one config section), `STEPPER_BUZZ` known to the command checker, a wand icon.
+- **Pictures** in Files > Models: a small shaded picture of each STL, OBJ or 3MF, drawn in the browser the first time a row is seen on that screen, kept in that browser. Nothing is stored on the Rhino (models over 30 MB get none).
+- **Add to library** in Job setup: keeps the original file (not the placed copy) in Files > Models; says so if it is already there or a different file has the name.
+- Checks WZ1, PC1-PC3, MC1-MC3, LB8, LB9 in Studio `docs/testing.md`. Studio 1230 tests. Not proven on the machine.
+
 ## 1.9.46 - Studio 0.37.0: wizards for connecting, updating, positions and nozzle cleaning
 
 No Klipper macro or machine value changes. Four wizards (Settings in Studio), built to `docs/wizard-rules.md`: each step has one plain sentence and a folded "What this does" with the real setting; anything written as text can be edited first.
