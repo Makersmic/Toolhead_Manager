@@ -1,5 +1,9 @@
 # What changed
 
+## 1.9.51 - Studio 0.39.3: the accelerometer is the USB board no config file mentions
+
+No Portal, Klipper or machine changes. The Input shaping wizard's board detection follows Mike's rule (Nov 23): **the accelerometer is the USB board that no config file mentions.** Any USB board that nothing uses (the Portal already marks each port with the config section or Add hardware board that uses it) is a candidate, whatever its name; the main board and any board already in your config are never offered. A board waiting for Klipper's firmware is listed as needing it. The wizard notes which boards were there when it opened and checks every few seconds, so the one that appears when you plug it in is marked "Just plugged in", listed first and preselected; with several unused boards it lists each and says to choose. A second `[mcu]` you wrote by hand (for example `[mcu adxl]`) now shows as already added too. Studio 1259 tests. Not proven with a real board.
+
 ## 1.9.50 - Studio 0.39.2: the USB accelerometer is found, fed into the Input shaping wizard, and taken out again when you are done
 
 No Klipper macro or machine value changes.
