@@ -223,7 +223,7 @@ def render(hooks, known):
     cats = {n: c for n, c in sorted(known.tools.items())}
     out = ["[gcode_macro _RHINO_HOOKS]",
            "description: Job hooks from Rhino Studio (generated). SLOT=before_start|after_start|before_end|after_end|"
-           "on_cancel|on_pause|on_resume [TOOL=<name>, default the mounted tool]",
+           "on_cancel|on_pause|on_resume|after_filament_change [TOOL=<name>, default the mounted tool]",
            f"variable_categories: {json.dumps(cats)}",
            "gcode:",
            "  {% set slot = params.SLOT|default('')|lower %}",

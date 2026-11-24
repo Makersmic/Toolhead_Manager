@@ -134,6 +134,12 @@ def call(method, ip="10.0.0.5", body=None):
 j = call("get").get_json()
 ok(j["configured"] and j["entries"] == ["127.0.0.0/8", "10.0.0.0/24"] and j["address"] == "10.0.0.5" and j["covered"], "W1 GET: list, this screen's address, covered")
 ok(any(s["entry"] == "100.64.0.0/10" and "Tailscale" in s["why"] for s in j["suggestions"]), "W2 Tailscale offered")
+_real_nets = _t.local_networks
+_t.local_networks = lambda: [("192.168.7.0/24", "this Rhino's network (eth0)")]
+ok(call("get").get_json()["tailscale"] is False, "W2b no tailscale0 address: the state says so (the suggestion is still offered)")
+_t.local_networks = lambda: [("192.168.7.0/24", "this Rhino's network (eth0)"), ("100.64.0.0/10", "Tailscale")]
+ok(call("get").get_json()["tailscale"] is True, "W2c a tailscale0 address: the state says so")
+_t.local_networks = _real_nets
 ok(call("post", ip="10.0.0.99", body={"entry": "10.0.0.99"}).status_code == 401, "W3 an untrusted screen can't add itself")
 r = call("post", body={"entry": "100.64.0.0/10"})
 ok(r.status_code == 200 and "100.64.0.0/10" in r.get_json()["entries"] and MR["restarts"] == 1, "W4 add from a trusted screen: written, Moonraker restarted")

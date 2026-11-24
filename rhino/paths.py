@@ -27,6 +27,10 @@ class Paths:
         so Klipper backups / git never fill up with pictures."""
         return os.path.join(os.path.dirname(self.cfg), "rhino_data")
     @property
+    def models_dir(self):
+        """The model library (Studio, Files > Models). Next to the config folder, so no backup of the config carries it."""
+        return os.environ.get("RHINO_MODELS_DIR") or os.path.join(os.path.dirname(self.cfg), "models")
+    @property
     def images_dir(self): return os.path.join(self.state_dir, "images")
     @property
     def restart_flag(self): return os.path.join(self.state_dir, "restart_pending")

@@ -1,7 +1,7 @@
 """Settings > Trusted addresses in Rhino Studio (config 1.5.4): Moonraker's trusted_clients, from a screen that is
 already trusted (access.py refuses every /api call from one that isn't, so a screen can never let itself in).
 
-GET    /api/moonraker-trust      {configured, force_logins, include, entries, address, covered, suggestions}
+GET    /api/moonraker-trust      {configured, force_logins, include, entries, address, covered, suggestions, tailscale}
 POST   /api/moonraker-trust      {"entry": "100.64.0.0/10"}   add it, restart Moonraker, wait for it
 DELETE /api/moonraker-trust      {"entry": "..."}              take it out - never the one that lets this screen in,
                                                                 and never the last one covering 127.0.0.1 (the Portal)
@@ -36,11 +36,15 @@ def _state():
     info = trust.read(_text())
     acc = current_app.config["ACCESS"]
     ip = acc.client_ip(request)
-    sugg = [{"entry": e, "why": why} for e, why in trust.local_networks()
+    nets = trust.local_networks()
+    sugg = [{"entry": e, "why": why} for e, why in nets
             if info["configured"] and e not in info["entries"] and not trust.covers(info["entries"], e.split("/")[0])]
     if info["configured"] and trust.TAILNET not in [s["entry"] for s in sugg] and not trust.covers(info["entries"], "100.64.0.1"):
         sugg.append({"entry": trust.TAILNET, "why": "Tailscale (any device on your tailnet)"})
-    return {"ok": True, **info, "address": ip, "covered": trust.covers(info["entries"], ip), "suggestions": sugg}
+    # tailscale: this host really has a tailnet address (tailscale0 is up); the Connect wizard says so. The suggestion above
+    # is offered either way, as it always was.
+    return {"ok": True, **info, "address": ip, "covered": trust.covers(info["entries"], ip), "suggestions": sugg,
+            "tailscale": any(e == trust.TAILNET for e, _ in nets)}
 
 
 def _change(new_text):

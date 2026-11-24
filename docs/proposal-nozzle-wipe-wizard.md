@@ -130,3 +130,13 @@ No existing value changes: no gear ratio, offset, shutdown value or fan time. Th
 
 After the connect wizard, or sooner if the brush is ready: the wizard is useful while Mike designs the brush, because it records where
 the bristles are and lets him try the motion cold.
+
+## Built Nov 23 (Studio 0.37.0), and what reading the macros settled
+
+Mike said go ahead. Read from `START_JOB`, `_PREHEAT_STAGE2`, `_RHINO_JOB_GO`, `_START_JOB_FILE` (nothing changed in them):
+
+1. **When `after_start` runs:** `START_JOB` (checks, before-start hook, `G28`, the toolhead prompt) then `START_SEQUENCE` and `PreCheck`, then `PREHEAT CONTINUE=1` (hotend `M109`, bed heat-soak, `Z_TILT_ADJUST`), the bed mesh, **`PRIME_LINE`**, then `_RHINO_JOB_GO`, which calls `_START_JOB_FILE`: interlocks, **`after_start`**, `SDCARD_PRINT_FILE`. So at `after_start` the nozzle is **hot**, the machine homed, tilt and mesh done, and the prime line already laid: a wipe there is "prime, then wipe, then print". It can't clean the nozzle before probing the mesh; that would be a different moment.
+2. **Offsets:** the Rhino shifts G-code coordinates with `SET_GCODE_OFFSET` (the paper-test nozzle height, CNC work zeros). The wizard's lines set the offsets to zero inside `SAVE_GCODE_STATE` / `RESTORE_GCODE_STATE`, so the jogged spot (machine coordinates) is where the head goes, and every offset is back afterwards. The Portal's hook rules accept `SAVE_GCODE_STATE`, `RESTORE_GCODE_STATE` and `SET_GCODE_OFFSET` (`rhino/presets.py` `KLIPPER_COMMANDS`).
+3. **"All print heads":** Mike asked for all heads through Job hooks. Because tool lengths differ, a brush spot measured with one head is wrong for another (a Z that touches the bristles with one head can crash another's nozzle into them). So the wizard is **one run per print head**, attached to that head's start G-code (`tool:<head>`); `category:additive` is not used. Running it again for the next head takes a few minutes. Say if you'd rather have one shared set of numbers and accept the risk.
+4. **Z direction:** bigger Z is the bed lower, so the wizard's "clear" lowers the bed (+Z), as the starter "Park the head" macro does. A frame-mounted brush option leaves the bed height alone.
+5. **Still not built:** the "filament change" slot (a Klipper macro change, needs its own write-up and Mike's approval), the wipe temperature step, and cleaning before the mesh probe.

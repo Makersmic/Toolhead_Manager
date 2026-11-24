@@ -112,7 +112,7 @@ EXPOSE = {
     "macros": "ON / OFF macros",
     "hooks": "Job hooks",
 }
-HOOK_SLOTS = ["before_start", "after_start", "before_end", "after_end", "on_cancel", "on_pause", "on_resume"]
+HOOK_SLOTS = ["before_start", "after_start", "before_end", "after_end", "on_cancel", "on_pause", "on_resume", "after_filament_change"]
 
 # ----------------------------------------------------------------------------- devices
 # pins: [(name, pin_kind, required)]. role: the existing CONTROL_ROLES key that writes it today (status ready).

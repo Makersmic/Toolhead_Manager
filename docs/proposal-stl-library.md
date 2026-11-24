@@ -1,6 +1,6 @@
 # Proposal: a model library in Files (STLs you keep, browse and start jobs from)
 
-Nov 23 2026. **For Mike's review: nothing is built, and it has open questions (below) that change the design.** Mike asked for a place to
+Nov 23 2026. **Built Nov 23 (see "Built Nov 23" at the end); the questions below are answered or listed there.** Mike asked for a place to
 upload STLs to a folder, browse that folder, pick a file and set up a job from it, with drag and drop to fill it like the job setup page,
 and possibly an external drive one day.
 
@@ -79,7 +79,17 @@ anything (that needs root); the person mounts the drive once (see the first item
 12. **A last-used mark**, like the Gcode files list's "Last run": when a job is set up from a model, remember when and with which head.
 13. **Where it lives for the durability rule:** on the Rhino, not in the browser, so another screen or a cleared browser sees the same library.
 
-## Open questions for Mike
+## Decided Nov 23 (Mike's answers)
+
+1. **Internal folder first**, the code written for several locations; the external drive follows, on real hardware.
+2. **Drag and drop means dropping files into the library** (a). Dragging a library row onto the job setup bed (b) is **not** in the first release.
+3. **Delete is straight away,** after a confirm, **no trash**. (So the trash in "The design" and in item 5's "restore" wording is dropped; the confirm names
+   how many files and folders go, and the Portal still refuses to delete outside the library.)
+4. **A selected folder sets up as one assembly job** (one level of folder), as I proposed ("whatever you recommend").
+5. **The tab is "Models".**
+Questions 6 to 11 below are still open; the proposed answers stand until Mike says otherwise.
+
+## Open questions for Mike (1 to 5 answered above)
 
 1. **One location or several from the start?** The internal folder only for the first release (drive support following), or the location list
    from day one? Proposed: internal first, with the code written for several, because the drive needs the notes in item 1 and a test on real hardware.
@@ -124,3 +134,11 @@ half file. Each with a pass condition and a *Stop if*.
 Medium: one Portal module with routes and tests, one Studio tab on a refactored file browser. The refactor (the backend interface)
 is the part that touches working code, so it comes first, with the Gcode, Config and Logs tabs unchanged and re-tested. External drives
 come after, on real hardware, behind the notes in "Things you may not have thought of" item 1.
+
+## Built Nov 23 (Tool Manager 1.9.46, Studio 0.37.0)
+
+Built: `rhino/library.py`, `rhino/portal/library_routes.py`, `dev/test_library.py`; Studio `src/library/` and the Models tab. Differences from this proposal, on purpose:
+
+- **A separate Models browser, not the shared Files component.** `FileBrowser.vue` is 889 lines tied to Moonraker's roots; refactoring it behind a backend interface would put working Gcode/Config/Logs screens at risk for a first release. The Models tab reuses the Files name rules and look. Merging them is still possible later.
+- **Not built:** thumbnails, per-file notes, "Add to library" from job setup (question 11), external drive locations, dropping a whole folder from the computer, the content-fingerprint saved-job key (item 4: two same-named models in different folders share one saved job), a library size choice in the backup (the library is simply not in any backup, item 6), and the paged list in Studio (the Portal pages at 200; Studio shows the first page and says so).
+- **Answers used for 6 to 11:** backups off; name Models; scan on demand is not needed (the list reads the folder each time); notes later; drives later; button later.

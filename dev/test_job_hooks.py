@@ -36,7 +36,7 @@ st = J(c.get("/api/hooks"))
 ok(st["ok"] and st["rev"] == 0 and st["hooks"] == {} and st["live"] is True, "empty to start; live")
 ids = [s["id"] for s in st["scopes"]]
 ok(ids[0] == "machine" and "category:subtractive" in ids and "tool:LightSaber" in ids, "scopes: machine, categories, each tool")
-ok(st["slots"] == ["before_start", "after_start", "before_end", "after_end", "on_cancel", "on_pause", "on_resume"], "the seven slots")
+ok(st["slots"] == ["before_start", "after_start", "before_end", "after_end", "on_cancel", "on_pause", "on_resume", "after_filament_change"], "the eight slots (after_filament_change: Nov 23)")
 
 
 def save(hooks, rev, preview=False):
@@ -112,7 +112,7 @@ calls = re.findall(r"^\s*(_RHINO_HOOKS SLOT=\w+|_RHINO_INTERLOCKS|_RHINO_FILAMEN
 count = {k: calls.count(k) for k in set(calls)}
 want = {"_RHINO_HOOKS SLOT=before_start": 5, "_RHINO_HOOKS SLOT=after_start": 2, "_RHINO_HOOKS SLOT=before_end": 1,
         "_RHINO_HOOKS SLOT=after_end": 1, "_RHINO_HOOKS SLOT=on_cancel": 1, "_RHINO_HOOKS SLOT=on_pause": 1,
-        "_RHINO_HOOKS SLOT=on_resume": 2, "_RHINO_INTERLOCKS": 11, "_RHINO_FILAMENT_SENSORS": 2}  # 11: _CNC_WARMUP QUIET=1 (1.9.27)
+        "_RHINO_HOOKS SLOT=on_resume": 2, "_RHINO_HOOKS SLOT=after_filament_change": 1, "_RHINO_INTERLOCKS": 11, "_RHINO_FILAMENT_SENSORS": 2}  # 11: _CNC_WARMUP QUIET=1 (1.9.27)
 ok(count == want, f"every call site is in place exactly once ({count})")
 for macro in ("_RHINO_HOOKS", "_RHINO_INTERLOCKS", "_RHINO_FILAMENT_SENSORS"):
     ok(f"[gcode_macro {macro}]" in open(HCFG).read(), f"{macro} is defined")
