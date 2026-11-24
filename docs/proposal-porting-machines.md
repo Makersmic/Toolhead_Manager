@@ -44,6 +44,21 @@ Wizards (Wizards > Set up, each read-first, with the usual "What this does" and 
 6. **Adopt this machine (read-only first):** on a machine that already runs Klipper, read its config through Moonraker and *list what the Rhino software would need that it doesn't have*, without writing a thing:
    "no probe, 2 Z motors, no tool changer". That is also the honest answer to Level A.
 
+## Update Nov 23: aim at one audience first, and my view of Voron
+
+Mike's idea: instead of "any Klipper machine", target a community, such as **Voron owners**, and build for the way their **toolheads are interchangeable** (a Stealthburner, a Dragon Burner, a different hotend or extruder on the same gantry), not for tool changers as such. Mike knows no Voron owner, so there is nobody to test with yet.
+
+**What fits, from what is already built:** everything per print head. Each head keeps its own tuned values (rotation distance, pressure advance, flow, temperature, retraction, input shaper) and Studio applies them at job start; the accelerometer wizard measures each head once; Care tracks each head; the health check, Models, Files, the probe, motor and heater wizards need only Klipper's own objects. A Voron owner who swaps hotends or toolheads is the person this serves best.
+
+**What a Voron adds (from my general knowledge: check each against the real Voron docs before building):**
+- **Leveling:** a 2.4 uses `quad_gantry_level` (four Z motors), a Trident `z_tilt` (three), a Switchwire none. Studio today knows `z_tilt`; it must recognise QGL and say which of its screens apply (the Bed screens read `z_tilt` points).
+- **Standard files:** Voron publishes sample `printer.cfg` files and macros (`PRINT_START` and friends), and most owners start from them. A **read-only "adopt this machine"** step can recognise those and list what Studio would need; it must never rewrite their files.
+- **Probes:** Klicky and Tap are common; the Probe check applies to both.
+- **Toolhead boards:** many Voron builds use CAN or USB toolhead boards (EBB36, EBB42 or similar), so the accelerometer, heaters and extruder may sit on a second board. Studio's board and pin handling already covers second boards; the shaping wizard already treats the accelerometer as a second board.
+- **Where they already work:** Mainsail and Fluidd, KAMP, Happy Hare. Studio has to win on specifics, not on being "another interface": guided wizards in plain words with editable G-code, per-head memory, the health check and Care.
+
+**My view:** a good audience, because the community is large, the config is standard enough to recognise, and per-head tuning is the feature they lack. The risk is that I **can't prove anything on a Voron from this PC**. So: build only the **read-only parts first** (adopt, recognise QGL and Z tilt, say what applies), keep Studio's writes limited to the Rhino-owned generated files (`tuned.cfg` and its siblings), and **find two or three real Voron owners** to try each release before widening. One way to find them: a short post in the Voron or Klipper communities offering the wizards and per-head tuning for testing, once there is a read-only build that cannot change their config.
+
 ## Moving a Rhino to a new owner (level C), one guided path
 
 A wizard that strings the existing steps: choose what to carry (the config, the tuned values, the hooks and macros, the slice profiles, Studio's settings, the model library if wanted), show the list and the size, write
