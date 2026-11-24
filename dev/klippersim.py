@@ -442,6 +442,9 @@ class Sim:
     def cmd_SET_PRESSURE_ADVANCE(self, p, rest):
         self.objects["extruder"]["pressure_advance"] = float(p["ADVANCE"])
 
+    def cmd_SET_INPUT_SHAPER(self, p, rest):
+        self.objects.setdefault("input_shaper", {}).update({k.lower(): v for k, v in p.items()})
+
     def cmd_SET_EXTRUDER_ROTATION_DISTANCE(self, p, rest):
         self.objects["extruder"]["rotation_distance"] = float(p["DISTANCE"])
 

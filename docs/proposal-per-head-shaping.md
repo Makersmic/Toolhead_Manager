@@ -1,6 +1,6 @@
 # Proposal: apply the input shaper per print head (a Klipper macro change, needs Mike's OK)
 
-Nov 23 2026. **Nothing is applied.** The Input shaping wizard (Wizards > Input shaping) measures each print head and keeps the result for that head. This
+Nov 23 2026. **APPLIED Nov 23 in 1.9.49 (Mike: "per head now").** The Input shaping wizard (Wizards > Input shaping) measures each print head and keeps the result for that head. This
 change makes Klipper use the right head's result at the start of each job.
 
 ## What exists
@@ -17,12 +17,11 @@ One block added at the end of `_RHINO_APPLY_TUNING`, after the extruder lines an
   # Input shaping for this head (docs/proposal-per-head-shaping.md): the pick Studio's Input shaping wizard stored, else leave it as it is
   {% set sh = sv.get(("rhino_shaper_" ~ tool)|lower) %}
   {% set sp = sh.split(",") if sh is string else [] %}
-  {% set sh_ok = sp|length == 4 and sp[0] in ["zv","mzv","zvd","ei","2hump_ei","3hump_ei"] and sp[2] in ["zv","mzv","zvd","ei","2hump_ei","3hump_ei"]
-                 and sp[1]|float > 10 and sp[1]|float < 200 and sp[3]|float > 10 and sp[3]|float < 200 %}
+  {% set sh_ok = sp|length == 4 and sp[0] in ["zv","mzv","zvd","ei","2hump_ei","3hump_ei"] and sp[2] in ["zv","mzv","zvd","ei","2hump_ei","3hump_ei"] and sp[1]|float > 10 and sp[1]|float < 200 and sp[3]|float > 10 and sp[3]|float < 200 %}
   {% if sh_ok and "input_shaper" in printer.configfile.settings %}
     SET_INPUT_SHAPER SHAPER_TYPE_X={sp[0]} SHAPER_FREQ_X={sp[1]} SHAPER_TYPE_Y={sp[2]} SHAPER_FREQ_Y={sp[3]}
     RESPOND MSG="Input shaper for {tool}: X {sp[0]} {sp[1]} Hz, Y {sp[2]} {sp[3]} Hz (tuned)"
-  {% elif sh is string %}
+  {% elif sh is not none and not sh_ok %}
     RESPOND TYPE=error MSG="rhino_shaper_{tool} = {sh} isn't valid, so the shaper stays as Klipper loaded it. Run the Input shaping wizard again."
   {% endif %}
 ```

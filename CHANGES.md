@@ -1,5 +1,10 @@
 # What changed
 
+## 1.9.49 - Studio 0.39.1: the input shaper per print head (Klipper macro change, Mike approved)
+
+**Klipper macro change:** `_RHINO_APPLY_TUNING` (`tools/3dp_macros.cfg`), which `SET_PRINT` calls at every print-head job start, gets one block after the extruder lines. If Studio's Input shaping wizard stored a pick for the mounted head (`rhino_shaper_<head>` = `"mzv,47.8,ei,40"`), it runs `SET_INPUT_SHAPER` with those four values (a live change, no restart) and says so in the console. Nothing stored: nothing changes. No `[input_shaper]` section (no accelerometer set up): nothing happens and nothing is said. A stored value that isn't valid (a shaper not in Klipper's list, a frequency outside 10 to 200 Hz, wrong shape) is reported and ignored. It never runs on a tool swap, only at job start. Applied with `dev/proposal_per_head_shaping.py` (refuses a second run); `docs/proposal-per-head-shaping.md`. Studio's Keep writes the variable (and Put back clears it).
+- Tests: 11 new checks in `dev/test_macros.py` (a stored pick, none stored, no section, six bad values, another head's pick, the extruder lines unchanged); the simulator learned `SET_INPUT_SHAPER`. On the machine: SH7 in Studio `docs/testing.md`.
+
 ## 1.9.48 - Studio 0.39.0: Tune a heater, Input shaping, Material tower and Tuning results, kept in `myrhino/tuned.cfg`
 
 **Config change (Mike approved Nov 23): `printer.cfg` gets one line, `[include myrhino/tuned.cfg]`, after `[include tools/3dp.cfg]`** (applied with `dev/proposal_tuned_cfg.py`, which refuses a second run). The installer keeps your `tuned.cfg` and `tuned.json` and puts an empty starter in place if you have none. An empty file changes nothing in Klipper. No macro or machine value changes.

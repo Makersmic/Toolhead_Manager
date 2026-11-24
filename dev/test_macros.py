@@ -720,6 +720,27 @@ s = sf(); s.save_vars.update(rhino_pa_switchfly_petg_0_4=0.05, rhino_em_switchfl
 s.run_script("SWITCH_T1")
 ok(pa_now(s) == 0.05 and "M221 S95.0" in cmds(s), "SwitchFly path change: the new path's material gets its tuned PA and flow")
 
+# per-head input shaper (1.9.49, docs/proposal-per-head-shaping.md): the pick Studio's Input shaping wizard stored, else nothing
+def shaper_start(value, section=True, name="BlockOne"):
+    s = fresh(1); s.save_vars.update({f"rhino_shaper_{name.lower()}": value} if value is not None else {})
+    if section: s.config_sections["input_shaper"] = {}
+    s.run_script(f"SET_PRINT TOOLHEAD={name} MATERIAL=PLA NOZZLE_SIZE=0.4 EXTRUDER=0"); return s
+s = shaper_start("mzv,47.8,ei,40.0")
+ok(s.objects.get("input_shaper") == {"shaper_type_x": "mzv", "shaper_freq_x": "47.8", "shaper_type_y": "ei", "shaper_freq_y": "40.0"} and says(s, "Input shaper for BlockOne: X mzv 47.8 Hz, Y ei 40.0 Hz (tuned)"),
+   "per-head shaper: a stored pick is set at job start, and the console says so")
+s = shaper_start(None)
+ok("input_shaper" not in s.objects and not says(s, "Input shaper"), "per-head shaper: nothing stored, nothing changes")
+s = shaper_start("mzv,47.8,ei,40.0", section=False)
+ok("input_shaper" not in s.objects and not says(s, "isn't valid"), "per-head shaper: no [input_shaper] section (no accelerometer set up), nothing happens and nothing is said")
+for bad in ("bogus,47.8,ei,40", "mzv,5,ei,40", "mzv,47.8,ei,900", "mzv,47.8", "mzv;M112,47.8,ei,40", 12.5):
+    s = shaper_start(bad)
+    ok("input_shaper" not in s.objects and says(s, "isn't valid"), f"per-head shaper: a bad stored value is reported and ignored: {bad!r}")
+s = fresh(1); s.save_vars["rhino_shaper_switchfly"] = "zv,60.0,zv,58.0"; s.config_sections["input_shaper"] = {}
+s.run_script("SET_PRINT TOOLHEAD=BlockOne MATERIAL=PLA NOZZLE_SIZE=0.4 EXTRUDER=0")
+ok("input_shaper" not in s.objects, "per-head shaper: another head's pick isn't used")
+s = shaper_start("mzv,47.8,ei,40.0")
+ok(rd_now(s) == 4.487 and pa_now(s) == 0.024, "per-head shaper: the extruder lines before it are unchanged")
+
 # SwitchFly lanes (1.9.35, docs/proposal-switchfly-lanes.md): servo power for a task, saved angles, retract per lane
 def duty(angle): return (0.0005 + 0.002 * angle / 180.0) / 0.02
 s = sf(); ok(s.pins.get("Spindle_power", 0) == 0, "lanes: the servo rail starts off")
