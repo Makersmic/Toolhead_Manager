@@ -38,6 +38,9 @@ TESTS = {
     "first_layer": ("material", "first_layer_fine", -1.0, 1.0),
     "pressure_advance": ("material", "pressure_advance", 0.0, 2.0),
     "extrusion_multiplier": ("material", "extrusion_multiplier", 0.5, 1.5),
+    # Material tower (1.9.48): recorded and shown; slicing does not read them yet
+    "print_temperature": ("material", "print_temperature", 160.0, 290.0),
+    "retraction_length": ("material", "retraction_length", 0.0, 8.0),
     "laser_focus_height": ("head", "laser_focus_height", 1.0, 30.0),
     "laser_cut_power": ("stock", "laser_cut_power", 0.01, 1.0),
     "laser_cut_speed": ("stock", "laser_cut_speed", 30.0, 6000.0),

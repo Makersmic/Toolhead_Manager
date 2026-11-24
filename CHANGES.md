@@ -1,5 +1,18 @@
 # What changed
 
+## 1.9.48 - Studio 0.39.0: Tune a heater, Input shaping, Material tower and Tuning results, kept in `myrhino/tuned.cfg`
+
+**Config change (Mike approved Nov 23): `printer.cfg` gets one line, `[include myrhino/tuned.cfg]`, after `[include tools/3dp.cfg]`** (applied with `dev/proposal_tuned_cfg.py`, which refuses a second run). The installer keeps your `tuned.cfg` and `tuned.json` and puts an empty starter in place if you have none. An empty file changes nothing in Klipper. No macro or machine value changes.
+
+- **Why a new file:** `PID_CALIBRATE` ends by asking for `SAVE_CONFIG`, but Klipper refuses to start when a saved value conflicts with one in an included file, and the Rhino's hotend and bed PID values are in `tools/3dp.cfg`. A later included file overrides an earlier one (checked in Klipper's `configfile.py`), so the Portal keeps the new numbers in its own generated `myrhino/tuned.cfg` and the original file is untouched. Klipper can't change PID live, so the change is marked as a pending restart and **never restarted by itself**.
+- **Portal:** `rhino/tuned.py`, `GET /api/tuned`, `POST /api/tuned/pid` and `/clear` (token, stale-revision check, gains 0 to 10000, the heater must exist in the config, parsed back like Klipper before writing, atomic). The previous values are remembered for "Put back". A kept value for a heater that has since gone is left out of the file (an incomplete `[heater_generic]` would stop Klipper).
+- **Studio, Wizards > Tune a heater:** finds the hotend, the bed and any `heater_generic` (a chamber heater, when one exists; the base Rhino has only the chamber sensor); target suggested per kind and capped at the heater's limit (120 C for a generic heater) with room under it; a chamber must start cool; the G-code is shown and editable (`M106 S255` for the hotend, `PID_CALIBRATE`, `M107`); runs `PID_CALIBRATE` (5 to 60 minutes by heater), shows old and new gains side by side with a sentence, and Keep writes them through the Portal. SAVE_CONFIG is never sent.
+- **Input shaping** (Wizards > Input shaping, for the USB ADXL345): set up the accelerometer (the Portal writes `[mcu adxl]`, `[adxl345]`, `[resonance_tester]` into `tuned.cfg`; pins are checked and a wrong one only makes the check fail), read it and its noise, a gentle shake, then `SHAPER_CALIBRATE` for X and Y with the curves drawn in Studio (a read-only Portal route, `GET /api/resonance-data`, serves only Klipper's `/tmp/calibration_data_<axis>_<name>.csv`), and Keep writes `[input_shaper]` for the print head that was mounted. SAVE_CONFIG is never sent. The last head kept is what Klipper loads at start; **switching per head at a job start is a macro change written up in `docs/proposal-per-head-shaping.md` (`dev/proposal_per_head_shaping.py`, NOT applied).**
+- **Material tower** (Wizards > Material tower): Studio writes a temperature tower (an M109 per 5 mm band) or a retraction tower (two pillars, the length changing per band) itself, shown and editable; you print it, pick the best band, and the value is recorded per print head, nozzle and material (`print_temperature`, `retraction_length` in tuning.json). **Recorded and shown only: slicing doesn't read them yet.**
+- **Tuning results** (Wizards > Tuning results): everything the wizards found, per print head and for the machine, with when and Run again.
+- Checks HT1-HT5, SH1-SH6, MT1-MT2, TR1 in Studio `docs/testing.md`. Tests: `dev/test_tuned.py` (about 50 checks); Studio 1256 tests. Not proven on the machine.
+
+
 ## 1.9.47 - Studio 0.38.0: a Wizards section, probe check, motor check, model pictures, Add to library
 
 No Portal, Klipper or machine changes (a release so Studio 0.38.0 reaches users).

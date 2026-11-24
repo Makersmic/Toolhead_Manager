@@ -15,7 +15,7 @@ from ..service import ToolService
 from ..slice_profiles import SliceProfiles
 from ..user_macros import UserMacros
 from ..tuning import Tuning
-from . import backup_routes, health_routes, host_routes, hw_routes, library_routes, macro_routes, tuning_routes, maint_routes, net_routes, profile_routes, routes, security, slicer_routes, trust_routes, update_routes
+from . import backup_routes, health_routes, host_routes, hw_routes, library_routes, macro_routes, tuning_routes, maint_routes, net_routes, profile_routes, routes, security, slicer_routes, trust_routes, tuned_routes, update_routes
 from .access import Access
 from .hosts import Hosts
 
@@ -61,6 +61,7 @@ def create_app(config_dir=None, moonraker_url=None, start_monitor=False):
     app.register_blueprint(host_routes.bp)
     app.register_blueprint(health_routes.bp)
     app.register_blueprint(library_routes.bp)
+    app.register_blueprint(tuned_routes.bp)
     app.before_request(app.config["ACCESS"].gate)      # Moonraker's trusted_clients decides who may use /api (1.5.4)
     app.before_request(security.limit_upload)
     app.after_request(security.add_headers)
