@@ -14,8 +14,9 @@ from ..paths import resolve
 from ..service import ToolService
 from ..slice_profiles import SliceProfiles
 from ..user_macros import UserMacros
+from ..chains import Chains
 from ..tuning import Tuning
-from . import backup_routes, health_routes, host_routes, hw_routes, library_routes, macro_routes, tuning_routes, maint_routes, net_routes, profile_routes, routes, security, slicer_routes, trust_routes, tuned_routes, update_routes
+from . import backup_routes, chain_routes, health_routes, host_routes, hw_routes, library_routes, macro_routes, tuning_routes, maint_routes, net_routes, profile_routes, routes, security, slicer_routes, trust_routes, tuned_routes, update_routes
 from .access import Access
 from .hosts import Hosts
 
@@ -42,6 +43,7 @@ def create_app(config_dir=None, moonraker_url=None, start_monitor=False):
     app.config["BACKUP"] = BackupService(paths, mr, backup_dir=os.environ.get("RHINO_BACKUP_DIR") or None)
     app.config["PROFILES"] = SliceProfiles(paths)
     app.config["MACROS"] = UserMacros(paths)
+    app.config["CHAINS"] = Chains(paths)
     app.config["TUNING"] = Tuning(paths)
     app.config["PRUSA"] = PrusaService(os.path.join(paths.state_dir, "prusaslicer"), slicer_routes.printer_state_from(mr))
     mon.listeners.append(slicer_routes.AutoUpdater(app.config["PRUSA"]))   # PrusaSlicer updates itself while in use (1.5.8)
@@ -56,6 +58,7 @@ def create_app(config_dir=None, moonraker_url=None, start_monitor=False):
     app.register_blueprint(backup_routes.bp)
     app.register_blueprint(profile_routes.bp)
     app.register_blueprint(macro_routes.bp)
+    app.register_blueprint(chain_routes.bp)
     app.register_blueprint(tuning_routes.bp)
     app.register_blueprint(hw_routes.bp)
     app.register_blueprint(host_routes.bp)

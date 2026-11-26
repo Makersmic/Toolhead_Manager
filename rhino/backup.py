@@ -96,6 +96,7 @@ ITEMS = {
                  "files": ["config/myrhino/slice_profiles.json", "config/myrhino/slice_profiles.history.json",
                            "prepare/prepare_jobs.json"]},
     "macros": {"label": "Your macros", "files": ["config/myrhino/user_macros.json", "config/myrhino/user_macros.history.json"]},
+    "chains": {"label": "Process chains", "files": ["config/myrhino/chains.json", "config/myrhino/chains.history.json"]},
     "tuning": {"label": "Print head tuning results", "files": ["config/myrhino/tuning.json", "config/myrhino/tuning.history.json"]},
 }
 
