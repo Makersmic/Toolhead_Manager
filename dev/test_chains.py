@@ -27,7 +27,7 @@ def ok(cond, msg):
 def st(i, kind, role, what, tool): return {"id": i, "kind": kind, "role": role, "what": what, "tool": tool}
 
 
-FULL = {"name": "Front plate 001", "preset": "sheet-print-laser", "thickness": 3.1, "stages": [
+FULL = {"name": "Front plate 001", "preset": "sheet-print-laser", "thickness": 3.1, "sheet": {"width": 160, "depth": 110, "x": 275, "y": 200}, "stages": [
     st(1, "print", "fixtures", "Print fixtures", "BlockOne"), st(2, "manual", "place", "Place the sheet", None),
     st(3, "print", "features", "Print features", "BlockOne"), st(4, "laser", "work", "Laser", "LightSaber")],
     "jobs": [{"file": "front-plate-001_job1_print.gcode", "tool": "BlockOne", "stages": [1, 2, 3]},
@@ -88,6 +88,14 @@ refused(mk(stages=[f, p, la, ft], jobs=[]), "touch check", "no print after the l
 refused(mk(preset="print-laser", stages=[la, ft], jobs=[]), "touch check", "the same without a sheet")
 sw = [st(1, "print", "work", "Print", "BlockOne"), st(2, "print", "work", "Print", "BlockOne")]
 ok(post("/api/chains", mk(name="Two prints", preset="print-laser", thickness=None, stages=sw, jobs=[])).status_code == 200, "two prints in either order are fine")
+
+# ---- the sheet's place
+ok(post("/api/chains", mk(name="No sheet yet", sheet=None)).status_code == 200, "a chain saves before the sheet is placed")
+ok(c.get("/api/chains").get_json()["chains"][0]["sheet"] == {"width": 160, "depth": 110, "x": 275, "y": 200}, "the sheet's place is stored as given")
+for bad in ({"width": 5, "depth": 110, "x": 275, "y": 200}, {"width": 160, "depth": 700, "x": 275, "y": 200}, {"width": 160, "depth": 110, "x": -1, "y": 200},
+            {"width": "160", "depth": 110, "x": 275, "y": 200}, {"width": True, "depth": 110, "x": 275, "y": 200}, {"width": 160, "depth": 110, "x": 275},
+            {"width": 160, "depth": 110, "x": 275, "y": 200, "z": 3}, "big"):
+    refused(mk(sheet=bad), "sheet", f"a bad sheet is refused ({str(bad)[:40]})")
 
 # ---- jobs
 refused(mk(jobs=[dict(FULL["jobs"][0], file="a b.gcode")]), "file name", "no spaces in a job file")

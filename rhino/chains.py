@@ -3,7 +3,8 @@
     myrhino/chains.json           {"schema": 1, "chains": [...]}
     myrhino/chains.history.json   revisions and deleted chains (rhino/versioned_store.py)
 
-A chain: {id, name, preset, thickness, stages: [{id, kind, role, what, tool}], jobs: [{file, tool, stages}], created, updated, rev}.
+A chain: {id, name, preset, thickness, sheet, stages: [{id, kind, role, what, tool}], jobs: [{file, tool, stages}], created, updated, rev}.
+sheet is where the placed sheet sits: {width, depth, x, y} in mm, x and y the centre on the bed (or null before it is set).
 
 The Portal only stores chains. It never runs one, never starts a job and never writes Klipper config for one: Studio builds the job
 files and runs each stage through today's start gates. This file still checks everything Studio checks, so a bad file can't reach
@@ -29,6 +30,8 @@ ROLES = ("fixtures", "place", "features", "work")
 _NAME = re.compile(r"^[^\x00-\x1f<>]{1,60}$")
 _WHAT = re.compile(r"^[^\x00-\x1f<>\"\\]{1,60}$")
 _TOKEN = re.compile(r"^[A-Za-z0-9_.-]{1,40}$")                 # toolhead names
+SHEET_SIZE = (10, 600)               # mm, one side of a sheet
+SHEET_AT = (0, 700)                  # mm, the centre's X or Y on the bed
 _FILE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,98}\.gcode$")  # no spaces, no path, no leading dot
 
 
@@ -89,6 +92,21 @@ def order_problem(stages):
     return None
 
 
+def clean_sheet(sh, name):
+    if sh is None:
+        return None
+    if not isinstance(sh, dict):
+        raise Fail(f"{name}: the sheet's place must be width, depth, x and y")
+    _only(sh, ("width", "depth", "x", "y"), f"{name}, sheet")
+    out = {}
+    for k, (lo, hi) in (("width", SHEET_SIZE), ("depth", SHEET_SIZE), ("x", SHEET_AT), ("y", SHEET_AT)):
+        v = sh.get(k)
+        if isinstance(v, bool) or not isinstance(v, (int, float)) or v != v or not lo <= v <= hi:
+            raise Fail(f"{name}: the sheet's {k} must be a number from {lo} to {hi} mm")
+        out[k] = v
+    return out
+
+
 def clean_job(j, ids, where):
     if not isinstance(j, dict):
         raise Fail(f"{where}: not a job")
@@ -106,7 +124,7 @@ def clean_job(j, ids, where):
 def clean(raw, where="Chain"):
     if not isinstance(raw, dict):
         raise Fail(f"{where}: not a chain")
-    _only(raw, ("name", "preset", "thickness", "stages", "jobs", "id", "created", "updated", "rev", "schema"), where)
+    _only(raw, ("name", "preset", "thickness", "sheet", "stages", "jobs", "id", "created", "updated", "rev", "schema"), where)
     name = raw.get("name")
     if not isinstance(name, str) or not _NAME.match(name.strip()):
         raise Fail(f"{where}: a name of 1 to 60 characters")
@@ -116,6 +134,7 @@ def clean(raw, where="Chain"):
     t = raw.get("thickness")
     if t is not None and (isinstance(t, bool) or not isinstance(t, (int, float)) or t != t or not SHEET_MIN <= t <= SHEET_MAX):
         raise Fail(f"{name}: the sheet's thickness must be {SHEET_MIN} to {SHEET_MAX} mm, or not measured yet")
+    sheet = clean_sheet(raw.get("sheet"), name)
     sts = raw.get("stages")
     if not isinstance(sts, list) or not 1 <= len(sts) <= MAX_STAGES:
         raise Fail(f"{name}: 1 to {MAX_STAGES} stages")
@@ -135,15 +154,15 @@ def clean(raw, where="Chain"):
     jobs = [clean_job(j, set(ids), f"{name}, job {i + 1}") for i, j in enumerate(jobs)]
     if len({j["file"] for j in jobs}) != len(jobs):
         raise Fail(f"{name}: two jobs share a file name")
-    return {"name": name, "preset": raw["preset"], "thickness": t, "stages": stages, "jobs": jobs}
+    return {"name": name, "preset": raw["preset"], "thickness": t, "sheet": sheet, "stages": stages, "jobs": jobs}
 
 
 class Chains(VersionedStore):
     NAME, KEY, PREFIX, NOUN, NOUNS, EXPORT_KEY = "chains", "chains", "c_", "chain", "chains", "rhino_chains"
     MAX = MAX_CHAINS
-    LIST_KEYS = ("id", "name", "preset", "thickness", "stages", "jobs", "created", "updated", "rev")
+    LIST_KEYS = ("id", "name", "preset", "thickness", "sheet", "stages", "jobs", "created", "updated", "rev")
     DELETED_KEYS = ("id", "name", "deleted_at")
-    EXPORT_FIELDS = ("name", "preset", "thickness", "stages", "jobs")
+    EXPORT_FIELDS = ("name", "preset", "thickness", "sheet", "stages", "jobs")
 
     def clean(self, raw):
         return clean(raw)
