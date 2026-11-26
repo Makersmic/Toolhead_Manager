@@ -183,5 +183,24 @@ for label, bad in (("a path outside the library", {**D, "file": "../etc/passwd.s
 exp = c.get("/api/chains-export").get_json()
 ok(any((x.get("design") or {}).get("file") == D["file"] for x in exp["chains"]), "export carries the design reference")
 
+# ---- the laser stage's work (a drawing in the model library and the operations picked on it)
+OP = {"id": "op1", "kind": "score", "name": "Marks", "power": 0.3, "feed": 1500, "passes": 1, "spacing": 0.1, "angle": 45, "loops": [{"x": 10, "y": 5, "w": 20, "h": 8}]}
+LZ = {"file": "Chains/front-plate__logo.svg", "ops": [OP]}
+r = post("/api/chains", mk(name="With laser", laser=LZ))
+lch = (r.get_json() or {}).get("chain", {})
+ok(r.status_code == 200 and lch.get("laser") == LZ, "a chain keeps its laser drawing and operations")
+ok(post("/api/chains", mk(name="No laser")).get_json()["chain"]["laser"] is None, "a chain without laser work has laser null")
+ok(post("/api/chains", mk(name="Empty ops", laser={"file": "a.dxf", "ops": []})).status_code == 200, "a drawing with no operations is fine (everything is cut with the default settings)")
+for label, bad in (("an STL as the drawing", {**LZ, "file": "a.stl"}), ("a path outside the library", {**LZ, "file": "../a.svg"}),
+                   ("an unknown kind", {**LZ, "ops": [{**OP, "kind": "burn"}]}), ("power over 1", {**LZ, "ops": [{**OP, "power": 1.5}]}),
+                   ("zero speed", {**LZ, "ops": [{**OP, "feed": 0}]}), ("fractional passes", {**LZ, "ops": [{**OP, "passes": 1.5}]}),
+                   ("a loop without a size", {**LZ, "ops": [{**OP, "loops": [{"x": 1, "y": 1}]}]}), ("a text power", {**LZ, "ops": [{**OP, "power": "high"}]}),
+                   ("two ops with one id", {**LZ, "ops": [OP, OP]}), ("21 operations", {**LZ, "ops": [{**OP, "id": f"o{i}"} for i in range(21)]}),
+                   ("an extra field", {**LZ, "ops": [{**OP, "gcode": "M3"}]}), ("not an object", ["a.svg"])):
+    r = post("/api/chains", mk(name="Bad laser", laser=bad))
+    ok(r.status_code == 400 and "laser" in err(r).lower(), f"refused: {label}")
+exp = c.get("/api/chains-export").get_json()
+ok(any((x.get("laser") or {}).get("file") == LZ["file"] for x in exp["chains"]), "export carries the laser work")
+
 print("\nALL PASSED" if not fails else f"\n{len(fails)} FAILED")
 sys.exit(1 if fails else 0)

@@ -141,6 +141,66 @@ def clean_design(d, name):
     return {"file": f, "roles": out}
 
 
+LASER_KINDS = ("cut", "score", "fill")
+MAX_OPS = 20
+MAX_LOOPS = 2000
+_ID = re.compile(r"^[A-Za-z0-9_-]{1,40}$")
+_DRAWING = re.compile(r"^[^\x00-\x1f\\]{1,200}\.(svg|dxf)$", re.I)
+
+
+def _num(v, lo, hi, what, where):
+    if isinstance(v, bool) or not isinstance(v, (int, float)) or v != v or not lo <= v <= hi:
+        raise Fail(f"{where}: {what} must be a number from {lo} to {hi}")
+    return v
+
+
+def clean_op(o, where):
+    if not isinstance(o, dict):
+        raise Fail(f"{where}: not an operation")
+    _only(o, ("id", "kind", "name", "power", "feed", "passes", "spacing", "angle", "loops"), where)
+    if not isinstance(o.get("id"), str) or not _ID.match(o["id"]):
+        raise Fail(f"{where}: needs an id of letters, numbers, - and _")
+    if o.get("kind") not in LASER_KINDS:
+        raise Fail(f"{where}: kind must be one of {', '.join(LASER_KINDS)}")
+    n = o.get("name", "")
+    if not isinstance(n, str) or len(n) > 40 or any(ord(ch) < 32 for ch in n):
+        raise Fail(f"{where}: a name of up to 40 characters")
+    out = {"id": o["id"], "kind": o["kind"], "name": n,
+           "power": _num(o.get("power"), 0.01, 1, "power", where), "feed": _num(o.get("feed"), 10, 12000, "speed", where),
+           "passes": _num(o.get("passes"), 1, 20, "passes", where), "spacing": _num(o.get("spacing"), 0.05, 2, "line spacing", where),
+           "angle": _num(o.get("angle"), 0, 180, "angle", where)}
+    if not isinstance(out["passes"], int):
+        raise Fail(f"{where}: passes must be a whole number")
+    loops = o.get("loops")
+    if not isinstance(loops, list) or len(loops) > MAX_LOOPS:
+        raise Fail(f"{where}: its loops are a list of up to {MAX_LOOPS}")
+    out["loops"] = []
+    for i, lp in enumerate(loops):
+        if not isinstance(lp, dict):
+            raise Fail(f"{where}: loop {i + 1} is not a place and a size")
+        _only(lp, ("x", "y", "w", "h"), f"{where}, loop {i + 1}")
+        out["loops"].append({k: _num(lp.get(k), -100000, 100000, f"loop {i + 1}'s {k}", where) for k in ("x", "y", "w", "h")})
+    return out
+
+
+def clean_laser(d, name):
+    """The laser stage's work: a drawing in the model library and the operations picked on it (loops by place and size)."""
+    if d is None:
+        return None
+    if not isinstance(d, dict):
+        raise Fail(f"{name}: the laser work must be a drawing and its operations")
+    _only(d, ("file", "ops"), f"{name}, laser")
+    f, ops = d.get("file"), d.get("ops")
+    if not isinstance(f, str) or not _DRAWING.match(f) or f.startswith("/") or any(p in ("", ".", "..") for p in f.split("/")):
+        raise Fail(f"{name}: the laser drawing must be an SVG or DXF file in the model library")
+    if not isinstance(ops, list) or len(ops) > MAX_OPS:
+        raise Fail(f"{name}: up to {MAX_OPS} laser operations")
+    out = [clean_op(o, f"{name}, laser operation {i + 1}") for i, o in enumerate(ops)]
+    if len({o["id"] for o in out}) != len(out):
+        raise Fail(f"{name}: two laser operations share an id")
+    return {"file": f, "ops": out}
+
+
 def clean_job(j, ids, where):
     if not isinstance(j, dict):
         raise Fail(f"{where}: not a job")
@@ -158,7 +218,7 @@ def clean_job(j, ids, where):
 def clean(raw, where="Chain"):
     if not isinstance(raw, dict):
         raise Fail(f"{where}: not a chain")
-    _only(raw, ("name", "preset", "thickness", "sheet", "design", "stages", "jobs", "id", "created", "updated", "rev", "schema"), where)
+    _only(raw, ("name", "preset", "thickness", "sheet", "design", "laser", "stages", "jobs", "id", "created", "updated", "rev", "schema"), where)
     name = raw.get("name")
     if not isinstance(name, str) or not _NAME.match(name.strip()):
         raise Fail(f"{where}: a name of 1 to 60 characters")
@@ -170,6 +230,7 @@ def clean(raw, where="Chain"):
         raise Fail(f"{name}: the sheet's thickness must be {SHEET_MIN} to {SHEET_MAX} mm, or not measured yet")
     sheet = clean_sheet(raw.get("sheet"), name)
     design = clean_design(raw.get("design"), name)
+    laser = clean_laser(raw.get("laser"), name)
     sts = raw.get("stages")
     if not isinstance(sts, list) or not 1 <= len(sts) <= MAX_STAGES:
         raise Fail(f"{name}: 1 to {MAX_STAGES} stages")
@@ -189,15 +250,15 @@ def clean(raw, where="Chain"):
     jobs = [clean_job(j, set(ids), f"{name}, job {i + 1}") for i, j in enumerate(jobs)]
     if len({j["file"] for j in jobs}) != len(jobs):
         raise Fail(f"{name}: two jobs share a file name")
-    return {"name": name, "preset": raw["preset"], "thickness": t, "sheet": sheet, "design": design, "stages": stages, "jobs": jobs}
+    return {"name": name, "preset": raw["preset"], "thickness": t, "sheet": sheet, "design": design, "laser": laser, "stages": stages, "jobs": jobs}
 
 
 class Chains(VersionedStore):
     NAME, KEY, PREFIX, NOUN, NOUNS, EXPORT_KEY = "chains", "chains", "c_", "chain", "chains", "rhino_chains"
     MAX = MAX_CHAINS
-    LIST_KEYS = ("id", "name", "preset", "thickness", "sheet", "design", "stages", "jobs", "created", "updated", "rev")
+    LIST_KEYS = ("id", "name", "preset", "thickness", "sheet", "design", "laser", "stages", "jobs", "created", "updated", "rev")
     DELETED_KEYS = ("id", "name", "deleted_at")
-    EXPORT_FIELDS = ("name", "preset", "thickness", "sheet", "design", "stages", "jobs")
+    EXPORT_FIELDS = ("name", "preset", "thickness", "sheet", "design", "laser", "stages", "jobs")
 
     def clean(self, raw):
         return clean(raw)
