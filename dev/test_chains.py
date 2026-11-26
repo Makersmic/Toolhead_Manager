@@ -164,5 +164,24 @@ src = "".join(open(os.path.join(REPO, *p)).read() for p in (("rhino", "chains.py
 ok("moonraker" not in src.lower() and "gcode/script" not in src and "printer.gcode" not in src, "the Portal never runs a chain or calls Moonraker")
 
 shutil.rmtree(ROOT, ignore_errors=True)
+# ---- the design a chain remembers (a model-library file and the part of each body)
+D = {"file": "Chains/front-plate__front-plate.3mf", "roles": [{"name": "Acrylic sheet", "role": "sheet"}, {"name": "Corner jig", "role": "fixture"}, {"name": "Logo", "role": "feature"}]}
+r = post("/api/chains", mk(name="With design", design=D))
+dch = (r.get_json() or {}).get("chain", {})
+ok(r.status_code == 200 and dch.get("design") == D, "a chain keeps its design file and the part of each body")
+ok(c.get(f"/api/chains/{dch.get('id')}").get_json()["chain"]["design"]["roles"][2]["role"] == "feature", "and reads it back")
+ok(any(x["design"] == D for x in c.get("/api/chains").get_json()["chains"] if x["name"] == "With design"), "the list carries it too")
+ok(post("/api/chains", mk(name="No design")).get_json()["chain"]["design"] is None, "a chain without one has design null")
+for label, bad in (("a path outside the library", {**D, "file": "../etc/passwd.stl"}), ("an absolute path", {**D, "file": "/x/a.3mf"}),
+                   ("a dot segment", {**D, "file": "a/./b.3mf"}), ("a wrong kind of file", {**D, "file": "a/b.gcode"}),
+                   ("a backslash", {**D, "file": "a\\b.3mf"}), ("an unknown part", {**D, "roles": [{"name": "x", "role": "laser"}]}),
+                   ("two sheets", {**D, "roles": [{"name": "a", "role": "sheet"}, {"name": "b", "role": "sheet"}]}),
+                   ("an extra field", {**D, "size": 1}), ("a nameless body", {**D, "roles": [{"name": "", "role": "feature"}]}),
+                   ("too many bodies", {**D, "roles": [{"name": "b", "role": "feature"}] * 201}), ("not an object", "a.3mf")):
+    r = post("/api/chains", mk(name="Bad design", design=bad))
+    ok(r.status_code == 400 and "design" in err(r).lower(), f"refused: {label}")
+exp = c.get("/api/chains-export").get_json()
+ok(any((x.get("design") or {}).get("file") == D["file"] for x in exp["chains"]), "export carries the design reference")
+
 print("\nALL PASSED" if not fails else f"\n{len(fails)} FAILED")
 sys.exit(1 if fails else 0)

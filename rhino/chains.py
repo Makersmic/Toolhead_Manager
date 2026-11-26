@@ -107,6 +107,40 @@ def clean_sheet(sh, name):
     return out
 
 
+BODY_ROLES = ("sheet", "fixture", "feature", "skip")
+MAX_BODIES = 200
+_DESIGN_FILE = re.compile(r"^[^\x00-\x1f\\]{1,200}\.(3mf|stl|obj)$", re.I)
+
+
+def clean_design(d, name):
+    """The design a chain was made from: a file in the model library and the part each body plays (matched by position and name).
+    The Portal doesn't read the file here; Studio fetches it from the library, which checks the path again."""
+    if d is None:
+        return None
+    if not isinstance(d, dict):
+        raise Fail(f"{name}: the design must be a library file and the part of each body")
+    _only(d, ("file", "roles"), f"{name}, design")
+    f, roles = d.get("file"), d.get("roles")
+    if not isinstance(f, str) or not _DESIGN_FILE.match(f) or f.startswith("/") or any(p in ("", ".", "..") for p in f.split("/")):
+        raise Fail(f"{name}: the design must be a 3MF, STL or OBJ file in the model library")
+    if not isinstance(roles, list) or len(roles) > MAX_BODIES:
+        raise Fail(f"{name}: the design lists the part each body plays (up to {MAX_BODIES})")
+    out = []
+    for i, r in enumerate(roles):
+        if not isinstance(r, dict):
+            raise Fail(f"{name}: design body {i + 1} is not a name and a part")
+        _only(r, ("name", "role"), f"{name}, design body {i + 1}")
+        n, role = r.get("name"), r.get("role")
+        if not isinstance(n, str) or not 1 <= len(n) <= 120 or any(ord(ch) < 32 for ch in n):
+            raise Fail(f"{name}: design body {i + 1} needs a name of 1 to 120 characters")
+        if role not in BODY_ROLES:
+            raise Fail(f"{name}: design body {i + 1}'s part must be one of {', '.join(BODY_ROLES)}")
+        out.append({"name": n, "role": role})
+    if sum(1 for r in out if r["role"] == "sheet") > 1:
+        raise Fail(f"{name}: only one body can be the sheet")
+    return {"file": f, "roles": out}
+
+
 def clean_job(j, ids, where):
     if not isinstance(j, dict):
         raise Fail(f"{where}: not a job")
@@ -124,7 +158,7 @@ def clean_job(j, ids, where):
 def clean(raw, where="Chain"):
     if not isinstance(raw, dict):
         raise Fail(f"{where}: not a chain")
-    _only(raw, ("name", "preset", "thickness", "sheet", "stages", "jobs", "id", "created", "updated", "rev", "schema"), where)
+    _only(raw, ("name", "preset", "thickness", "sheet", "design", "stages", "jobs", "id", "created", "updated", "rev", "schema"), where)
     name = raw.get("name")
     if not isinstance(name, str) or not _NAME.match(name.strip()):
         raise Fail(f"{where}: a name of 1 to 60 characters")
@@ -135,6 +169,7 @@ def clean(raw, where="Chain"):
     if t is not None and (isinstance(t, bool) or not isinstance(t, (int, float)) or t != t or not SHEET_MIN <= t <= SHEET_MAX):
         raise Fail(f"{name}: the sheet's thickness must be {SHEET_MIN} to {SHEET_MAX} mm, or not measured yet")
     sheet = clean_sheet(raw.get("sheet"), name)
+    design = clean_design(raw.get("design"), name)
     sts = raw.get("stages")
     if not isinstance(sts, list) or not 1 <= len(sts) <= MAX_STAGES:
         raise Fail(f"{name}: 1 to {MAX_STAGES} stages")
@@ -154,15 +189,15 @@ def clean(raw, where="Chain"):
     jobs = [clean_job(j, set(ids), f"{name}, job {i + 1}") for i, j in enumerate(jobs)]
     if len({j["file"] for j in jobs}) != len(jobs):
         raise Fail(f"{name}: two jobs share a file name")
-    return {"name": name, "preset": raw["preset"], "thickness": t, "sheet": sheet, "stages": stages, "jobs": jobs}
+    return {"name": name, "preset": raw["preset"], "thickness": t, "sheet": sheet, "design": design, "stages": stages, "jobs": jobs}
 
 
 class Chains(VersionedStore):
     NAME, KEY, PREFIX, NOUN, NOUNS, EXPORT_KEY = "chains", "chains", "c_", "chain", "chains", "rhino_chains"
     MAX = MAX_CHAINS
-    LIST_KEYS = ("id", "name", "preset", "thickness", "sheet", "stages", "jobs", "created", "updated", "rev")
+    LIST_KEYS = ("id", "name", "preset", "thickness", "sheet", "design", "stages", "jobs", "created", "updated", "rev")
     DELETED_KEYS = ("id", "name", "deleted_at")
-    EXPORT_FIELDS = ("name", "preset", "thickness", "sheet", "stages", "jobs")
+    EXPORT_FIELDS = ("name", "preset", "thickness", "sheet", "design", "stages", "jobs")
 
     def clean(self, raw):
         return clean(raw)
