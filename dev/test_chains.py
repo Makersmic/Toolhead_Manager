@@ -199,7 +199,12 @@ for label, bad in (("an STL as the drawing", {**LZ, "file": "a.stl"}), ("a path 
                    ("an extra field", {**LZ, "ops": [{**OP, "gcode": "M3"}]}), ("not an object", ["a.svg"])):
     r = post("/api/chains", mk(name="Bad laser", laser=bad))
     ok(r.status_code == 400 and "laser" in err(r).lower(), f"refused: {label}")
+ok(post("/api/chains", mk(name="With material", laser={**LZ, "material": "PLYWOOD_3"})).get_json()["chain"]["laser"].get("material") == "PLYWOOD_3", "a chain keeps the laser material key")
+for label, bad in (("a material with a space", "ply wood"), ("a material that is a number", 5), ("an empty material", ""), ("a material with a slash", "a/b"), ("a very long material", "M" * 61)):
+    r = post("/api/chains", mk(name="Bad material", laser={**LZ, "material": bad}))
+    ok(r.status_code == 400 and "material" in err(r).lower(), f"refused: {label}")
 exp = c.get("/api/chains-export").get_json()
+ok(any((x.get("laser") or {}).get("material") == "PLYWOOD_3" for x in exp["chains"]), "export carries the laser material")
 ok(any((x.get("laser") or {}).get("file") == LZ["file"] for x in exp["chains"]), "export carries the laser work")
 
 print("\nALL PASSED" if not fails else f"\n{len(fails)} FAILED")

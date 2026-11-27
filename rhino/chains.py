@@ -145,6 +145,7 @@ LASER_KINDS = ("cut", "score", "fill")
 MAX_OPS = 20
 MAX_LOOPS = 2000
 _ID = re.compile(r"^[A-Za-z0-9_-]{1,40}$")
+_MATERIAL = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,59}$")
 _DRAWING = re.compile(r"^[^\x00-\x1f\\]{1,200}\.(svg|dxf)$", re.I)
 
 
@@ -189,8 +190,8 @@ def clean_laser(d, name):
         return None
     if not isinstance(d, dict):
         raise Fail(f"{name}: the laser work must be a drawing and its operations")
-    _only(d, ("file", "ops"), f"{name}, laser")
-    f, ops = d.get("file"), d.get("ops")
+    _only(d, ("file", "ops", "material"), f"{name}, laser")
+    f, ops, mat = d.get("file"), d.get("ops"), d.get("material")
     if not isinstance(f, str) or not _DRAWING.match(f) or f.startswith("/") or any(p in ("", ".", "..") for p in f.split("/")):
         raise Fail(f"{name}: the laser drawing must be an SVG or DXF file in the model library")
     if not isinstance(ops, list) or len(ops) > MAX_OPS:
@@ -198,7 +199,10 @@ def clean_laser(d, name):
     out = [clean_op(o, f"{name}, laser operation {i + 1}") for i, o in enumerate(ops)]
     if len({o["id"] for o in out}) != len(out):
         raise Fail(f"{name}: two laser operations share an id")
-    return {"file": f, "ops": out}
+    if mat is not None and (not isinstance(mat, str) or not _MATERIAL.match(mat)):
+        raise Fail(f"{name}: the laser material must be a key from the laser head's material table")
+    # the material key only when one is chosen (a chain saved before this field has none; Studio then refuses to build the laser file)
+    return {"file": f, "ops": out, **({"material": mat} if mat is not None else {})}
 
 
 def clean_job(j, ids, where):
