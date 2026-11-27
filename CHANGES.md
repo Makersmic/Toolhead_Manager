@@ -1,5 +1,17 @@
 # What changed
 
+## 1.9.52 - Studio 0.40.0: process chains (print, then laser) on one sheet
+
+No Klipper macro or machine value changes. **Not yet run on the machine:** the checks CH1-CH19 in Studio `docs/testing.md` are open, and **travel lifts must not be used on a real job until CH14 passes.**
+- **Chains (Job setup > Chain, `/setup/chain`):** one sheet, printed on and then lasered. The Portal stores chains in `chains.json` (`rhino/chains.py`, versioned, last 5 revisions). The print file carries the fixtures, a `PAUSE` for placing the sheet, the Z raise and then the features; the stitched file goes through the usual file check. Order A (print, then laser) only.
+- **Design:** load a 3MF, STL or OBJ, give each body a part to play (sheet, fixture, feature, leave out), "Use as the sheet", Zoom to part, and checks (on the bed, clear of keep-out, features inside the sheet). The design file is remembered in the model library (`Chains/`; the library is not in backups, so keep the original).
+- **Laser work:** load an SVG or DXF, pick cut, score or engrave fill on the loops (the shared `LaserOps` component). In a chain, loops with no operation picked are not lasered, and a Cut warns that it burns through onto what is under the sheet.
+- **Laser material:** chosen from the laser head's own material table, never by Studio; no material means no laser file. New operations start from the material (tuned values first; Score at most 15 %; Engrave fill at most 30 %); with no material or no tested power they start at 5 %, not 80 %.
+- **Travel lifts (Mike approved, option a):** a chain laser file may lift over printed features with exactly two lines, `G1 Z<L> F600 ;RHINO_CHAIN lift` and `G1 Z0 F600 ;RHINO_CHAIN drop` (L = tallest feature + 2 mm, header required); every other laser file keeps "no Z moves". 27 failing-case tests. The run wizard refuses a file with lifts until `LIFTS_PROVEN` is set after CH14.
+- **Job files:** Build job files, then Download or Send to the Rhino (never started).
+- **Run wizard (Wizards > Run a chain):** Look, Files, Run, Done. Every swap, start and resume uses its existing path with its own confirm; a laser file opens the existing laser start wizard; progress is worked out from the mounted tool and Moonraker's job history, never stored.
+- Tests: Studio 1393 tests; `dev/test_chains.py` 113 checks; the full suite passed (EXIT 0) before the push of the last chain commit. PrusaSlicer 2.9.7 was not available on the development PC, so the stitched print file is untested with it.
+
 ## 1.9.51 - Studio 0.39.3: the accelerometer is the USB board no config file mentions
 
 No Portal, Klipper or machine changes. The Input shaping wizard's board detection follows Mike's rule (Nov 23): **the accelerometer is the USB board that no config file mentions.** Any USB board that nothing uses (the Portal already marks each port with the config section or Add hardware board that uses it) is a candidate, whatever its name; the main board and any board already in your config are never offered. A board waiting for Klipper's firmware is listed as needing it. The wizard notes which boards were there when it opened and checks every few seconds, so the one that appears when you plug it in is marked "Just plugged in", listed first and preselected; with several unused boards it lists each and says to choose. A second `[mcu]` you wrote by hand (for example `[mcu adxl]`) now shows as already added too. Studio 1259 tests. Not proven with a real board.
